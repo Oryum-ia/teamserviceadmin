@@ -2,6 +2,24 @@
 
 Sistema completo de gestión de órdenes de servicio técnico con Supabase, Next.js 15 y React 19.
 
+## 📋 Tabla de Contenidos
+
+- [Descripción del Proyecto](#descripción-del-proyecto)
+- [Características Principales](#características-principales)
+- [Tecnologías Utilizadas](#tecnologías-utilizadas)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Instalación y Configuración](#instalación-y-configuración)
+- [Uso de la Aplicación](#uso-de-la-aplicación)
+- [Roles y Permisos](#roles-y-permisos)
+- [Contribución](#contribución)
+- [Licencia](#licencia)
+
+## 📖 Descripción del Proyecto
+
+TeamService Costa es una aplicación web diseñada para gestionar órdenes de servicio técnico de manera eficiente. Permite a los técnicos y administradores realizar un seguimiento completo del ciclo de vida de las reparaciones, desde el diagnóstico inicial hasta la entrega final del equipo.
+
+El sistema está construido con una arquitectura moderna que separa claramente el frontend y el backend, utilizando Supabase como servicio de base de datos y autenticación, lo que garantiza seguridad, escalabilidad y facilidad de mantenimiento.
+
 ## ⚠️ IMPORTANTE: Primero configura Supabase
 
 Si ves el error **"Invalid login credentials"**, es porque necesitas configurar la base de datos primero.
@@ -11,43 +29,141 @@ Si ves el error **"Invalid login credentials"**, es porque necesitas configurar 
 ## ✨ Características Principales
 
 ### ✅ Módulos Implementados
-- 🏠 **Dashboard** - Estadísticas en tiempo real
+- 🏠 **Dashboard** - Estadísticas en tiempo real con gráficos interactivos
 - 📋 **Órdenes** - Gestión completa con 4 fases (diagnóstico, cotización, reparación, finalizada)
-- 👥 **Clientes** - Personas naturales y jurídicas
-- 💬 **Comentarios** - Seguimiento de retrocesos de fase
-- 👤 **Usuarios** - Gestión de técnicos, administradores y super-admin
+- 👥 **Clientes** - Gestión de personas naturales y jurídicas con información detallada
+- 💬 **Comentarios** - Sistema de seguimiento de retrocesos de fase
+- 👤 **Usuarios** - Gestión de técnicos, administradores y super-admin con control de acceso
+- 🏪 **Admin-tienda** - Gestión de productos para la landing page
+- 📦 **Inventarios** - Control de accesorios y modelos de equipos
 
 ### 🔨 En Desarrollo
-- 📦 **Inventarios** - Accesorios y modelos
-- 🏪 **Admin-tienda** - Productos para landing page
-- 📊 **Indicadores** - Estadísticas avanzadas
+- 📊 **Indicadores** - Estadísticas avanzadas y reportes personalizados
 - 📈 **Desempeño** - Métricas por técnico y sede
+- 📱 **Notificaciones** - Sistema de alertas y recordatorios
+- 📄 **Reportes** - Generación de informes PDF y Excel
 
-## 🛠️ Tecnologías
+## 🛠️ Tecnologías Utilizadas
 
 - **Frontend**: Next.js 15.5.6, React 19.2.0, TypeScript
-- **Backend**: Supabase (PostgreSQL + Auth)
-- **Estilos**: Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **Estilos**: Tailwind CSS con diseño responsive
 - **Iconos**: Lucide React
+- **Validación de formularios**: Formik + Yup
+- **Manejo de estado**: React Context API
+- **Gestión de archivos**: Supabase Storage
 
-## 🚀 Inicio Rápido
+## 📁 Estructura del Proyecto
+
+```
+src/
+├── app/                    # Páginas de Next.js
+│   ├── paneladmin/         # Panel de administración
+│   └── tecnico/            # Panel para técnicos
+├── components/             # Componentes React
+│   ├── paneladmin/         # Componentes del panel admin
+│   └── ...                 # Otros componentes
+├── contexts/               # Contextos de React
+├── lib/                    # Utilidades y configuraciones
+│   ├── services/           # Servicios de API
+│   └── validations/        # Esquemas de validación
+├── types/                  # Definiciones de TypeScript
+└── utils/                  # Funciones utilitarias
+```
+
+## 🚀 Instalación y Configuración
+
+### 📋 Requisitos Previos
+
+- Node.js 18+ instalado
+- Cuenta en Supabase (https://supabase.com)
+- Git para clonar el repositorio
 
 ### 📋 Pasos para empezar:
 
-1. **Configurar Supabase** (15 minutos)
+1. **Clonar el repositorio**
+   ```bash
+   git clone https://github.com/Oryum-ia/teamserviceadmin.git
+   cd teamserviceadmin
+   ```
+
+2. **Configurar Supabase** (15 minutos)
    - Lee: [GUIA_VISUAL_SETUP.md](./GUIA_VISUAL_SETUP.md)
    - Ejecuta el script: [scripts/setup-supabase.sql](./scripts/setup-supabase.sql)
    - Crea el usuario admin en Supabase
 
-2. **Instalar dependencias**
+3. **Configurar variables de entorno**
+   ```bash
+   cp .env.example .env.local
+   ```
+   Edita `.env.local` con tus credenciales de Supabase:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_key_anonima_de_supabase
+   SUPABASE_SERVICE_ROLE_KEY=tu_key_de_servicio_de_supabase
+   ```
+
+4. **Instalar dependencias**
    ```bash
    npm install
    ```
 
-3. **Ejecutar en desarrollo**
+5. **Ejecutar en desarrollo**
    ```bash
    npm run dev
    ```
+
+6. **Abrir en el navegador**
+   Navega a [http://localhost:3000](http://localhost:3000)
+
+## 🎯 Uso de la Aplicación
+
+### Inicio de Sesión
+
+1. Accede con las credenciales de administrador creadas durante la configuración
+2. Los roles disponibles son: `super-admin`, `admin`, y `tecnico`
+
+### Gestión de Órdenes
+
+1. **Crear Orden**: Desde el panel de órdenes, haz clic en "Nueva Orden"
+2. **Seguimiento**: Las órdenes pasan por 4 fases:
+   - Diagnóstico: Identificación del problema
+   - Cotización: Estimación de costos
+   - Reparación: Ejecución del servicio
+   - Finalizada: Entrega del equipo
+3. **Comentarios**: Añade notas en cada fase para documentar el progreso
+
+### Gestión de Usuarios
+
+1. **Crear Usuario**: Solo los super-admin pueden crear nuevos usuarios
+2. **Asignar Roles**: Define los permisos de acceso según el rol
+3. **Gestión de Sedes**: Organiza usuarios por ubicación geográfica
+
+## 👥 Roles y Permisos
+
+| Rol | Permisos |
+|-----|----------|
+| Super-admin | Acceso completo, gestión de usuarios, configuración del sistema |
+| Admin | Gestión de órdenes, clientes, inventario, usuarios técnicos |
+| Técnico | Gestión de órdenes asignadas, actualización de estados |
+
+## 🤝 Contribución
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT - mira el archivo [LICENSE](LICENSE) para detalles.
+
+## 📞 Soporte
+
+Para soporte técnico o preguntas, contacta a:
+- Email: soporte@teamservicecosta.com
+- Issues de GitHub: [Crear Issue](https://github.com/Oryum-ia/teamserviceadmin/issues)
 
 4. **Abrir en navegador**
    ```
