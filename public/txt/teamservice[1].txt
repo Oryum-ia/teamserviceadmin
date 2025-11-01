@@ -1,0 +1,133 @@
+un solo pdf para mostrar al cliente
+
+total de page
+
+panel de control: grafica de los estados de cada orden.
+ordenes: creas la orden y avanzansas en el flujo de la orden hasta finalizar.
+clientes: crear clientes y manejar el estado de sus productos y ordenes, es mas informativo sobre el cliente.
+estadisticas
+     indicadores: ver globalmente los datos de toda la empresa.
+     desempeño: ver individualmente por empleado y por sede.
+comentarios: vera los comentarios de retroceso de etap y debera ver la orden de la que fue 
+usuarios: permite administrar usuario.
+admin-tienda: maneja el estado de la tienda y promociones de los productos de la landing page.
+inventarios: divide entre accesorios y modelos
+
+
+roles
+	tecnicos: en el diagnostico debe llenarse los est ados de las cosas y deben llenar
+administrador: .
+super-admin: deberia poder ver los comentarios de retroceso de etapa y la pagina de usuarios.
+
+fases de la orde:
+no se puede modificar algo de la etapa anterior
+diasnostico: nuevo agregar nota interna, agregar tablas de contizacion preventivo.
+cotizacion: en cotizacion se debe cargar los datos de los repuestos colocado por en cotizacion, el cliente debe aprobar desde la landing page
+se puede avisar que estas a la espera de repuestos y se le avisa al cliente.
+
+
+vas a usar esto par conectar el frontend con supabase
+
+NEXT_PUBLIC_SUPABASE_URL=https://caodmkmabgyueofjwgek.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhb2Rta21hYmd5dWVvZmp3Z2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4OTMyNjEsImV4cCI6MjA3NjQ2OTI2MX0.MdJtA-nRC_soT7ve3XrRNczPCwzCaDEslU_cpA2bd1c
+
+// lib/supabaseClient.ts
+import { createClient } from '@supabase/supabase-js'
+
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+
+// Registro
+const { data, error } = await supabase.auth.signUp({
+  email: 'cliente@correo.com',
+  password: '123456'
+})
+
+// Inicio de sesión
+const { data: session, error: loginError } = await supabase.auth.signInWithPassword({
+  email: 'cliente@correo.com',
+  password: '123456'
+})
+
+// Obtener usuario actual
+const { data: { user } } = await supabase.auth.getUser()
+console.log('Usuario logueado:', user)
+
+devuelve esto, es el id del usuario para poder buscar las tablas o le demas {
+  "id": "f3d6f5d7-56a1-4f70-90de-5bfb85b9b531",
+  "email": "cliente@correo.com"
+}
+
+codigo para registrar cliente
+import { supabase } from "@/lib/supabaseClient";
+
+export async function crearCliente({
+  tipo_documento,
+  identificacion,
+  dv,
+  es_juridica,
+  razon_social,
+  regimen,
+  nombre_comercial,
+  ciudad,
+  direccion,
+  telefono,
+  telefono_contacto,
+  nombre_contacto,
+  correo_electronico,
+  comentarios,
+}: {
+  tipo_documento?: string;
+  identificacion: string;
+  dv?: string;
+  es_juridica?: boolean;
+  razon_social?: string;
+  regimen?: string;
+  nombre_comercial?: string;
+  ciudad?: string;
+  direccion?: string;
+  telefono?: string;
+  telefono_contacto?: string;
+  nombre_contacto?: string;
+  correo_electronico?: string;
+  comentarios?: string;
+}) {
+  const { data, error } = await supabase.from("clientes").insert([
+    {
+      tipo_documento,
+      identificacion,
+      dv,
+      es_juridica,
+      razon_social,
+      regimen,
+      nombre_comercial,
+      ciudad,
+      direccion,
+      telefono,
+      telefono_contacto,
+      nombre_contacto,
+      correo_electronico,
+      comentarios,
+    },
+  ]);
+
+  if (error) {
+    console.error("❌ Error al crear cliente:", error);
+    throw error;
+  }
+
+  return data;
+}
+
+para buscarlo export async function obtenerTodosLosClientes() {
+  const { data, error } = await supabase
+    .from("clientes")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data;
+}

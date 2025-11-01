@@ -1,0 +1,440 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* Light theme variables */
+.light,
+[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #171717;
+  --card-bg: #ffffff;
+  --card-border: #e5e7eb;
+  --sidebar-bg: #f8fafc;
+  --sidebar-hover: #f1f5f9;
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --button-primary: #3b82f6;
+  --button-primary-hover: #2563eb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border-color: #e5e7eb;
+  --hover-bg: #f3f4f6;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Dark theme variables */
+.dark,
+[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card-bg: #1f2937;
+  --card-border: #374151;
+  --sidebar-bg: #111827;
+  --sidebar-hover: #1f2937;
+  --input-bg: #374151;
+  --input-border: #4b5563;
+  --button-primary: #3b82f6;
+  --button-primary-hover: #2563eb;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-muted: #9ca3af;
+  --border-color: #374151;
+  --hover-bg: #374151;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', sans-serif;
+  --font-mono: var(--font-geist-mono);
+  
+  /* Animaciones personalizadas */
+  --animate-fade-in: fadeIn 0.5s ease-out;
+  --animate-slide-up: slideUp 0.6s ease-out;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-glow: glow 2s ease-in-out infinite alternate;
+}
+
+/* System preference fallback (only when no class is set) */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.6;
+  transition: color 0.3s ease;
+  /* Background removed - let individual pages control their backgrounds */
+}
+
+/* Cursor pointer for all buttons and interactive elements */
+button,
+[role="button"],
+[type="button"],
+[type="submit"],
+[type="reset"],
+a,
+select,
+input[type="checkbox"],
+input[type="radio"],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Ensure proper theming inheritance */
+html.light,
+html.light body,
+html[data-theme="light"],
+html[data-theme="light"] body {
+  color-scheme: light;
+}
+
+html.dark,
+html.dark body,
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  color-scheme: dark;
+}
+
+/* Theme-aware utility classes */
+.bg-theme-background {
+  background-color: var(--background);
+}
+
+.text-theme-foreground {
+  color: var(--foreground);
+}
+
+.bg-theme-card {
+  background-color: var(--card-bg);
+}
+
+.border-theme-card {
+  border-color: var(--card-border);
+}
+
+.bg-theme-sidebar {
+  background-color: var(--sidebar-bg);
+}
+
+.hover\:bg-theme-sidebar-hover:hover {
+  background-color: var(--sidebar-hover);
+}
+
+.bg-theme-input {
+  background-color: var(--input-bg);
+}
+
+.border-theme-input {
+  border-color: var(--input-border);
+}
+
+.text-theme-primary {
+  color: var(--text-primary);
+}
+
+.text-theme-secondary {
+  color: var(--text-secondary);
+}
+
+.text-theme-muted {
+  color: var(--text-muted);
+}
+
+.border-theme {
+  border-color: var(--border-color);
+}
+
+.hover\:bg-theme-hover:hover {
+  background-color: var(--hover-bg);
+}
+
+.shadow-theme {
+  box-shadow: 0 1px 3px 0 var(--shadow-color), 0 1px 2px -1px var(--shadow-color);
+}
+
+/* Ensure proper theme inheritance for admin panel */
+.admin-panel.light,
+.admin-panel .light {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --border-primary: #e5e7eb;
+}
+
+.admin-panel.dark,
+.admin-panel .dark {
+  --bg-primary: #1f2937;
+  --bg-secondary: #111827;
+  --text-primary: #ffffff;
+  --text-secondary: #d1d5db;
+  --border-primary: #374151;
+}
+
+/* Specific overrides ONLY for admin panel, NOT login */
+.admin-panel .light .min-h-screen {
+  background-color: #f3f4f6 !important;
+}
+
+.admin-panel .dark .min-h-screen {
+  background-color: #111827 !important;
+}
+
+/* Force admin panel sidebar colors */
+.admin-panel .light .bg-gray-100 {
+  background-color: #f3f4f6 !important;
+}
+
+.admin-panel .dark .bg-gray-100 {
+  background-color: #111827 !important;
+}
+
+/* Force card backgrounds ONLY in admin panel */
+.admin-panel .light .bg-white {
+  background-color: #ffffff !important;
+}
+
+.admin-panel .dark .bg-white {
+  background-color: #1f2937 !important;
+}
+
+/* Text colors ONLY for admin panel */
+.admin-panel .light .text-gray-900 {
+  color: #111827 !important;
+}
+
+.admin-panel .dark .text-gray-900 {
+  color: #f9fafb !important;
+}
+
+.admin-panel .light .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.admin-panel .dark .text-gray-600 {
+  color: #d1d5db !important;
+}
+
+.admin-panel .light .text-gray-400 {
+  color: #9ca3af !important;
+}
+
+.admin-panel .dark .text-gray-400 {
+  color: #9ca3af !important;
+}
+
+/* Border colors ONLY for admin panel */
+.admin-panel .light .border-gray-200 {
+  border-color: #e5e7eb !important;
+}
+
+.admin-panel .dark .border-gray-200 {
+  border-color: #374151 !important;
+}
+
+.admin-panel .light .border-gray-300 {
+  border-color: #d1d5db !important;
+}
+
+.admin-panel .dark .border-gray-300 {
+  border-color: #4b5563 !important;
+}
+
+/* Login page - Tailwind dark: classes handle everything, no overrides needed */
+
+/* Animaciones personalizadas */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes glow {
+  0% {
+    box-shadow: 0 0 5px rgba(71, 85, 105, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(71, 85, 105, 0.8), 0 0 30px rgba(71, 85, 105, 0.6);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Clase utility para fade-in */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Animación para toasts */
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+/* Efectos de glassmorphism mejorados */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* Light theme scrollbar */
+.light ::-webkit-scrollbar-track,
+:root:not(.dark) ::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.light ::-webkit-scrollbar-thumb,
+:root:not(.dark) ::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #475569, #64748b);
+  border-radius: 10px;
+}
+
+.light ::-webkit-scrollbar-thumb:hover,
+:root:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #334155, #475569);
+}
+
+/* Dark theme scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 10px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #4b5563, #6b7280);
+  border-radius: 10px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #374151, #4b5563);
+}
+
+/* Efectos de hover mejorados */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+/* Text shadow utilities */
+.text-shadow-lg {
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.text-shadow-xl {
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Estilos profesionales para el sidebar */
+.sidebar-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+.sidebar-title {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
+
+.sidebar-submenu {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+}
+
+.professional-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.professional-heading {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.professional-subtext {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', 'Helvetica Neue', sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}

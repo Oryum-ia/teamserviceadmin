@@ -1,0 +1,442 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { EyeIcon, EyeSlashIcon, UserIcon } from "@heroicons/react/24/outline";
+import Image from "next/image";
+import { supabase } from "@/lib/supabaseClient";
+import { useToast } from "@/contexts/ToastContext";
+
+export function LoginForm() {
+  const toast = useToast();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      console.log("🔐 Iniciando sesión con Supabase...");
+
+      // Autenticación con Supabase
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        console.error("❌ Error de autenticación:", authError);
+        setError("Usuario o contraseña incorrectos");
+        return;
+      }
+
+      if (data.user) {
+        console.log("✅ Autenticación exitosa:", data.user.id);
+
+        try {
+          // Obtener datos del usuario desde la tabla usuarios
+          const { data: userData, error: userError } = await supabase
+            .from('usuarios')
+            .select('*')
+            .eq('id', data.user.id)
+            .maybeSingle(); // Cambiado de .single() a .maybeSingle()
+
+          if (userError) {
+            console.error("❌ Error al obtener datos del usuario:", userError);
+            setError("Error al cargar datos del usuario");
+            await supabase.auth.signOut();
+            return;
+          }
+
+          // Si el usuario no existe en la tabla, error
+          if (!userData) {
+            console.error("❌ Usuario no encontrado en tabla usuarios");
+            setError("Usuario no registrado correctamente. Contacta al administrador.");
+            await supabase.auth.signOut();
+            return;
+          }
+
+          console.log("✅ Datos de usuario obtenidos:", userData);
+
+          // Almacenar sesión de usuario
+          if (typeof window !== 'undefined') {
+            const userSession = {
+              email: userData.email,
+              rol: userData.rol,
+              nombre: userData.nombre,
+              isAuthenticated: true,
+              loginTime: new Date().toISOString(),
+              userId: data.user.id
+            };
+            localStorage.setItem('userSession', JSON.stringify(userSession));
+            localStorage.setItem('auth_token', data.session?.access_token || '');
+
+            console.log('✅ Sesión guardada:', userSession);
+          }
+
+          // Dar un pequeño delay para asegurar que localStorage se guarde
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          console.log('🔄 Redirigiendo a /paneladmin...');
+          router.push("/paneladmin");
+        } catch (dbError) {
+          console.error("❌ Error en consulta de base de datos:", dbError);
+          setError("Error al acceder a la base de datos");
+          await supabase.auth.signOut();
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error inesperado:", error);
+      setError("Error al iniciar sesión. Por favor, intenta de nuevo.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    // Validaciones
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!nombre.trim()) {
+      setError("El nombre es requerido");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log("📝 Registrando nuevo usuario en Supabase Auth...");
+
+      // 1. Crear usuario en Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            nombre: nombre,
+            email: email, // Agregar email para el trigger
+            rol: 'tecnico', // Agregar rol para el trigger
+          },
+          emailRedirectTo: undefined, // Deshabilitar redirect de confirmación
+        }
+      });
+
+      if (authError) {
+        console.error("❌ Error al crear usuario en Auth:", authError);
+        if (authError.message.includes("already registered") || authError.message.includes("already been registered")) {
+          setError("Este correo ya está registrado. Intenta iniciar sesión.");
+        } else {
+          setError("Error al crear usuario: " + authError.message);
+        }
+        return;
+      }
+
+      if (!authData.user) {
+        setError("Error al crear usuario");
+        return;
+      }
+
+      console.log('✅ Usuario creado en Auth:', authData.user.id);
+
+      // El trigger handle_new_user() ya insertó el usuario en la tabla usuarios
+      console.log('✅ Usuario insertado automáticamente por trigger');
+
+      // Éxito
+      toast.success('¡Usuario creado exitosamente! Ya puedes iniciar sesión.');
+      setSuccess("¡Usuario creado exitosamente! Ya puedes iniciar sesión.");
+
+      // Limpiar formulario
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setNombre("");
+
+      // Cambiar a modo login después de 2 segundos
+      setTimeout(() => {
+        setIsRegisterMode(false);
+        setSuccess("");
+      }, 2000);
+
+    } catch (error) {
+      console.error("❌ Error inesperado:", error);
+      setError("Error inesperado al crear usuario");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    if (isRegisterMode) {
+      handleRegister(e);
+    } else {
+      handleLogin(e);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-md mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700">
+      {/* Logo */}
+      <div className="flex justify-center mb-3">
+        <div className="text-center relative w-full" style={{ height: '50px' }}>
+          <Image
+            src="/img/logo.jpg"
+            alt="TeamService Logo"
+            fill
+            className="object-contain"
+            priority
+            sizes="(max-width: 768px) 100vw, 200px"
+          />
+        </div>
+      </div>
+
+      {/* Título */}
+      <div className="text-center mb-4">
+        <h2 className="text-gray-800 dark:text-gray-100 text-lg font-semibold mb-1">
+          {isRegisterMode ? "Crear Cuenta" : "Bienvenido"}
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 text-xs">
+          {isRegisterMode
+            ? "Completa los datos para registrarte"
+            : "Ingresa tus credenciales para continuar"
+          }
+        </p>
+      </div>
+
+      {/* Mensaje de error */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-xs mb-3 flex items-start">
+          <svg className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Mensaje de éxito */}
+      {success && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-800 text-green-700 dark:text-green-300 px-3 py-2 rounded-lg text-xs mb-3 flex items-start">
+          <svg className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <span>{success}</span>
+        </div>
+      )}
+
+      {/* Formulario */}
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        {/* Campo de Nombre (solo en registro) */}
+        {isRegisterMode && (
+          <div>
+            <label htmlFor="nombre" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Nombre completo
+            </label>
+            <div className="relative">
+              <input
+                id="nombre"
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 transition-colors text-sm"
+                placeholder="Juan Pérez"
+                required
+              />
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <UserIcon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Campo de Email */}
+        <div>
+          <label htmlFor="email" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            Correo electrónico
+          </label>
+          <div className="relative">
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 transition-colors text-sm"
+              placeholder="correo@ejemplo.com"
+              required
+            />
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+              <svg className="h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Campo de Contraseña */}
+        <div>
+          <label htmlFor="password" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            Contraseña
+          </label>
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 transition-colors text-sm"
+              placeholder="••••••••"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none transition-colors"
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <EyeSlashIcon className="h-4 w-4" />
+              ) : (
+                <EyeIcon className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+          {isRegisterMode && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Mínimo 6 caracteres
+            </p>
+          )}
+        </div>
+
+        {/* Campo de Confirmar Contraseña (solo en registro) */}
+        {isRegisterMode && (
+          <div>
+            <label htmlFor="confirmPassword" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Confirmar contraseña
+            </label>
+            <div className="relative">
+              <input
+                id="confirmPassword"
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 transition-colors text-sm"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Link de olvido de contraseña (solo en login) */}
+        {!isRegisterMode && (
+          <div className="flex items-center justify-end -mt-1">
+            <a
+              href="#"
+              className="text-xs text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 font-medium transition-colors"
+              onClick={(e) => e.preventDefault()}
+            >
+              ¿Olvidaste tu contraseña?
+            </a>
+          </div>
+        )}
+
+        {/* Botón de envío */}
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-semibold py-2.5 px-4 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] text-sm"
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {isRegisterMode ? "Creando cuenta..." : "Iniciando sesión..."}
+            </span>
+          ) : (
+            isRegisterMode ? "Crear cuenta" : "Iniciar sesión"
+          )}
+        </button>
+      </form>
+
+      {/* Botón para cambiar entre login y registro */}
+      <div className="text-center mt-4">
+        <button
+          type="button"
+          onClick={() => {
+            setIsRegisterMode(!isRegisterMode);
+            setError("");
+            setSuccess("");
+            setEmail("");
+            setPassword("");
+            setConfirmPassword("");
+            setNombre("");
+          }}
+          className="text-sm text-gray-600 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 font-medium transition-colors"
+        >
+          {isRegisterMode ? (
+            <>
+              ¿Ya tienes cuenta?{" "}
+              <span className="text-yellow-600 dark:text-yellow-400 underline">
+                Inicia sesión aquí
+              </span>
+            </>
+          ) : (
+            <>
+              ¿No tienes cuenta?{" "}
+              <span className="text-yellow-600 dark:text-yellow-400 underline">
+                Regístrate aquí
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Términos y condiciones */}
+      <div className="text-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+          Al {isRegisterMode ? "registrarte" : "iniciar sesión"}, aceptas los{" "}
+          <a
+            href="#"
+            className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 underline transition-colors"
+            onClick={(e) => e.preventDefault()}
+          >
+            Términos
+          </a>
+          {" "}y{" "}
+          <a
+            href="#"
+            className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 underline transition-colors"
+            onClick={(e) => e.preventDefault()}
+          >
+            Política de Privacidad
+          </a>
+        </p>
+      </div>
+    </div>
+  );
+}
