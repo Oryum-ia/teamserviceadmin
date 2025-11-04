@@ -8,7 +8,10 @@ export async function obtenerTodosLosEquipos() {
     .from("equipos")
     .select(`
       *,
-      modelo:modelos(*),
+      modelo:modelos(
+        *,
+        marca:marcas(*)
+      ),
       cliente:clientes(*)
     `)
     .order("created_at", { ascending: false });
@@ -29,7 +32,10 @@ export async function obtenerEquipoPorId(id: string) {
     .from("equipos")
     .select(`
       *,
-      modelo:modelos(*),
+      modelo:modelos(
+        *,
+        marca:marcas(*)
+      ),
       cliente:clientes(*)
     `)
     .eq("id", id)
@@ -66,7 +72,7 @@ export async function buscarEquipos(termino: string) {
     const parts = [
       e?.serie_pieza,
       e?.modelo?.equipo,
-      e?.modelo?.marca,
+      e?.modelo?.marca?.nombre || e?.modelo?.marca,
       e?.cliente?.identificacion,
       e?.cliente?.razon_social,
       e?.cliente?.nombre_comercial,
@@ -105,7 +111,10 @@ export async function crearEquipo(data: {
     .insert([equipoData])
     .select(`
       *,
-      modelo:modelos(*),
+      modelo:modelos(
+        *,
+        marca:marcas(*)
+      ),
       cliente:clientes(*)
     `)
     .single();

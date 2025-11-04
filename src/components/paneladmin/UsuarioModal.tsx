@@ -25,7 +25,6 @@ export default function UsuarioModal({
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [usuarioActual, setUsuarioActual] = useState<Usuario | null>(null);
   const [mostrarCambioPassword, setMostrarCambioPassword] = useState(false);
 
   // Form state
@@ -40,16 +39,10 @@ export default function UsuarioModal({
     confirmarNuevaPassword: '',
   });
 
-  // Cargar datos del usuario autenticado y del usuario a editar
+  // Cargar datos del usuario a editar
   useEffect(() => {
     if (isOpen) {
-      // Cargar usuario actual
-      obtenerUsuarioAutenticado().then((userData) => {
-        setUsuarioActual(userData as Usuario);
-      }).catch(console.error);
-
       if (usuario) {
-        console.log('⏩ Precargando datos del usuario:', usuario);
         setFormData({
           email: usuario.email || '',
           password: '',
@@ -61,7 +54,6 @@ export default function UsuarioModal({
           confirmarNuevaPassword: '',
         });
       } else {
-        console.log('➕ Nuevo usuario - form limpio');
         setFormData({
           email: '',
           password: '',
@@ -147,8 +139,8 @@ export default function UsuarioModal({
           sede: formData.sede || undefined,
         });
 
-        // Si es super-admin y hay nueva contraseña, cambiarla
-        if (usuarioActual?.rol === 'super-admin' && formData.nuevaPassword) {
+        // Si hay nueva contraseña, cambiarla
+        if (formData.nuevaPassword) {
           if (formData.nuevaPassword !== formData.confirmarNuevaPassword) {
             setError('Las contraseñas no coinciden');
             setIsLoading(false);
@@ -166,14 +158,16 @@ export default function UsuarioModal({
 
         toast.success('Usuario actualizado exitosamente');
       } else {
-        // Crear nuevo usuario
-        await crearUsuario({
+        // Crear nuevo usuario (mostrar payload antes de enviar)
+        const payload = {
           email: formData.email,
           password: formData.password,
           nombre: formData.nombre,
           rol: formData.rol,
           sede: formData.sede || undefined,
-        });
+        };
+        console.log('🧪 Debug - Datos a enviar a crearUsuario/Supabase:', payload);
+        await crearUsuario(payload);
         toast.success('Usuario creado exitosamente');
       }
 
@@ -421,8 +415,8 @@ export default function UsuarioModal({
               />
             </div>
 
-            {/* Cambio de contraseña (solo para super-admin editando usuarios) */}
-            {usuario && usuarioActual?.rol === 'super-admin' && (
+            {/* Cambio de contraseña (solo al editar usuarios existentes) */}
+            {usuario && (
               <>
                 <div className={`pt-4 border-t ${
                   theme === 'light' ? 'border-gray-200' : 'border-gray-700'

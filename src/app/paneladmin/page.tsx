@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { useTheme } from '../../components/ThemeProvider';
 import { ThemeToggle } from '../../components/ThemeToggle';
@@ -45,8 +45,8 @@ export default function PanelAdmin() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [filtroFase, setFiltroFase] = useState<string | undefined>(undefined);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { theme } = useTheme();
-
 
   // Función para cambiar de sección
   const handleSectionChange = (section: string, fase?: string) => {
@@ -78,6 +78,16 @@ export default function PanelAdmin() {
       router.push('/');
     }
   }, [router]);
+
+  useEffect(() => {
+    const sectionFromQuery = searchParams.get('section');
+    const faseFromQuery = searchParams.get('fase') || undefined;
+
+    if (sectionFromQuery) {
+      setActiveSection(sectionFromQuery);
+      setFiltroFase(sectionFromQuery === 'ordenes' ? faseFromQuery : undefined);
+    }
+  }, [searchParams]);
 
   const handleLogout = () => {
     localStorage.removeItem('userSession');

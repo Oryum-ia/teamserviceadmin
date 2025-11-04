@@ -6,6 +6,7 @@ import { useTheme } from '../../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { obtenerTodosLosAccesorios, eliminarAccesorio } from '@/lib/services/accesorioService';
 import AccesorioModal from '../ordenes/AccesorioModal';
+import ResponsiveTable, { TableColumn, TableAction } from '../ResponsiveTable';
 
 export default function Accesorios() {
   const { theme } = useTheme();
@@ -91,6 +92,48 @@ export default function Accesorios() {
   const handleItemsPerPageChange = (value: number) => {
     setItemsPerPage(value);
     setCurrentPage(1);
+  };
+
+  // Definición de columnas para la tabla
+  const columns: TableColumn<any>[] = [
+    {
+      key: 'descripcion',
+      label: 'Descripción',
+      render: (accesorio) => (
+        <span className={`font-medium ${
+          theme === 'light' ? 'text-gray-900' : 'text-white'
+        }`}>
+          {accesorio.descripcion}
+        </span>
+      ),
+    },
+    {
+      key: 'marca',
+      label: 'Marca',
+      render: (accesorio) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {accesorio.marca || '-'}
+        </span>
+      ),
+    },
+  ];
+
+  // Definición de acciones para cada fila
+  const actions: TableAction<any>[] = [
+    {
+      icon: <Trash2 className="w-4 h-4" />,
+      title: 'Eliminar accesorio',
+      className: 'p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20',
+      onClick: (accesorio, event) => {
+        event.stopPropagation();
+        handleDelete(accesorio.id, accesorio.descripcion);
+      },
+    },
+  ];
+
+  const handleRowClick = (accesorio: any) => {
+    setSelectedAccesorio(accesorio);
+    setIsModalOpen(true);
   };
 
   if (isLoading) {
@@ -184,119 +227,14 @@ export default function Accesorios() {
         </div>
       </div>
 
-      {/* Tabla/Cards responsive */}
-      {currentItems.length === 0 ? (
-        <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
-          theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
-        }`}>
-          <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-            No se encontraron accesorios
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Vista Desktop */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className={`w-full rounded-lg overflow-hidden ${
-              theme === 'light' ? 'bg-white' : 'bg-gray-800'
-            }`}>
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Descripción
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Marca
-                  </th>
-                  <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-              }`}>
-                {currentItems.map((accesorio) => (
-                  <tr
-                    key={accesorio.id}
-                    onClick={() => {
-                      setSelectedAccesorio(accesorio);
-                      setIsModalOpen(true);
-                    }}
-                    className={`transition-colors cursor-pointer ${
-                      theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                    }`}>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      <span className="font-medium">{accesorio.descripcion}</span>
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {accesorio.marca || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(ev) => ev.stopPropagation()}>
-                      <button
-                        onClick={() => handleDelete(accesorio.id, accesorio.descripcion)}
-                        className="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Vista Tablet/Mobile */}
-          <div className="lg:hidden space-y-4">
-            {currentItems.map((accesorio) => (
-              <div
-                key={accesorio.id}
-                className={`rounded-lg p-4 ${
-                  theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-800 border border-gray-700'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className={`font-medium mb-2 ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {accesorio.descripcion}
-                    </h3>
-
-                    <div className="space-y-1 text-sm">
-                      {accesorio.marca && (
-                        <div className={`flex items-center gap-2 ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
-                          <Wrench className="w-3 h-3" />
-                          <span>{accesorio.marca}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleDelete(accesorio.id, accesorio.descripcion)}
-                    className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={currentItems}
+        columns={columns}
+        actions={actions}
+        onRowClick={handleRowClick}
+        emptyMessage="No se encontraron accesorios"
+      />
 
       {/* Paginación */}
       {totalPages > 1 && (

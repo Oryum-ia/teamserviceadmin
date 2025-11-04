@@ -7,6 +7,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { Cliente } from '@/types/database.types';
 import { obtenerTodosLosClientes, buscarClientes, eliminarCliente } from '@/lib/services/clienteService';
 import ClienteModal from './ClienteModal';
+import ResponsiveTable, { TableColumn, TableAction } from './ResponsiveTable';
 
 export default function Clientes() {
   const { theme } = useTheme();
@@ -87,6 +88,98 @@ export default function Clientes() {
       return cliente.razon_social || cliente.nombre_comercial || 'Sin nombre';
     }
     return cliente.nombre_comercial || cliente.razon_social || 'Sin nombre';
+  };
+
+  // Definición de columnas para la tabla
+  const columns: TableColumn<Cliente>[] = [
+    {
+      key: 'tipo',
+      label: 'Tipo',
+      render: (cliente) => (
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+          cliente.es_juridica
+            ? theme === 'light'
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-blue-900/30 text-blue-300'
+            : theme === 'light'
+              ? 'bg-green-100 text-green-800'
+              : 'bg-green-900/30 text-green-300'
+        }`}>
+          {cliente.es_juridica ? 'Jurídica' : 'Natural'}
+        </span>
+      ),
+    },
+    {
+      key: 'identificacion',
+      label: 'Identificación',
+      render: (cliente) => (
+        <span className={`font-medium ${
+          theme === 'light' ? 'text-gray-900' : 'text-white'
+        }`}>
+          {cliente.tipo_documento} {cliente.identificacion}{cliente.dv ? `-${cliente.dv}` : ''}
+        </span>
+      ),
+    },
+    {
+      key: 'nombre',
+      label: 'Nombre / Razón Social',
+      render: (cliente) => (
+        <div className={`max-w-xs truncate ${
+          theme === 'light' ? 'text-gray-900' : 'text-white'
+        }`} title={getDisplayName(cliente)}>
+          {getDisplayName(cliente)}
+        </div>
+      ),
+    },
+    {
+      key: 'ciudad',
+      label: 'Ciudad',
+      render: (cliente) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {cliente.ciudad || '-'}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'telefono',
+      label: 'Teléfono',
+      render: (cliente) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {cliente.telefono || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'correo',
+      label: 'Correo',
+      render: (cliente) => (
+        <div className={`max-w-xs truncate ${
+          theme === 'light' ? 'text-gray-600' : 'text-gray-300'
+        }`} title={cliente.correo_electronico || '-'}>
+          {cliente.correo_electronico || '-'}
+        </div>
+      ),
+      hideOnMobile: true,
+    },
+  ];
+
+  // Definición de acciones para cada fila
+  const actions: TableAction<Cliente>[] = [
+    {
+      icon: <Trash2 className="w-4 h-4" />,
+      title: 'Eliminar cliente',
+      className: 'p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20',
+      onClick: (cliente, event) => {
+        event.stopPropagation();
+        handleDelete(cliente.id, getDisplayName(cliente));
+      },
+    },
+  ];
+
+  const handleRowClick = (cliente: Cliente) => {
+    setSelectedCliente(cliente);
+    setIsModalOpen(true);
   };
 
   // Cálculos de paginación
@@ -198,133 +291,14 @@ export default function Clientes() {
         </div>
       </div>
 
-      {/* Tabla/Cards responsive */}
-      {currentItems.length === 0 ? (
-        <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
-          theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
-        }`}>
-          <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-            No se encontraron clientes
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Vista Desktop */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className={`w-full rounded-lg overflow-hidden ${
-              theme === 'light' ? 'bg-white' : 'bg-gray-800'
-            }`}>
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Tipo
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Identificación
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Nombre / Razón Social
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Ciudad
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Teléfono
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Correo
-                  </th>
-                  <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-              }`}>
-                {currentItems.map((cliente) => (
-                  <tr
-                    key={cliente.id}
-                    onClick={() => {
-                      setSelectedCliente(cliente);
-                      setIsModalOpen(true);
-                    }}
-                    className={`transition-colors cursor-pointer ${
-                      theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                    }`}
-                  >
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        cliente.es_juridica
-                          ? theme === 'light'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-blue-900/30 text-blue-300'
-                          : theme === 'light'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-green-900/30 text-green-300'
-                      }`}>
-                        {cliente.es_juridica ? 'Jurídica' : 'Natural'}
-                      </span>
-                    </td>
-                    <td className={`px-6 py-4 font-medium ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {cliente.tipo_documento} {cliente.identificacion}{cliente.dv ? `-${cliente.dv}` : ''}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      <div className="max-w-xs truncate" title={getDisplayName(cliente)}>
-                        {getDisplayName(cliente)}
-                      </div>
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {cliente.ciudad || '-'}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {cliente.telefono || '-'}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      <div className="max-w-xs truncate" title={cliente.correo_electronico || '-'}>
-                        {cliente.correo_electronico || '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(ev) => ev.stopPropagation()}>
-                      <button
-                        onClick={() => handleDelete(cliente.id, getDisplayName(cliente))}
-                        className="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        title="Eliminar cliente"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={currentItems}
+        columns={columns}
+        actions={actions}
+        onRowClick={handleRowClick}
+        emptyMessage="No se encontraron clientes"
+      />
 
       {/* Paginación */}
       {totalPages > 1 && (

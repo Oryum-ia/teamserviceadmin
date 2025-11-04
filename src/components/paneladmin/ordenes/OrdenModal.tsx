@@ -8,6 +8,7 @@ import { crearOrden } from '@/lib/services/ordenService';
 import { obtenerTodosLosClientes } from '@/lib/services/clienteService';
 import { obtenerTodosLosEquipos, obtenerEquipoPorId } from '@/lib/services/equipoService';
 import { obtenerTodosLosModelos } from '@/lib/services/modeloService';
+import { notificarOrdenCreadaWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import SearchableSelect from './SearchableSelect';
 import ClienteModal from '../ClienteModal';
 import EquipoModal from './EquipoModal';
@@ -173,8 +174,25 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
 
       // Validación de tipo_orden opcional
 
-      await crearOrden(formData);
+      // Pre-abrir WhatsApp para evitar bloqueo del navegador
+      let whatsappPopup: Window | null = null;
+      try {
+        whatsappPopup = window.open('about:blank', '_blank');
+      } catch (e) {
+        // seguir sin popup pre-abierto si el navegador lo impide
+      }
+
+      const ordenCreada = await crearOrden(formData);
       toast.success('Orden creada exitosamente');
+      
+      // Enviar notificación por WhatsApp (usa la ventana pre-abierta)
+      try {
+        await notificarOrdenCreadaWhatsApp(ordenCreada.id, whatsappPopup);
+      } catch (whatsappError) {
+        console.error('⚠️ Error al abrir WhatsApp:', whatsappError);
+        if (whatsappPopup) try { whatsappPopup.close(); } catch {}
+        // No afecta el flujo, la orden ya fue creada
+      }
 
       // Reset form
       setFormData({
@@ -245,7 +263,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
               options={equipos.map(e => ({
                 id: e.id,
                 label: `${e.serie_pieza || 'Sin serie'} - ${e.modelo?.equipo || 'Sin modelo'} - ${e.cliente?.identificacion || 'Sin cliente'}`,
-                searchText: `${e.serie_pieza || ''} ${e.modelo?.equipo || ''} ${e.modelo?.marca || ''} ${e.cliente?.identificacion || ''} ${e.cliente?.nombre_comercial || ''}`
+                searchText: `${e.serie_pieza || ''} ${e.modelo?.equipo || ''} ${e.modelo?.marca?.nombre || e.modelo?.marca || ''} ${e.cliente?.identificacion || ''} ${e.cliente?.nombre_comercial || ''}`
               }))}
               placeholder="Buscar equipo por serie, modelo o cliente"
               label="Equipo"
@@ -333,8 +351,8 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
                 onChange={(value) => setFormData(prev => ({ ...prev, modelo: value }))}
                 options={modelos.map(m => ({
                   id: m.id,
-                  label: `${m.equipo || 'Sin nombre'} - ${m.marca || ''} ${m.referencia || ''}`.trim(),
-                  searchText: `${m.equipo || ''} ${m.marca || ''} ${m.referencia || ''} ${m.serial || ''}`
+                  label: `${m.equipo || 'Sin nombre'} - ${m.marca?.nombre || m.marca || ''}`.trim(),
+                  searchText: `${m.equipo || ''} ${m.marca?.nombre || m.marca || ''} ${m.referencia || ''} ${m.serial || ''}`
                 }))}
                 placeholder="Buscar modelo"
                 label="Modelo"

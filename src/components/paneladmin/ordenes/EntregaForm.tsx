@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Mail, MessageSquare, Upload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, MessageSquare, Upload, AlertCircle } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { subirMultiplesImagenes, eliminarImagenOrden, descargarImagen, actualizarFotosEntrega } from '@/lib/services/imagenService';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
+import { FirmaDisplay } from '@/components/FirmaPad';
+import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 
 interface EntregaFormProps {
   orden: any;
@@ -16,9 +18,6 @@ interface EntregaFormProps {
 export default function EntregaForm({ orden, onSuccess }: EntregaFormProps) {
   const { theme } = useTheme();
   const toast = useToast();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [hasSignature, setHasSignature] = useState(false);
 
   // Fotos de entrega
   const [fotos, setFotos] = useState<string[]>(orden.fotos_entrega || []);
@@ -66,100 +65,23 @@ export default function EntregaForm({ orden, onSuccess }: EntregaFormProps) {
     obtenerUsuarioActual();
   }, []);
 
-  const [formData, setFormData] = useState({
-    tipo_entrega: orden.entrega?.tipo_entrega || 'Reparada',
-    fecha_entrega: orden.fecha_entrega || new Date().toISOString().slice(0, 16),
-    fecha_proximo_mantenimiento: orden.entrega?.fecha_proximo_mantenimiento || '',
-    calificacion: orden.entrega?.calificacion || '',
-    comentarios_cliente: orden.entrega?.comentarios_cliente || ''
-  });
+// Helper para formatear fecha en formato compatible con input datetime-local (hora local)
+const formatForInput = (date: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
-  // Configurar canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Configurar canvas para firma existente
-    if (orden.entrega?.firma) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        setHasSignature(true);
-      };
-      img.src = orden.entrega.firma;
-    } else {
-      // Fondo blanco
-      ctx.fillStyle = theme === 'light' ? 'white' : '#374151';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-  }, [orden.entrega?.firma, theme]);
+const [formData, setFormData] = useState({
+  tipo_entrega: orden.entrega?.tipo_entrega || 'Reparada',
+  fecha_entrega: orden.fecha_entrega ? formatForInput(new Date(orden.fecha_entrega)) : formatForInput(new Date()),
+  fecha_proximo_mantenimiento: orden.entrega?.fecha_proximo_mantenimiento || '',
+  calificacion: orden.entrega?.calificacion || '',
+  comentarios_cliente: orden.entrega?.comentarios_cliente || ''
+});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Funciones de dibujo en canvas
-  const getCanvasPos = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    return { x, y };
-  };
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const { x, y } = getCanvasPos(e);
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    setIsDrawing(true);
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const { x, y } = getCanvasPos(e);
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.lineTo(x, y);
-    ctx.strokeStyle = theme === 'light' ? '#000000' : '#FFFFFF';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-    setHasSignature(true);
-  };
-
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
-
-  const limpiarFirma = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.fillStyle = theme === 'light' ? 'white' : '#374151';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    setHasSignature(false);
   };
 
   const handleFilesSelected = async (files: File[]) => {
@@ -213,22 +135,14 @@ export default function EntregaForm({ orden, onSuccess }: EntregaFormProps) {
     }
   };
 
-  const guardarFirma = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      toast.error('No se pudo guardar la firma');
-      return;
-    }
+  // Mostrar firma proveniente de otro lugar (solo lectura)
+  const [firmaEntrega, setFirmaEntrega] = useState<string | null>(orden.firma_entrega || null);
+  const [fechaFirmaEntrega, setFechaFirmaEntrega] = useState<string | null>(orden.fecha_firma_entrega || null);
 
-    if (!hasSignature) {
-      toast.error('Por favor, ingrese su firma primero');
-      return;
-    }
-
-    const firmaData = canvas.toDataURL('image/png');
-    toast.success('Firma guardada');
-    // Aquí se guardará la firma en la base de datos cuando se implemente
-  };
+  useEffect(() => {
+    setFirmaEntrega(orden.firma_entrega || null);
+    setFechaFirmaEntrega(orden.fecha_firma_entrega || null);
+  }, [orden.firma_entrega, orden.fecha_firma_entrega]);
 
   const puedeEditar = orden.estado_actual === 'Entrega';
 
@@ -291,22 +205,41 @@ export default function EntregaForm({ orden, onSuccess }: EntregaFormProps) {
             </p>
           </div>
 
-          {/* Fecha de entrega (solo lectura, se establece al finalizar orden) */}
+{/* Fecha de entrega (editable) */}
           <div>
             <label className={`block text-sm font-medium mb-2 ${
               theme === 'light' ? 'text-gray-700' : 'text-gray-300'
             }`}>
-              Fecha de entrega (se fija al finalizar la orden)
+              Fecha de entrega
             </label>
-            <div className={`w-full px-4 py-3 border rounded-lg ${
-              theme === 'light'
-                ? 'border-gray-300 bg-gray-100 text-gray-900'
-                : 'border-gray-600 bg-gray-800 text-gray-100'
-            }`}>
-              {orden.fecha_entrega ? new Date(orden.fecha_entrega).toLocaleString('es-CO', {
-                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
-              }) : '—'}
-            </div>
+            <input
+              type="datetime-local"
+              name="fecha_entrega"
+              value={formData.fecha_entrega}
+              onChange={handleChange}
+              onBlur={async () => {
+                try {
+                  const { supabase } = await import('@/lib/supabaseClient');
+                  const iso = new Date(formData.fecha_entrega).toISOString();
+                  const { error } = await supabase
+                    .from('ordenes')
+                    .update({ fecha_entrega: iso, ultima_actualizacion: new Date().toISOString() })
+                    .eq('id', orden.id);
+                  if (error) throw error;
+                  updateOrdenFields({ fecha_entrega: iso } as any);
+                  toast.success('Fecha de entrega actualizada');
+                } catch (e) {
+                  console.error(e);
+                  toast.error('Error al actualizar la fecha de entrega');
+                }
+              }}
+              disabled={!puedeEditar}
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            />
           </div>
 
           {/* Fecha próximo mantenimiento */}
@@ -390,54 +323,47 @@ export default function EntregaForm({ orden, onSuccess }: EntregaFormProps) {
           )}
         </div>
 
-        {/* Canvas de firma */}
+        {/* Firma de Entrega (solo visualización) */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className={`text-sm font-medium ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              Ingrese su firma aquí
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={limpiarFirma}
-                disabled={!puedeEditar}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  theme === 'light'
-                    ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                    : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                Limpiar
-              </button>
-              <button
-                type="button"
-                onClick={guardarFirma}
-                disabled={!puedeEditar || !hasSignature}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  theme === 'light'
-                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                    : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                Firmar
-              </button>
+          <h3 className={`text-lg font-semibold mb-3 ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            Firma de Entrega
+          </h3>
+          {firmaEntrega ? (
+            <div>
+              <FirmaDisplay 
+                firmaBase64={firmaEntrega}
+                titulo="Firma del Cliente - Entrega"
+                className=""
+              />
+              {fechaFirmaEntrega && (
+                <p className={`text-sm mt-2 ${
+                  theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                }`}>
+                  Fecha de firma: {new Date(fechaFirmaEntrega).toLocaleString('es-CO')}
+                </p>
+              )}
             </div>
-          </div>
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={300}
-            onMouseDown={startDrawing}
-            onMouseMove={draw}
-            onMouseUp={stopDrawing}
-            onMouseLeave={stopDrawing}
-            className={`w-full border rounded-lg cursor-crosshair ${
-              theme === 'light' ? 'border-gray-300 bg-white' : 'border-gray-600 bg-gray-700'
-            } ${!puedeEditar ? 'pointer-events-none opacity-50' : ''}`}
-            style={{ touchAction: 'none' }}
-          />
+          ) : (
+            <div className={`rounded-lg border p-6 text-center ${
+              theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
+            }`}>
+              <AlertCircle className={`w-12 h-12 mx-auto mb-3 ${
+                theme === 'light' ? 'text-red-400' : 'text-red-500'
+              }`} />
+              <p className={`font-medium mb-1 ${
+                theme === 'light' ? 'text-red-900' : 'text-red-300'
+              }`}>
+                Sin firma de entrega
+              </p>
+              <p className={`text-sm ${
+                theme === 'light' ? 'text-red-700' : 'text-red-400'
+              }`}>
+                El cliente debe firmar desde la página web
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Calificación de la orden */}

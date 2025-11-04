@@ -5,8 +5,6 @@ import { supabase } from '../../lib/supabaseClient';
 import { useTheme } from '../ThemeProvider';
 import { 
   Search, 
-  Eye, 
-  Download, 
   X,
   Calendar,
   Mail,
@@ -20,9 +18,12 @@ import {
   Filter
 } from 'lucide-react';
 import { PQR, EstadoPQR, PrioridadPQR, TipoSolicitudPQR } from '../../types/encuestas-pqr.types';
+import ResponsiveTable, { TableColumn, TableAction } from './ResponsiveTable';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function PQRComponent() {
   const { theme } = useTheme();
+  const toast = useToast();
   const [pqrs, setPqrs] = useState<PQR[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -114,31 +115,55 @@ export default function PQRComponent() {
     try {
       setEnviandoRespuesta(true);
       
+      const fechaRespuesta = new Date().toISOString();
+      
       // Actualizar en la base de datos
-      const { error } = await supabase
+      const { error: dbError } = await supabase
         .from('pqr')
         .update({
           respuesta: respuestaTexto,
-          fecha_respuesta: new Date().toISOString(),
+          fecha_respuesta: fechaRespuesta,
           estado: 'resuelto'
         })
         .eq('id', selectedPQR.id);
 
-      if (error) throw error;
+      if (dbError) throw dbError;
 
-      // TODO: Aquí integrarías el envío de correo
-      // Ejemplo con API de email:
-      // await fetch('/api/send-email', {
-      //   method: 'POST',
-      //   body: JSON.stringify({
-      //     to: selectedPQR.email,
-      //     subject: `Respuesta a tu ${selectedPQR.tipo_solicitud} - Radicado: ${selectedPQR.radicado}`,
-      //     body: respuestaTexto,
-      //     pqrId: selectedPQR.id
-      //   })
-      // });
+      // Enviar correo al cliente
+      try {
+        const emailResponse = await fetch('/api/email/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tipo: 'respuesta_pqr',
+            clienteEmail: selectedPQR.email,
+            clienteNombre: selectedPQR.nombre_completo,
+            pqrId: selectedPQR.radicado,
+            tipoPQR: selectedPQR.tipo_solicitud,
+            respuesta: respuestaTexto,
+            fechaRespuesta: new Date(fechaRespuesta).toLocaleDateString('es-ES', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+          }),
+        });
 
-      alert('Respuesta guardada exitosamente. El correo será enviado al usuario.');
+        const emailResult = await emailResponse.json();
+        
+        if (emailResult.success) {
+          toast.success('✅ Respuesta guardada y correo enviado exitosamente');
+        } else {
+          toast.warning('⚠️ Respuesta guardada, pero hubo un problema al enviar el correo');
+        }
+      } catch (emailError) {
+        console.error('Error al enviar correo:', emailError);
+        toast.warning('⚠️ Respuesta guardada, pero no se pudo enviar el correo');
+      }
       
       setShowResponseModal(false);
       setRespuestaTexto('');
@@ -148,44 +173,15 @@ export default function PQRComponent() {
       setSelectedPQR({
         ...selectedPQR,
         respuesta: respuestaTexto,
-        fecha_respuesta: new Date().toISOString(),
+        fecha_respuesta: fechaRespuesta,
         estado: 'resuelto'
       });
     } catch (error) {
       console.error('Error enviando respuesta:', error);
-      alert('Error al enviar la respuesta');
+      toast.error('❌ Error al enviar la respuesta');
     } finally {
       setEnviandoRespuesta(false);
     }
-  };
-
-  const exportarCSV = () => {
-    const headers = [
-      'Radicado', 'Tipo', 'Nombre', 'Email', 'Teléfono', 'Ciudad',
-      'Asunto', 'Estado', 'Prioridad', 'Fecha Creación', 'Fecha Respuesta'
-    ];
-    
-    const rows = pqrsFiltrados.map(p => [
-      p.radicado,
-      p.tipo_solicitud,
-      p.nombre_completo,
-      p.email,
-      p.telefono,
-      p.ciudad,
-      p.asunto,
-      p.estado,
-      p.prioridad,
-      new Date(p.fecha_creacion).toLocaleString(),
-      p.fecha_respuesta ? new Date(p.fecha_respuesta).toLocaleString() : 'Sin respuesta'
-    ]);
-
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pqr_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
   };
 
   const getEstadoBadge = (estado: EstadoPQR) => {
@@ -208,6 +204,96 @@ export default function PQRComponent() {
     return estilos[prioridad] || estilos.media;
   };
 
+  const columns: TableColumn<PQR>[] = [
+    {
+      key: 'radicado',
+      label: 'Radicado',
+      render: (pqr) => (
+        <span className={`font-mono text-sm ${
+          theme === 'light' ? 'text-gray-900' : 'text-white'
+        }`}>
+          {pqr.radicado}
+        </span>
+      ),
+    },
+    {
+      key: 'tipo',
+      label: 'Tipo',
+      render: (pqr) => (
+        <span className={theme === 'light' ? 'text-gray-700' : 'text-gray-300'}>
+          {pqr.tipo_solicitud}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'nombre',
+      label: 'Nombre',
+      render: (pqr) => (
+        <div>
+          <div className={`font-medium ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            {pqr.nombre_completo}
+          </div>
+          <div className={`text-sm ${
+            theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+          }`}>
+            {pqr.email}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'asunto',
+      label: 'Asunto',
+      render: (pqr) => (
+        <div className={`max-w-xs truncate ${
+          theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+        }`}>
+          {pqr.asunto}
+        </div>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (pqr) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getEstadoBadge(pqr.estado)}`}>
+          {pqr.estado.replace('_', ' ')}
+        </span>
+      ),
+    },
+    {
+      key: 'prioridad',
+      label: 'Prioridad',
+      render: (pqr) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPrioridadBadge(pqr.prioridad)}`}>
+          {pqr.prioridad}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'fecha',
+      label: 'Fecha',
+      render: (pqr) => (
+        <span className={`text-sm ${
+          theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+        }`}>
+          {new Date(pqr.fecha_creacion).toLocaleDateString('es-ES')}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+  ];
+
+  const handleRowClick = (pqr: PQR) => {
+    setSelectedPQR(pqr);
+    setShowModal(true);
+  };
+
   const hasActiveFilters = () => {
     return searchTerm || filtroEstado || filtroPrioridad || filtroTipo;
   };
@@ -221,7 +307,7 @@ export default function PQRComponent() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div>
           <h1 className={`text-2xl font-bold ${
             theme === 'light' ? 'text-gray-900' : 'text-white'
@@ -234,7 +320,23 @@ export default function PQRComponent() {
             {pqrsFiltrados.length} solicitud{pqrsFiltrados.length !== 1 ? 'es' : ''} encontrada{pqrsFiltrados.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full lg:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${
+              theme === 'light' ? 'text-gray-400' : 'text-gray-500'
+            }`} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por radicado, nombre o email..."
+              className={`w-full pl-10 pr-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+              }`}
+            />
+          </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${
@@ -254,17 +356,6 @@ export default function PQRComponent() {
                 !
               </span>
             )}
-          </button>
-          <button
-            onClick={exportarCSV}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              theme === 'light'
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
-          >
-            <Download className="w-4 h-4" />
-            Exportar CSV
           </button>
         </div>
       </div>
@@ -363,97 +454,14 @@ export default function PQRComponent() {
       </div>
       )}
 
-      {/* Tabla */}
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      ) : (
-        <div className={`rounded-lg overflow-hidden ${
-          theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-800 border border-gray-700'
-        }`}>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Radicado</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Asunto</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-              }`}>
-                {pqrsFiltrados.map((pqr) => (
-                  <tr key={pqr.id} className={
-                    theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                  }>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-mono ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {pqr.radicado}
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
-                      {pqr.tipo_solicitud}
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      <div className="font-medium">{pqr.nombre_completo}</div>
-                      <div className={`text-sm ${
-                        theme === 'light' ? 'text-gray-500' : 'text-gray-400'
-                      }`}>{pqr.email}</div>
-                    </td>
-                    <td className={`px-6 py-4 max-w-xs truncate ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
-                      {pqr.asunto}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getEstadoBadge(pqr.estado)}`}>
-                        {pqr.estado.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPrioridadBadge(pqr.prioridad)}`}>
-                        {pqr.prioridad}
-                      </span>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                      theme === 'light' ? 'text-gray-500' : 'text-gray-400'
-                    }`}>
-                      {new Date(pqr.fecha_creacion).toLocaleDateString('es-ES')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => {
-                          setSelectedPQR(pqr);
-                          setShowModal(true);
-                        }}
-                        className={`flex items-center gap-1 px-3 py-1 rounded-md transition-colors ${
-                          theme === 'light'
-                            ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                            : 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50'
-                        }`}
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver detalle
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={pqrsFiltrados}
+        columns={columns}
+        onRowClick={handleRowClick}
+        isLoading={loading}
+        emptyMessage="No se encontraron PQRs"
+      />
 
       {/* Modal de detalle */}
       {showModal && selectedPQR && (
@@ -598,7 +606,6 @@ export default function PQRComponent() {
                   <option value="recibido">Recibido</option>
                   <option value="en_proceso">En Proceso</option>
                   <option value="resuelto">Resuelto</option>
-                  <option value="cerrado">Cerrado</option>
                 </select>
 
                 <select
@@ -613,7 +620,6 @@ export default function PQRComponent() {
                   <option value="baja">Baja</option>
                   <option value="media">Media</option>
                   <option value="alta">Alta</option>
-                  <option value="urgente">Urgente</option>
                 </select>
 
                 {!selectedPQR.respuesta && (

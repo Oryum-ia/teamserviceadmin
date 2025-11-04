@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, QrCode, Search, Plus, Filter, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
+import ResponsiveTable, { TableColumn, TableAction } from './ResponsiveTable';
 
 // Helper function to get status color
 const getStatusColor = (status: string) => {
@@ -180,6 +181,102 @@ export default function Ordenes() {
       tipo: '',
       equipo: ''
     });
+  };
+
+  // Definición de columnas para la tabla
+  const columns: TableColumn<typeof ordenesData[0]>[] = [
+    {
+      key: 'id',
+      label: 'Número Orden',
+      render: (order) => (
+        <div className="flex items-center gap-2">
+          <span className={`inline-block w-3 h-3 rounded-full ${getStatusColor(order.status)}`}></span>
+          <span className={`font-medium ${
+            theme === 'light' ? 'text-blue-600' : 'text-blue-400'
+          }`}>
+            {order.id}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'date',
+      label: 'Fecha',
+      render: (order) => (
+        <span className={theme === 'light' ? 'text-gray-900' : 'text-gray-100'}>
+          {order.date}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'client',
+      label: 'Cliente',
+      render: (order) => (
+        <div>
+          <div className={`font-medium ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            {order.client}
+          </div>
+          <div className={`text-xs ${
+            theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+          }`}>
+            {order.identification}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'equipment',
+      label: 'Equipo',
+      render: (order) => (
+        <div className={`max-w-xs truncate ${
+          theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+        }`} title={order.equipment}>
+          {order.equipment}
+        </div>
+      ),
+    },
+    {
+      key: 'brand',
+      label: 'Marca',
+      render: (order) => (
+        <span className={theme === 'light' ? 'text-gray-900' : 'text-gray-100'}>
+          {order.brand}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'status',
+      label: 'Estado',
+      render: (order) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+          order.status === 'Entregada' || order.status === 'Lista para entregar'
+            ? 'bg-green-100 text-green-800'
+            : order.status.includes('En ') || order.status.includes('Aprobación') || order.status.includes('Diagnóstico')
+            ? 'bg-orange-100 text-orange-800'
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {order.status}
+        </span>
+      ),
+    },
+    {
+      key: 'orderType',
+      label: 'Tipo',
+      render: (order) => (
+        <span className={theme === 'light' ? 'text-gray-900' : 'text-gray-100'}>
+          {order.orderType}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+  ];
+
+  const handleRowClick = (order: typeof ordenesData[0]) => {
+    handleViewOrder(order);
   };
 
   return (
@@ -546,116 +643,13 @@ export default function Ordenes() {
           </div>
 
           {/* Tabla principal de órdenes */}
-          <div className={`shadow-sm rounded-lg border ${
-            theme === 'light' 
-              ? 'bg-white border-gray-200' 
-              : 'bg-gray-800 border-gray-700'
-          }`}>
-            <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 350px)' }}>
-              <div className={`${
-                theme === 'light' ? 'bg-white' : 'bg-gray-800'
-              }`}>
-                {ordenesData.map((order, index) => (
-                  <div key={order.id} className={`flex gap-6 py-4 transition-colors duration-150 border-b ${
-                    theme === 'light'
-                      ? `hover:bg-gray-50 border-gray-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        }`
-                      : `hover:bg-gray-700 border-gray-600 ${
-                          index % 2 === 0 ? 'bg-gray-800' : 'bg-gray-900/30'
-                        }`
-                  }`}>
-                    <div className="w-32 px-3 py-2">
-                      <div className="flex items-center">
-                        <Search className={`w-4 h-4 mr-2 ${
-                          theme === 'light' ? 'text-gray-400' : 'text-gray-500'
-                        }`} />
-                        <span className={`inline-block w-3 h-3 rounded-full mr-2 ${getStatusColor(order.status)}`}></span>
-                        <span className={`font-medium text-sm ${
-                          theme === 'light' ? 'text-blue-600' : 'text-blue-400'
-                        }`}>{order.id}</span>
-                      </div>
-                    </div>
-                    <div className={`w-36 px-3 py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.date}
-                    </div>
-                    <div className={`w-28 px-3 py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.identification}
-                    </div>
-                    <div className={`w-48 px-3 py-2 text-sm truncate ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.client}
-                    </div>
-                    <div className={`w-52 px-3 py-2 text-sm truncate ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.equipment}
-                    </div>
-                    <div className={`w-40 px-3 py-2 text-sm truncate ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.model}
-                    </div>
-                    <div className={`w-32 px-3 py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.serial}
-                    </div>
-                    <div className={`w-28 px-3 py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.brand}
-                    </div>
-                    <div className={`w-36 px-3 py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.status}
-                    </div>
-                    <div className={`w-44 px-3 py-2 text-sm truncate ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.responsible}
-                    </div>
-                    <div className={`w-32 px-3 py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.orderType}
-                    </div>
-                    <div className={`w-36 px-3 py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.deliveryType}
-                    </div>
-                    <div className={`w-32 px-3 py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.approval}
-                    </div>
-                    <div className={`w-28 px-3 py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.priority}
-                    </div>
-                    <div className={`w-60 px-3 py-2 text-sm truncate ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.receptionComments}
-                    </div>
-                    <div className={`w-60 px-3 py-2 text-sm truncate ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
-                      {order.internalComments}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <ResponsiveTable
+            data={ordenesData}
+            columns={columns}
+            onRowClick={handleRowClick}
+            emptyMessage="No se encontraron órdenes"
+            keyExtractor={(order) => order.id}
+          />
         </div>
       </div>
 

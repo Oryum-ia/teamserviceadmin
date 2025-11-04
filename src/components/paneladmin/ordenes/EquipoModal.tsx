@@ -225,8 +225,8 @@ export default function EquipoModal({
                 onChange={(value) => setFormData(prev => ({ ...prev, modelo_id: value }))}
                 options={modelos.map(m => ({
                   id: m.id,
-                  label: `${m.equipo || 'Sin nombre'} - ${m.marca || ''} ${m.referencia || ''}`.trim(),
-                  searchText: `${m.equipo || ''} ${m.marca || ''} ${m.referencia || ''} ${m.serial || ''}`
+                  label: `${m.equipo || 'Sin nombre'} ${m.referencia || ''}`.trim(),
+                  searchText: `${m.equipo || ''} ${m.referencia || ''} ${m.serial || ''}`
                 }))}
                 placeholder="Buscar modelo (opcional)"
                 label="Modelo"

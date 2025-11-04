@@ -6,6 +6,7 @@ import { useTheme } from '../../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { obtenerTodosLosRepuestos, eliminarRepuesto } from '@/lib/services/repuestoService';
 import RepuestoModal from '../ordenes/RepuestoModal';
+import ResponsiveTable, { TableColumn, TableAction } from '../ResponsiveTable';
 
 export default function Repuestos() {
   const { theme } = useTheme();
@@ -93,6 +94,74 @@ export default function Repuestos() {
   const handleItemsPerPageChange = (value: number) => {
     setItemsPerPage(value);
     setCurrentPage(1);
+  };
+
+  const columns: TableColumn<any>[] = [
+    {
+      key: 'descripcion',
+      label: 'Descripción',
+      render: (repuesto) => (
+        <span className={`font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+          {repuesto.descripcion}
+        </span>
+      ),
+    },
+    {
+      key: 'codigo',
+      label: 'Código',
+      render: (repuesto) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {repuesto.codigo || '-'}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'cantidad',
+      label: 'Cantidad',
+      render: (repuesto) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {repuesto.cantidad || '0'}
+        </span>
+      ),
+    },
+    {
+      key: 'causante',
+      label: 'Causante',
+      render: (repuesto) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {repuesto.causante || '-'}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'escrito',
+      label: 'Escrito',
+      render: (repuesto) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {repuesto.escrito || '-'}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+  ];
+
+  const actions: TableAction<any>[] = [
+    {
+      icon: <Trash2 className="w-4 h-4" />,
+      title: 'Eliminar repuesto',
+      className: 'p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20',
+      onClick: (repuesto, event) => {
+        event.stopPropagation();
+        handleDelete(repuesto.id, repuesto.descripcion);
+      },
+    },
+  ];
+
+  const handleRowClick = (repuesto: any) => {
+    setSelectedRepuesto(repuesto);
+    setIsModalOpen(true);
   };
 
   if (isLoading) {
@@ -186,174 +255,14 @@ export default function Repuestos() {
         </div>
       </div>
 
-      {/* Tabla/Cards responsive */}
-      {currentItems.length === 0 ? (
-        <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
-          theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
-        }`}>
-          <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-            No se encontraron repuestos
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Vista Desktop */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className={`w-full rounded-lg overflow-hidden ${
-              theme === 'light' ? 'bg-white' : 'bg-gray-800'
-            }`}>
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Descripción
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Código
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Cantidad
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Causante
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Escrito
-                  </th>
-                  <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-              }`}>
-                {currentItems.map((repuesto) => (
-                  <tr
-                    key={repuesto.id}
-                    onClick={() => {
-                      setSelectedRepuesto(repuesto);
-                      setIsModalOpen(true);
-                    }}
-                    className={`transition-colors cursor-pointer ${
-                      theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                    }`}>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      <span className="font-medium">{repuesto.descripcion || '-'}</span>
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {repuesto.codigo || '-'}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {repuesto.cantidad || '-'}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {repuesto.causante || '-'}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {repuesto.escrito || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(ev) => ev.stopPropagation()}>
-                      <button
-                        onClick={() => handleDelete(repuesto.id, repuesto.descripcion || repuesto.codigo || 'Sin nombre')}
-                        className="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Vista Tablet/Mobile */}
-          <div className="lg:hidden space-y-4">
-            {currentItems.map((repuesto) => (
-              <div
-                key={repuesto.id}
-                className={`rounded-lg p-4 ${
-                  theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-800 border border-gray-700'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className={`font-medium mb-2 ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {repuesto.descripcion || repuesto.codigo || 'Sin descripción'}
-                    </h3>
-
-                    <div className="space-y-1 text-sm">
-                      {repuesto.codigo && (
-                        <div className={`flex items-center gap-2 ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
-                          <Hash className="w-3 h-3" />
-                          <span>{repuesto.codigo}</span>
-                        </div>
-                      )}
-
-                      {repuesto.cantidad && (
-                        <div className={`flex items-center gap-2 ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
-                          <Box className="w-3 h-3" />
-                          <span>Cantidad: {repuesto.cantidad}</span>
-                        </div>
-                      )}
-
-                      {repuesto.causante && (
-                        <div className={`${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
-                          Causante: {repuesto.causante}
-                        </div>
-                      )}
-
-                      {repuesto.escrito && (
-                        <div className={`${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
-                          Escrito: {repuesto.escrito}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleDelete(repuesto.id, repuesto.descripcion || repuesto.codigo || 'Sin nombre')}
-                    className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={currentItems}
+        columns={columns}
+        actions={actions}
+        onRowClick={handleRowClick}
+        emptyMessage="No se encontraron repuestos"
+      />
 
       {/* Paginación */}
       {totalPages > 1 && (

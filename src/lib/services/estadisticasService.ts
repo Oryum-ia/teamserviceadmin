@@ -29,14 +29,46 @@ export async function obtenerEstadisticasGlobales(): Promise<EstadisticasGlobale
     cancelada: 0
   };
 
+  // Obtener todas las órdenes para contar por fase manualmente
+  const { data: todasOrdenes } = await supabase
+    .from("ordenes")
+    .select("estado_actual");
+
+  // Contar manualmente por fase
+  const conteoRecepcion = todasOrdenes?.filter(o => 
+    o.estado_actual?.toLowerCase().includes('recepción') || 
+    o.estado_actual?.toLowerCase().includes('recepcion')
+  ).length || 0;
+
+  const conteoDiagnostico = todasOrdenes?.filter(o => 
+    o.estado_actual?.toLowerCase().includes('diagnóstico') || 
+    o.estado_actual?.toLowerCase().includes('diagnostico')
+  ).length || 0;
+
+  const conteoCotizacion = todasOrdenes?.filter(o => 
+    o.estado_actual?.toLowerCase().includes('cotización') || 
+    o.estado_actual?.toLowerCase().includes('cotizacion')
+  ).length || 0;
+
+  const conteoReparacion = todasOrdenes?.filter(o => 
+    o.estado_actual?.toLowerCase().includes('reparación') || 
+    o.estado_actual?.toLowerCase().includes('reparacion')
+  ).length || 0;
+
+  const conteoFinalizada = todasOrdenes?.filter(o => 
+    o.estado_actual?.toLowerCase().includes('finalizada')
+  ).length || 0;
+
   const ordenesPorFase: Record<string, number> = {
-    'Recepción': 0,
-    'Diagnóstico': 0,
-    'Cotización': 0,
-    'Reparación': 0,
-    'Entrega': 0,
-    'Finalizada': 0
+    'Recepción': conteoRecepcion,
+    'Diagnóstico': conteoDiagnostico,
+    'Cotización': conteoCotizacion,
+    'Reparación': conteoReparacion,
+    'Finalizada': conteoFinalizada
   };
+
+  console.log('🔍 Conteos por fase:', ordenesPorFase);
+  console.log('🔍 Todos los estados:', todasOrdenes?.map(o => o.estado_actual));
 
   let ingresos_totales = 0;
   let ingresos_mes_actual = 0;
@@ -46,56 +78,24 @@ export async function obtenerEstadisticasGlobales(): Promise<EstadisticasGlobale
 
   ordenes?.forEach(orden => {
     const estadoNormalizado = orden.estado_actual?.toLowerCase() || '';
-    
+
     // Mapear estado_actual a OrdenStatus
-    let estadoKey: OrdenStatus | null = null;
-    
-    if (estadoNormalizado.includes('pendiente')) {
-      estadoKey = 'pendiente';
-    } else if (estadoNormalizado.includes('proceso') || 
-               estadoNormalizado.includes('diagnóstico') || 
-               estadoNormalizado.includes('diagnostico') || 
-               estadoNormalizado.includes('reparación') || 
-               estadoNormalizado.includes('reparacion') ||
-               estadoNormalizado.includes('cotización') ||
-               estadoNormalizado.includes('cotizacion') ||
-               estadoNormalizado.includes('aprobación') ||
-               estadoNormalizado.includes('recepción') ||
-               estadoNormalizado.includes('recepcion')) {
-      estadoKey = 'en_proceso';
-    } else if (estadoNormalizado.includes('repuesto') || estadoNormalizado.includes('esperando') || estadoNormalizado.includes('espera')) {
-      estadoKey = 'espera_repuestos';
-    } else if (estadoNormalizado.includes('finalizada')) {
+    let estadoKey: OrdenStatus;
+
+    if (estadoNormalizado.includes('finalizada') || estadoNormalizado.includes('completada') || estadoNormalizado.includes('entregada')) {
       estadoKey = 'completada';
     } else if (estadoNormalizado.includes('cancelada') || estadoNormalizado.includes('anulada')) {
       estadoKey = 'cancelada';
-    }
-    
-    if (estadoKey && ordenesPorEstado[estadoKey] !== undefined) {
-      ordenesPorEstado[estadoKey]++;
+    } else if (estadoNormalizado.includes('repuesto') || estadoNormalizado.includes('esperando') || estadoNormalizado.includes('espera')) {
+      estadoKey = 'espera_repuestos';
+    } else if (estadoNormalizado.includes('pendiente')) {
+      estadoKey = 'pendiente';
+    } else {
+      estadoKey = 'en_proceso';
     }
 
-    // Mapear estado_actual a fase correspondiente (basado en el estado real)
-    let faseNombre: string | null = null;
-    
-    if (estadoNormalizado.includes('recepción') || estadoNormalizado.includes('recepcion')) {
-      faseNombre = 'Recepción';
-    } else if (estadoNormalizado.includes('diagnóstico') || estadoNormalizado.includes('diagnostico')) {
-      faseNombre = 'Diagnóstico';
-    } else if (estadoNormalizado.includes('cotización') || estadoNormalizado.includes('cotizacion') || 
-               estadoNormalizado.includes('aprobación') || estadoNormalizado.includes('aprobacion')) {
-      faseNombre = 'Cotización';
-    } else if (estadoNormalizado.includes('reparación') || estadoNormalizado.includes('reparacion') || 
-               estadoNormalizado.includes('repuesto')) {
-      faseNombre = 'Reparación';
-    } else if (estadoNormalizado.includes('entrega') && !estadoNormalizado.includes('finalizada')) {
-      faseNombre = 'Entrega';
-    } else if (estadoNormalizado.includes('finalizada')) {
-      faseNombre = 'Finalizada';
-    }
-    
-    if (faseNombre && ordenesPorFase[faseNombre] !== undefined) {
-      ordenesPorFase[faseNombre]++;
+    if (ordenesPorEstado[estadoKey] !== undefined) {
+      ordenesPorEstado[estadoKey]++;
     }
 
     // Calcular ingresos
@@ -179,8 +179,10 @@ export async function obtenerDesempenoEmpleado(usuarioId?: string): Promise<Dese
     }
 
     const empleado = empleadosMap.get(tecnicoId)!;
+    const estadoNormalizado = orden.estado_actual?.toLowerCase() || '';
 
-    if (orden.estado_actual === 'completada' || orden.estado_actual === 'Completada') {
+    // Aplicar la misma lógica: solo completadas o entregadas cuentan como completadas
+    if (estadoNormalizado.includes('finalizada') || estadoNormalizado.includes('completada') || estadoNormalizado.includes('entregada')) {
       empleado.ordenes_completadas++;
 
       // Calcular tiempo de reparación en días
@@ -190,7 +192,8 @@ export async function obtenerDesempenoEmpleado(usuarioId?: string): Promise<Dese
         const dias = Math.ceil((fin.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
         empleado.tiempos_reparacion.push(dias);
       }
-    } else if (orden.estado_actual?.toLowerCase().includes('proceso')) {
+    } else if (!estadoNormalizado.includes('cancelada') && !estadoNormalizado.includes('anulada')) {
+      // Todas las órdenes que no estén canceladas se consideran "en proceso"
       empleado.ordenes_en_proceso++;
     }
   });
@@ -286,10 +289,14 @@ export async function obtenerDesempenoSede(sede?: string): Promise<DesempenoSede
     const sedeData = sedesMap.get(sedeUsuario);
     if (!sedeData) return;
 
-    if (orden.estado_actual === 'completada' || orden.estado_actual === 'Completada') {
+    const estadoNormalizado = orden.estado_actual?.toLowerCase() || '';
+
+    // Aplicar la misma lógica: solo completadas o entregadas cuentan como completadas
+    if (estadoNormalizado.includes('finalizada') || estadoNormalizado.includes('completada') || estadoNormalizado.includes('entregada')) {
       sedeData.ordenes_completadas++;
       sedeData.ingresos_totales += orden.total || 0;
-    } else if (orden.estado_actual?.toLowerCase().includes('proceso')) {
+    } else if (!estadoNormalizado.includes('cancelada') && !estadoNormalizado.includes('anulada')) {
+      // Todas las órdenes que no estén canceladas se consideran "en proceso"
       sedeData.ordenes_en_proceso++;
     }
   });
@@ -332,25 +339,26 @@ export async function obtenerEstadisticasDashboard() {
 
   // Mapear órdenes con formato consistente
   const ordenesMapeadas = (ordenesRecientes || []).map(orden => {
-    const estadoNormalizado = orden.estado_actual?.toLowerCase() || '';
+    const estadoActual = orden.estado_actual || 'Sin estado';
     let fase = 'Sin fase';
     
-    if (estadoNormalizado.includes('recepción') || estadoNormalizado.includes('recepcion') || estadoNormalizado === 'recibida') {
+    // Determinar fase basada en el contenido del estado_actual
+    if (estadoActual.toLowerCase().includes('recepción') || estadoActual.toLowerCase().includes('recepcion')) {
       fase = 'Recepción';
-    } else if (estadoNormalizado.includes('diagnóstico') || estadoNormalizado.includes('diagnostico')) {
+    } else if (estadoActual.toLowerCase().includes('diagnóstico') || estadoActual.toLowerCase().includes('diagnostico')) {
       fase = 'Diagnóstico';
-    } else if (estadoNormalizado.includes('cotización') || estadoNormalizado.includes('cotizacion') || estadoNormalizado.includes('aprobación')) {
+    } else if (estadoActual.toLowerCase().includes('cotización') || estadoActual.toLowerCase().includes('cotizacion')) {
       fase = 'Cotización';
-    } else if (estadoNormalizado.includes('reparación') || estadoNormalizado.includes('reparacion') || estadoNormalizado.includes('repuesto')) {
+    } else if (estadoActual.toLowerCase().includes('reparación') || estadoActual.toLowerCase().includes('reparacion')) {
       fase = 'Reparación';
-    } else if (estadoNormalizado.includes('finalizada') || estadoNormalizado.includes('completada') || estadoNormalizado.includes('entregada')) {
+    } else if (estadoActual.toLowerCase().includes('finalizada')) {
       fase = 'Finalizada';
     }
 
     return {
       id: orden.id,
       numero_orden: orden.codigo || 'Sin código',
-      estado: orden.estado_actual || 'Sin estado',
+      estado: estadoActual,
       fase_actual: fase,
       created_at: orden.fecha_creacion,
       cliente: orden.clientes || null

@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { Orden, OrdenPhase, OrdenStatus } from "@/types/database.types";
+import { notificarOrdenCreada, notificarCambioFase } from "./emailNotificationService";
 
 /**
  * Crear una nueva orden
@@ -68,6 +69,15 @@ Descripción: ${data.descripcion_problema || 'N/A'}
   }
 
   console.log("✅ Orden creada:", orden);
+  
+  // Enviar correo de confirmación de orden creada
+  try {
+    await notificarOrdenCreada(orden.id);
+  } catch (emailError) {
+    console.error("⚠️ Error al enviar correo de confirmación:", emailError);
+    // No lanzar error, la orden ya fue creada exitosamente
+  }
+  
   return orden;
 }
 
@@ -285,6 +295,14 @@ export async function avanzarACotizacion(
   }
 
   console.log("✅ Orden avanzada a cotización");
+  
+  // Enviar notificación de cambio de fase
+  try {
+    await notificarCambioFase(ordenId, 'Cotización');
+  } catch (emailError) {
+    console.error("⚠️ Error al enviar correo de cambio de fase:", emailError);
+  }
+  
   return data as Orden;
 }
 
@@ -394,6 +412,14 @@ export async function avanzarAReparacion(
   }
 
   console.log("✅ Orden avanzada a reparación");
+  
+  // Enviar notificación de cambio de fase
+  try {
+    await notificarCambioFase(ordenId, 'Reparación');
+  } catch (emailError) {
+    console.error("⚠️ Error al enviar correo de cambio de fase:", emailError);
+  }
+  
   return data as Orden;
 }
 
@@ -418,6 +444,14 @@ export async function finalizarOrden(ordenId: string) {
   }
 
   console.log("✅ Orden finalizada");
+  
+  // Enviar notificación de cambio de fase
+  try {
+    await notificarCambioFase(ordenId, 'Finalizada');
+  } catch (emailError) {
+    console.error("⚠️ Error al enviar correo de cambio de fase:", emailError);
+  }
+  
   return data as Orden;
 }
 

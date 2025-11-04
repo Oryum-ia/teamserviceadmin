@@ -3,9 +3,10 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { Loader2, Info, Plus, Trash2, Upload } from 'lucide-react';
+import { Loader2, Info, Plus, Trash2, Upload, FileText, Check, X, AlertCircle } from 'lucide-react';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 import ImagenViewer from './ImagenViewer';
+import { FirmaDisplay } from '@/components/FirmaPad';
 
 interface RecepcionFormProps {
   orden: any;
@@ -25,6 +26,25 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
 
   const [fotos, setFotos] = useState<string[]>(orden.fotos_recepcion || []);
   const [subiendoFotos, setSubiendoFotos] = useState(false);
+  
+  // Sincronizar con cambios en la orden (para actualizar términos y firma en tiempo real)
+  const [terminosAceptados, setTerminosAceptados] = useState(orden.terminos_aceptados || false);
+  const [firmaCliente, setFirmaCliente] = useState(orden.firma_cliente || null);
+  const [fechaAceptacion, setFechaAceptacion] = useState(orden.fecha_aceptacion_terminos || null);
+  const [fechaFirma, setFechaFirma] = useState(orden.fecha_firma_cliente || null);
+  
+  React.useEffect(() => {
+    console.log('🔄 Actualizando RecepcionForm con datos de orden:', {
+      terminos_aceptados: orden.terminos_aceptados,
+      firma_cliente: orden.firma_cliente ? 'Sí' : 'No',
+      fecha_aceptacion: orden.fecha_aceptacion_terminos,
+      fecha_firma: orden.fecha_firma_cliente
+    });
+    setTerminosAceptados(orden.terminos_aceptados || false);
+    setFirmaCliente(orden.firma_cliente || null);
+    setFechaAceptacion(orden.fecha_aceptacion_terminos || null);
+    setFechaFirma(orden.fecha_firma_cliente || null);
+  }, [orden.terminos_aceptados, orden.firma_cliente, orden.fecha_aceptacion_terminos, orden.fecha_firma_cliente]);
 
   // Cargar accesorios del modelo al montar el componente
   React.useEffect(() => {
@@ -58,8 +78,23 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
     cargarAccesoriosModelo();
   }, []);
 
-  // Extraer datos de recepción desde comentarios_recepcion
+  // Extraer datos de recepción desde el equipo (con join a modelos) o comentarios_recepcion como fallback
   const datosRecepcion = React.useMemo(() => {
+    // Priorizar datos del equipo con join a modelos
+    if (orden.equipo) {
+      const marca = orden.equipo.modelo?.marca?.nombre || '';
+      const modelo = orden.equipo.modelo?.equipo || '';
+      const modeloCompleto = marca && modelo ? `${marca} ${modelo}` : modelo || marca || 'N/A';
+      
+      return {
+        modelo: modeloCompleto,
+        serie: orden.equipo.serial || 'N/A',
+        tipo: orden.equipo.tipo_equipo || 'N/A',
+        descripcion: orden.descripcion_problema || 'N/A'
+      };
+    }
+    
+    // Fallback: extraer desde comentarios_recepcion si no hay equipo
     const comentarios = orden.comentarios_recepcion || '';
     const modeloMatch = comentarios.match(/Modelo:\s*(.+)/);
     const serieMatch = comentarios.match(/Serie\/Pieza:\s*(.+)/);
@@ -72,7 +107,7 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
       tipo: tipoMatch?.[1]?.trim() || 'N/A',
       descripcion: descripcionMatch?.[1]?.trim() || 'N/A'
     };
-  }, [orden.comentarios_recepcion]);
+  }, [orden.equipo, orden.comentarios_recepcion, orden.descripcion_problema]);
 
   const guardarAccesorios = async (items: Accesorio[], options?: { showToast?: boolean }) => {
     try {
@@ -93,6 +128,18 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
   };
 
   const handleAvanzarADiagnostico = async () => {
+    // Validar términos y condiciones
+    if (!orden.terminos_aceptados) {
+      toast.error('❌ El cliente debe aceptar los términos y condiciones antes de avanzar');
+      return;
+    }
+    
+    // Validar firma del cliente
+    if (!orden.firma_cliente) {
+      toast.error('❌ Debe haber una firma del cliente antes de avanzar');
+      return;
+    }
+    
     setIsLoading(true);
     try {
       // Importar dinámicamente para evitar error de referencia circular
@@ -486,6 +533,105 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Términos y Condiciones */}
+      <div className="mb-6">
+        <h3 className={`text-lg font-semibold mb-3 ${
+          theme === 'light' ? 'text-gray-900' : 'text-white'
+        }`}>
+          Términos y Condiciones
+        </h3>
+        <div className={`rounded-lg border p-4 ${
+          terminosAceptados
+            ? theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-green-900/20 border-green-800'
+            : theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
+        }`}>
+          <div className="flex items-center gap-3">
+            {terminosAceptados ? (
+              <>
+                <Check className={`w-6 h-6 ${
+                  theme === 'light' ? 'text-green-600' : 'text-green-400'
+                }`} />
+                <div className="flex-1">
+                  <p className={`font-medium ${
+                    theme === 'light' ? 'text-green-900' : 'text-green-300'
+                  }`}>
+                    Términos aceptados
+                  </p>
+                  {fechaAceptacion && (
+                    <p className={`text-sm mt-1 ${
+                      theme === 'light' ? 'text-green-700' : 'text-green-400'
+                    }`}>
+                      Fecha: {new Date(fechaAceptacion).toLocaleString('es-CO')}
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <AlertCircle className={`w-6 h-6 ${
+                  theme === 'light' ? 'text-red-600' : 'text-red-400'
+                }`} />
+                <div className="flex-1">
+                  <p className={`font-medium ${
+                    theme === 'light' ? 'text-red-900' : 'text-red-300'
+                  }`}>
+                    Términos NO aceptados
+                  </p>
+                  <p className={`text-sm mt-1 ${
+                    theme === 'light' ? 'text-red-700' : 'text-red-400'
+                  }`}>
+                    El cliente debe aceptar los términos desde la página web
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Firma del Cliente */}
+      <div className="mb-6">
+        <h3 className={`text-lg font-semibold mb-3 ${
+          theme === 'light' ? 'text-gray-900' : 'text-white'
+        }`}>
+          Firma del Cliente
+        </h3>
+        {firmaCliente ? (
+          <div>
+            <FirmaDisplay 
+              firmaBase64={firmaCliente}
+              titulo="Firma del Cliente - Recepción"
+              className=""
+            />
+            {fechaFirma && (
+              <p className={`text-sm mt-2 ${
+                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+              }`}>
+                Fecha de firma: {new Date(fechaFirma).toLocaleString('es-CO')}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className={`rounded-lg border p-6 text-center ${
+            theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
+          }`}>
+            <AlertCircle className={`w-12 h-12 mx-auto mb-3 ${
+              theme === 'light' ? 'text-red-400' : 'text-red-500'
+            }`} />
+            <p className={`font-medium mb-1 ${
+              theme === 'light' ? 'text-red-900' : 'text-red-300'
+            }`}>
+              Sin firma del cliente
+            </p>
+            <p className={`text-sm ${
+              theme === 'light' ? 'text-red-700' : 'text-red-400'
+            }`}>
+              El cliente debe firmar desde la página web al entregar el equipo
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Información de la orden */}

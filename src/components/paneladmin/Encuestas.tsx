@@ -6,7 +6,6 @@ import { useTheme } from '../ThemeProvider';
 import { 
   FileText, 
   Search, 
-  Eye, 
   Download, 
   Filter,
   X,
@@ -17,6 +16,7 @@ import {
   Phone
 } from 'lucide-react';
 import { Encuesta } from '../../types/encuestas-pqr.types';
+import ResponsiveTable, { TableColumn } from './ResponsiveTable';
 
 export default function Encuestas() {
   const { theme } = useTheme();
@@ -137,6 +137,75 @@ export default function Encuestas() {
   const clearAllFilters = () => {
     setSearchTerm('');
     setFiltroSede('');
+  };
+
+  const columns: TableColumn<Encuesta>[] = [
+    {
+      key: 'nombre',
+      label: 'Nombre',
+      render: (encuesta) => (
+        <div>
+          <div className={`font-medium ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            {encuesta.nombre_completo}
+          </div>
+          <div className={`text-sm ${
+            theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+          }`}>
+            {encuesta.email}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'sede',
+      label: 'Sede',
+      render: (encuesta) => (
+        <span className={theme === 'light' ? 'text-gray-700' : 'text-gray-300'}>
+          {encuesta.sede}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'promedio',
+      label: 'Promedio',
+      render: (encuesta) => renderEstrellas(Number(calcularPromedioGeneral(encuesta))),
+    },
+    {
+      key: 'nps',
+      label: 'NPS',
+      render: (encuesta) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+          encuesta.recomendacion_puntuacion >= 9
+            ? 'bg-green-100 text-green-800'
+            : encuesta.recomendacion_puntuacion >= 7
+            ? 'bg-yellow-100 text-yellow-800'
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {encuesta.recomendacion_puntuacion}/10
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'fecha',
+      label: 'Fecha',
+      render: (encuesta) => (
+        <span className={`text-sm ${
+          theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+        }`}>
+          {new Date(encuesta.fecha_creacion).toLocaleDateString('es-ES')}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+  ];
+
+  const handleRowClick = (encuesta: Encuesta) => {
+    setSelectedEncuesta(encuesta);
+    setShowModal(true);
   };
 
   return (
@@ -263,91 +332,14 @@ export default function Encuestas() {
         </div>
       )}
 
-      {/* Tabla */}
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      ) : (
-        <div className={`rounded-lg overflow-hidden ${
-          theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-800 border border-gray-700'
-        }`}>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sede</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Promedio</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NPS</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-              }`}>
-                {encuestasFiltradas.map((encuesta) => (
-                  <tr key={encuesta.id} className={
-                    theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                  }>
-                    <td className={`px-6 py-4 whitespace-nowrap ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      <div className="font-medium">{encuesta.nombre_completo}</div>
-                      <div className={`text-sm ${
-                        theme === 'light' ? 'text-gray-500' : 'text-gray-400'
-                      }`}>{encuesta.email}</div>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
-                      {encuesta.sede}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {renderEstrellas(Number(calcularPromedioGeneral(encuesta)))}
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        encuesta.recomendacion_puntuacion >= 9
-                          ? 'bg-green-100 text-green-800'
-                          : encuesta.recomendacion_puntuacion >= 7
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {encuesta.recomendacion_puntuacion}/10
-                      </span>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                      theme === 'light' ? 'text-gray-500' : 'text-gray-400'
-                    }`}>
-                      {new Date(encuesta.fecha_creacion).toLocaleDateString('es-ES')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => {
-                          setSelectedEncuesta(encuesta);
-                          setShowModal(true);
-                        }}
-                        className={`flex items-center gap-1 px-3 py-1 rounded-md transition-colors ${
-                          theme === 'light'
-                            ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                            : 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50'
-                        }`}
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver detalle
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={encuestasFiltradas}
+        columns={columns}
+        onRowClick={handleRowClick}
+        isLoading={loading}
+        emptyMessage="No se encontraron encuestas"
+      />
 
       {/* Modal de detalle */}
       {showModal && selectedEncuesta && (

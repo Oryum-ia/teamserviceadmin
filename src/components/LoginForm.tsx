@@ -2,29 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { EyeIcon, EyeSlashIcon, UserIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-import { useToast } from "@/contexts/ToastContext";
 
 export function LoginForm() {
-  const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [nombre, setNombre] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    setSuccess("");
 
     try {
       console.log("🔐 Iniciando sesión con Supabase...");
@@ -104,98 +97,8 @@ export function LoginForm() {
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
-    setSuccess("");
-
-    // Validaciones
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
-      setIsLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres");
-      setIsLoading(false);
-      return;
-    }
-
-    if (!nombre.trim()) {
-      setError("El nombre es requerido");
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      console.log("📝 Registrando nuevo usuario en Supabase Auth...");
-
-      // 1. Crear usuario en Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            nombre: nombre,
-            email: email, // Agregar email para el trigger
-            rol: 'tecnico', // Agregar rol para el trigger
-          },
-          emailRedirectTo: undefined, // Deshabilitar redirect de confirmación
-        }
-      });
-
-      if (authError) {
-        console.error("❌ Error al crear usuario en Auth:", authError);
-        if (authError.message.includes("already registered") || authError.message.includes("already been registered")) {
-          setError("Este correo ya está registrado. Intenta iniciar sesión.");
-        } else {
-          setError("Error al crear usuario: " + authError.message);
-        }
-        return;
-      }
-
-      if (!authData.user) {
-        setError("Error al crear usuario");
-        return;
-      }
-
-      console.log('✅ Usuario creado en Auth:', authData.user.id);
-
-      // El trigger handle_new_user() ya insertó el usuario en la tabla usuarios
-      console.log('✅ Usuario insertado automáticamente por trigger');
-
-      // Éxito
-      toast.success('¡Usuario creado exitosamente! Ya puedes iniciar sesión.');
-      setSuccess("¡Usuario creado exitosamente! Ya puedes iniciar sesión.");
-
-      // Limpiar formulario
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
-      setNombre("");
-
-      // Cambiar a modo login después de 2 segundos
-      setTimeout(() => {
-        setIsRegisterMode(false);
-        setSuccess("");
-      }, 2000);
-
-    } catch (error) {
-      console.error("❌ Error inesperado:", error);
-      setError("Error inesperado al crear usuario");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
-    if (isRegisterMode) {
-      handleRegister(e);
-    } else {
-      handleLogin(e);
-    }
+    handleLogin(e);
   };
 
   return (
@@ -217,13 +120,10 @@ export function LoginForm() {
       {/* Título */}
       <div className="text-center mb-4">
         <h2 className="text-gray-800 dark:text-gray-100 text-lg font-semibold mb-1">
-          {isRegisterMode ? "Crear Cuenta" : "Bienvenido"}
+          Bienvenido
         </h2>
         <p className="text-gray-600 dark:text-gray-400 text-xs">
-          {isRegisterMode
-            ? "Completa los datos para registrarte"
-            : "Ingresa tus credenciales para continuar"
-          }
+          Ingresa tus credenciales para continuar
         </p>
       </div>
 
@@ -237,41 +137,8 @@ export function LoginForm() {
         </div>
       )}
 
-      {/* Mensaje de éxito */}
-      {success && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-800 text-green-700 dark:text-green-300 px-3 py-2 rounded-lg text-xs mb-3 flex items-start">
-          <svg className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          <span>{success}</span>
-        </div>
-      )}
-
       {/* Formulario */}
       <form onSubmit={handleSubmit} className="space-y-3.5">
-        {/* Campo de Nombre (solo en registro) */}
-        {isRegisterMode && (
-          <div>
-            <label htmlFor="nombre" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              Nombre completo
-            </label>
-            <div className="relative">
-              <input
-                id="nombre"
-                type="text"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 transition-colors text-sm"
-                placeholder="Juan Pérez"
-                required
-              />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <UserIcon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Campo de Email */}
         <div>
           <label htmlFor="email" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -323,45 +190,7 @@ export function LoginForm() {
               )}
             </button>
           </div>
-          {isRegisterMode && (
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Mínimo 6 caracteres
-            </p>
-          )}
         </div>
-
-        {/* Campo de Confirmar Contraseña (solo en registro) */}
-        {isRegisterMode && (
-          <div>
-            <label htmlFor="confirmPassword" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              Confirmar contraseña
-            </label>
-            <div className="relative">
-              <input
-                id="confirmPassword"
-                type={showPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 transition-colors text-sm"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Link de olvido de contraseña (solo en login) */}
-        {!isRegisterMode && (
-          <div className="flex items-center justify-end -mt-1">
-            <a
-              href="#"
-              className="text-xs text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 font-medium transition-colors"
-              onClick={(e) => e.preventDefault()}
-            >
-              ¿Olvidaste tu contraseña?
-            </a>
-          </div>
-        )}
 
         {/* Botón de envío */}
         <button
@@ -375,68 +204,13 @@ export function LoginForm() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              {isRegisterMode ? "Creando cuenta..." : "Iniciando sesión..."}
+              Iniciando sesión...
             </span>
           ) : (
-            isRegisterMode ? "Crear cuenta" : "Iniciar sesión"
+            "Iniciar sesión"
           )}
         </button>
       </form>
-
-      {/* Botón para cambiar entre login y registro */}
-      <div className="text-center mt-4">
-        <button
-          type="button"
-          onClick={() => {
-            setIsRegisterMode(!isRegisterMode);
-            setError("");
-            setSuccess("");
-            setEmail("");
-            setPassword("");
-            setConfirmPassword("");
-            setNombre("");
-          }}
-          className="text-sm text-gray-600 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 font-medium transition-colors"
-        >
-          {isRegisterMode ? (
-            <>
-              ¿Ya tienes cuenta?{" "}
-              <span className="text-yellow-600 dark:text-yellow-400 underline">
-                Inicia sesión aquí
-              </span>
-            </>
-          ) : (
-            <>
-              ¿No tienes cuenta?{" "}
-              <span className="text-yellow-600 dark:text-yellow-400 underline">
-                Regístrate aquí
-              </span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Términos y condiciones */}
-      <div className="text-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-          Al {isRegisterMode ? "registrarte" : "iniciar sesión"}, aceptas los{" "}
-          <a
-            href="#"
-            className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 underline transition-colors"
-            onClick={(e) => e.preventDefault()}
-          >
-            Términos
-          </a>
-          {" "}y{" "}
-          <a
-            href="#"
-            className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 underline transition-colors"
-            onClick={(e) => e.preventDefault()}
-          >
-            Política de Privacidad
-          </a>
-        </p>
-      </div>
     </div>
   );
 }

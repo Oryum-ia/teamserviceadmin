@@ -211,7 +211,7 @@ export interface CarruselImagen {
 export interface EstadisticasGlobales {
   total_ordenes: number;
   ordenes_por_estado: Record<OrdenStatus, number>;
-  ordenes_por_fase: Record<OrdenPhase, number>;
+  ordenes_por_fase: Record<string, number>; // Cambiado a string para soportar keys con acentos como 'Diagnóstico', 'Recepción', etc.
   ingresos_totales: number;
   ingresos_mes_actual: number;
   ordenes_dia: number;

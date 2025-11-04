@@ -414,11 +414,11 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* Recepción */}
-          <div 
+          <div
             onClick={() => onSectionChange?.('ordenes', 'recepcion')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
-              theme === 'light' 
-                ? 'bg-white border-gray-200 hover:border-teal-400' 
+              theme === 'light'
+                ? 'bg-white border-gray-200 hover:border-teal-400'
                 : 'bg-gray-800 border-gray-700 hover:border-teal-400'
             }`}
           >
@@ -429,7 +429,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
               <span className={`text-2xl font-bold ${
                 theme === 'light' ? 'text-gray-900' : 'text-white'
               }`}>
-                {estadisticas.ordenes_por_fase.recepcion || 0}
+                {estadisticas.ordenes_por_fase['Recepción'] || 0}
               </span>
             </div>
             <h3 className={`text-sm font-medium ${
@@ -448,8 +448,8 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
           <div
             onClick={() => onSectionChange?.('ordenes', 'diagnostico')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
-              theme === 'light' 
-                ? 'bg-white border-gray-200 hover:border-blue-400' 
+              theme === 'light'
+                ? 'bg-white border-gray-200 hover:border-blue-400'
                 : 'bg-gray-800 border-gray-700 hover:border-blue-400'
             }`}
           >
@@ -460,7 +460,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
               <span className={`text-2xl font-bold ${
                 theme === 'light' ? 'text-gray-900' : 'text-white'
               }`}>
-                {estadisticas.ordenes_por_fase.diagnostico || 0}
+                {estadisticas.ordenes_por_fase['Diagnóstico'] || 0}
               </span>
             </div>
             <h3 className={`text-sm font-medium ${
@@ -475,10 +475,10 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
             </p>
           </div>
 
-          <div 
+          <div
             onClick={() => onSectionChange?.('ordenes', 'cotizacion')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
-              theme === 'light' 
+              theme === 'light'
                 ? 'bg-white border-gray-200 hover:border-purple-400'
                 : 'bg-gray-800 border-gray-700 hover:border-purple-400'
             }`}
@@ -490,7 +490,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
               <span className={`text-2xl font-bold ${
                 theme === 'light' ? 'text-gray-900' : 'text-white'
               }`}>
-                {estadisticas.ordenes_por_fase.cotizacion || 0}
+                {estadisticas.ordenes_por_fase['Cotización'] || 0}
               </span>
             </div>
             <h3 className={`text-sm font-medium ${
@@ -505,10 +505,10 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
             </p>
           </div>
 
-          <div 
+          <div
             onClick={() => onSectionChange?.('ordenes', 'reparacion')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
-              theme === 'light' 
+              theme === 'light'
                 ? 'bg-white border-gray-200 hover:border-orange-400'
                 : 'bg-gray-800 border-gray-700 hover:border-orange-400'
             }`}
@@ -520,7 +520,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
               <span className={`text-2xl font-bold ${
                 theme === 'light' ? 'text-gray-900' : 'text-white'
               }`}>
-                {estadisticas.ordenes_por_fase.reparacion || 0}
+                {estadisticas.ordenes_por_fase['Reparación'] || 0}
               </span>
             </div>
             <h3 className={`text-sm font-medium ${
@@ -535,33 +535,33 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
             </p>
           </div>
 
-          <div 
+          <div
             onClick={() => onSectionChange?.('ordenes', 'finalizada')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
-              theme === 'light' 
+              theme === 'light'
                 ? 'bg-white border-gray-200 hover:border-green-400'
                 : 'bg-gray-800 border-gray-700 hover:border-green-400'
             }`}
           >
             <div className="flex items-center justify-between mb-3">
-              <CheckCircle className={`w-5 h-5 ${
+              <Package className={`w-5 h-5 ${
                 theme === 'light' ? 'text-green-600' : 'text-green-400'
               }`} />
               <span className={`text-2xl font-bold ${
                 theme === 'light' ? 'text-gray-900' : 'text-white'
               }`}>
-                {estadisticas.ordenes_por_fase.finalizada || 0}
+                {estadisticas.ordenes_por_fase['Finalizada'] || 0}
               </span>
             </div>
             <h3 className={`text-sm font-medium ${
               theme === 'light' ? 'text-gray-700' : 'text-gray-300'
             }`}>
-              Finalizadas
+              Entrega
             </h3>
             <p className={`text-xs mt-1 ${
               theme === 'light' ? 'text-gray-500' : 'text-gray-500'
             }`}>
-              Completadas: {estadisticas.ordenes_por_estado.completada || 0}
+              Listas para entregar
             </p>
           </div>
         </div>

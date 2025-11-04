@@ -6,6 +6,7 @@ import { useTheme } from '../../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { obtenerTodasLasMarcas, desactivarMarca, type Marca } from '@/lib/services/marcaService';
 import MarcaModal from '../ordenes/MarcaModal';
+import ResponsiveTable, { TableColumn, TableAction } from '../ResponsiveTable';
 
 export default function Marcas() {
   const { theme } = useTheme();
@@ -93,6 +94,81 @@ export default function Marcas() {
   const handleItemsPerPageChange = (value: number) => {
     setItemsPerPage(value);
     setCurrentPage(1);
+  };
+
+  // Definición de columnas para la tabla
+  const columns: TableColumn<Marca>[] = [
+    {
+      key: 'nombre',
+      label: 'Marca',
+      render: (marca) => (
+        <div className="flex items-center gap-2">
+          <span className={`font-medium ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            {marca.nombre}
+          </span>
+          {marca.sitio_web && (
+            <a
+              href={marca.sitio_web}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:text-blue-600"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Globe className="w-4 h-4" />
+            </a>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'pais',
+      label: 'País de Origen',
+      render: (marca) => (
+        marca.pais_origen ? (
+          <div className={`flex items-center gap-1 ${
+            theme === 'light' ? 'text-gray-600' : 'text-gray-300'
+          }`}>
+            <MapPin className="w-4 h-4" />
+            {marca.pais_origen}
+          </div>
+        ) : (
+          <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>-</span>
+        )
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'descripcion',
+      label: 'Descripción',
+      render: (marca) => (
+        <div className={`max-w-xs truncate ${
+          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+        }`}>
+          {marca.descripcion || '-'}
+        </div>
+      ),
+    },
+  ];
+
+  // Definición de acciones para cada fila
+  const actions: TableAction<Marca>[] = [
+    {
+      icon: <Trash2 className="w-4 h-4" />,
+      title: 'Desactivar marca',
+      className: 'p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20',
+      onClick: (marca, event) => {
+        event.stopPropagation();
+        handleDelete(marca.id, marca.nombre);
+      },
+    },
+  ];
+
+  const handleRowClick = (marca: Marca) => {
+    setSelectedMarca(marca);
+    setMarcaToEdit(marca);
+    setIsModalOpen(true);
   };
 
   if (isLoading) {
@@ -189,168 +265,14 @@ export default function Marcas() {
         </div>
       </div>
 
-      {/* Tabla/Cards responsive */}
-      {currentItems.length === 0 ? (
-        <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
-          theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
-        }`}>
-          <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-            No se encontraron marcas
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Vista Desktop */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className={`w-full rounded-lg overflow-hidden ${
-              theme === 'light' ? 'bg-white' : 'bg-gray-800'
-            }`}>
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Marca
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    País de Origen
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Descripción
-                  </th>
-                  <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-              }`}>
-                {currentItems.map((marca) => (
-                  <tr
-                    key={marca.id}
-                    onClick={() => {
-                      setSelectedMarca(marca);
-                      setMarcaToEdit(marca);
-                      setIsModalOpen(true);
-                    }}
-                    className={`transition-colors cursor-pointer ${
-                      theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                    }`}>
-                    <td className={`px-6 py-4 whitespace-nowrap ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{marca.nombre}</span>
-                        {marca.sitio_web && (
-                          <a
-                            href={marca.sitio_web}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-600"
-                          >
-                            <Globe className="w-4 h-4" />
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {marca.pais_origen && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {marca.pais_origen}
-                        </div>
-                      )}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                    }`}>
-                      <div className="max-w-xs truncate">
-                        {marca.descripcion || '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(ev) => ev.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleDelete(marca.id, marca.nombre)}
-                          className="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Vista Mobile */}
-          <div className="md:hidden space-y-4">
-            {currentItems.map((marca) => (
-              <div
-                key={marca.id}
-                className={`rounded-lg p-4 ${
-                  theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-800 border border-gray-700'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className={`font-medium ${
-                        theme === 'light' ? 'text-gray-900' : 'text-white'
-                      }`}>
-                        {marca.nombre}
-                      </h3>
-                      {marca.sitio_web && (
-                        <a
-                          href={marca.sitio_web}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500"
-                        >
-                          <Globe className="w-4 h-4" />
-                        </a>
-                      )}
-                    </div>
-                    {marca.pais_origen && (
-                      <div className={`flex items-center gap-1 text-sm ${
-                        theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                      }`}>
-                        <MapPin className="w-3 h-3" />
-                        {marca.pais_origen}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleDelete(marca.id, marca.nombre)}
-                      className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                {marca.descripcion && (
-                  <p className={`text-sm ${
-                    theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                  }`}>
-                    {marca.descripcion}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={currentItems}
+        columns={columns}
+        actions={actions}
+        onRowClick={handleRowClick}
+        emptyMessage="No se encontraron marcas"
+      />
 
       {/* Paginación */}
       {totalPages > 1 && (

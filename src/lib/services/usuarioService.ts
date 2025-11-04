@@ -13,70 +13,74 @@ export async function crearUsuario(data: {
   sede?: string;
 }) {
   try {
-    // 1. Crear usuario en Supabase Auth usando el email proporcionado
-    console.log('🔑 Creando cuenta de autenticación...', { email: data.email });
-    
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    console.log('🔑 Creando cuenta de usuario usando Admin API...', { email: data.email });
+
+    // Usar Admin API para crear usuario sin afectar la sesión actual
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: data.email,
       password: data.password,
-      options: {
-        data: {
-          email: data.email,
-          nombre: data.nombre,
-          rol: data.rol,
-        },
-      },
+      email_confirm: true, // Auto-confirma el email
     });
 
     if (authError) {
-      console.error("❌ Error al crear cuenta de autenticación:", authError);
-      throw new Error(`Error de autenticación: ${authError.message}`);
+      console.error("❌ Error al crear cuenta:", { message: authError.message, status: (authError as any).status });
+
+      if (authError.message?.includes("already registered") || authError.message?.includes("already been registered")) {
+        throw new Error('Este email ya está registrado');
+      }
+
+      throw new Error(authError.message || 'Error desconocido al registrar');
     }
 
     if (!authData.user) {
-      throw new Error('No se pudo crear la cuenta de autenticación');
+      throw new Error('No se pudo crear la cuenta');
     }
 
-    console.log('✅ Cuenta de autenticación creada:', authData.user.id);
+    console.log('✅ Cuenta creada exitosamente con Admin API:', authData.user.id);
 
-    // 2. Insertar usuario en la tabla usuarios con gen_random_uuid() para el ID
-    const { data: usuario, error: dbError } = await supabase
-      .from("usuarios")
-      .insert([
-        {
-          // No especificamos el ID, la base de datos usará gen_random_uuid()
-          email: data.email,
-          nombre: data.nombre,
-          rol: data.rol,
-          sede: data.sede || null,
-          activo: true,
-        },
-      ])
+    // Insertar el usuario en la tabla public.usuarios
+    console.log('📝 Insertando usuario en tabla usuarios...', {
+      id: authData.user.id,
+      email: data.email,
+      nombre: data.nombre,
+      rol: data.rol,
+      sede: data.sede || null,
+    });
+
+    const { data: usuarioData, error: dbError } = await supabase
+      .from('usuarios')
+      .insert({
+        id: authData.user.id,
+        email: data.email,
+        password: data.password, // Se guarda para referencia
+        nombre: data.nombre,
+        rol: data.rol,
+        sede: data.sede || null,
+        activo: true,
+      })
       .select()
       .single();
 
     if (dbError) {
-      console.error("❌ Error al insertar usuario en tabla:", dbError);
-      
-      // Si falla la inserción en la tabla, intentar eliminar el usuario de auth
+      console.error('❌ Error al insertar en tabla usuarios:', dbError);
+      // Intentar eliminar el usuario de auth si falló la inserción en la tabla
       try {
         await supabase.auth.admin.deleteUser(authData.user.id);
-        console.log('🗑️ Usuario de auth eliminado por fallo en base de datos');
-      } catch (cleanupError) {
-        console.error('⚠️ No se pudo limpiar usuario de auth:', cleanupError);
+        console.log('🔄 Usuario eliminado de auth debido a error en tabla usuarios');
+      } catch (deleteError) {
+        console.error('❌ Error al revertir creación de usuario:', deleteError);
       }
-      
-      throw dbError;
+      throw new Error(`Error al crear usuario en base de datos: ${dbError.message}`);
     }
 
-    console.log("✅ Usuario creado exitosamente en tabla y auth");
-    return usuario as Usuario;
-  } catch (error) {
+    console.log('✅ Usuario insertado en tabla usuarios:', usuarioData);
+
+    return usuarioData as Usuario;
+  } catch (error: any) {
     console.error("❌ Error al crear usuario:", error);
     throw error;
   }
 }
-
 /**
  * Obtener todos los usuarios
  */
@@ -273,4 +277,43 @@ export async function obtenerUsuariosActivos() {
   }
 
   return data as Usuario[];
+}
+
+/**
+ * Eliminar un usuario del sistema
+ * Elimina tanto de la tabla usuarios como de Supabase Auth
+ */
+export async function eliminarUsuario(id: string) {
+  console.log('🗑️ Eliminando usuario:', { id });
+
+  try {
+    // Primero eliminar de la tabla usuarios
+    const { error: dbError } = await supabase
+      .from("usuarios")
+      .delete()
+      .eq("id", id);
+
+    if (dbError) {
+      console.error("❌ Error al eliminar usuario de la tabla:", dbError);
+      throw dbError;
+    }
+
+    console.log('✅ Usuario eliminado de la tabla usuarios');
+
+    // Luego eliminar de Supabase Auth
+    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+
+    if (authError) {
+      console.error("⚠️ Error al eliminar usuario de auth (la eliminación de la tabla ya se completó):", authError);
+      // No lanzar error aquí porque el usuario ya se eliminó de la tabla
+      // En producción, se podría registrar esto para limpieza manual
+    } else {
+      console.log('✅ Usuario eliminado de Supabase Auth');
+    }
+
+    return true;
+  } catch (error) {
+    console.error("❌ Error al eliminar usuario:", error);
+    throw error;
+  }
 }

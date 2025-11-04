@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Image as ImageIcon, Filter, Download } from 'lucide-react';
+import { Search, Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Image as ImageIcon, Filter, Download, Power } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { ProductoTienda } from '@/types/database.types';
@@ -9,6 +9,7 @@ import { obtenerTodosLosProductos, eliminarProducto, toggleActivoProducto } from
 import { obtenerTodasLasCategorias, type Categoria } from '@/lib/services/categoriaService';
 import { obtenerTodasLasMarcas, type Marca } from '@/lib/services/marcaService';
 import ProductoTiendaModal from './ProductoTiendaModal';
+import ResponsiveTable, { TableColumn, TableAction } from './ResponsiveTable';
 
 export default function ProductosTienda() {
   const { theme } = useTheme();
@@ -168,6 +169,129 @@ export default function ProductosTienda() {
     setCurrentPage(1);
   };
 
+  // Definición de columnas para la tabla
+  const columns: TableColumn<ProductoTienda>[] = [
+    {
+      key: 'imagen',
+      label: 'Imagen',
+      render: (producto) => {
+        const primeraImagen = producto.imagenes && producto.imagenes.length > 0 
+          ? producto.imagenes[0] 
+          : null;
+        
+        return primeraImagen ? (
+          <div className="relative">
+            <img
+              src={primeraImagen}
+              alt={producto.nombre}
+              className="w-16 h-16 object-cover rounded-lg"
+            />
+            {producto.imagenes && producto.imagenes.length > 1 && (
+              <span className={`absolute -top-1 -right-1 px-1.5 py-0.5 text-xs font-bold rounded-full ${
+                theme === 'light' ? 'bg-yellow-500 text-white' : 'bg-yellow-400 text-black'
+              }`}>
+                +{producto.imagenes.length - 1}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className={`w-16 h-16 flex items-center justify-center rounded-lg ${
+            theme === 'light' ? 'bg-gray-100' : 'bg-gray-700'
+          }`}>
+            <ImageIcon className="w-8 h-8 text-gray-400" />
+          </div>
+        );
+      },
+      isMobileImage: true, // Marcar como imagen para móvil
+    },
+    {
+      key: 'nombre',
+      label: 'Nombre',
+      render: (producto) => (
+        <span className={`font-medium ${
+          theme === 'light' ? 'text-gray-900' : 'text-white'
+        }`}>
+          {producto.nombre}
+        </span>
+      ),
+    },
+    {
+      key: 'descripcion',
+      label: 'Descripción',
+      render: (producto) => (
+        <div className={`max-w-xs truncate ${
+          theme === 'light' ? 'text-gray-600' : 'text-gray-300'
+        }`} title={producto.descripcion || '-'}>
+          {producto.descripcion || '-'}
+        </div>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'precio',
+      label: 'Precio',
+      render: (producto) => (
+        <span className={theme === 'light' ? 'text-gray-900' : 'text-white'}>
+          {producto.precio ? `$${producto.precio.toLocaleString()}` : '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'stock',
+      label: 'Stock',
+      render: (producto) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {producto.stock ?? '-'}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (producto) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+          producto.activo
+            ? 'bg-green-100 text-green-800'
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {producto.activo ? 'Activo' : 'Inactivo'}
+        </span>
+      ),
+    },
+  ];
+
+  // Definición de acciones para cada fila
+  const getActions = (producto: ProductoTienda): TableAction<ProductoTienda>[] => [
+    {
+      icon: <Power className="w-4 h-4" />,
+      title: producto.activo ? 'Desactivar' : 'Activar',
+      className: `p-2 rounded-lg transition-colors ${
+        producto.activo
+          ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+          : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+      }`,
+      onClick: (producto, event) => {
+        event.stopPropagation();
+        handleToggleActivo(producto.id, producto.activo ?? false);
+      },
+    },
+    {
+      icon: <Trash2 className="w-4 h-4" />,
+      title: 'Eliminar producto',
+      className: 'p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20',
+      onClick: (producto, event) => {
+        event.stopPropagation();
+        handleDelete(producto.id, producto.nombre);
+      },
+    },
+  ];
+
+  const handleRowClick = (producto: ProductoTienda) => {
+    setSelectedProducto(producto);
+    setIsModalOpen(true);
+  };
+
   const exportarCSV = () => {
     try {
       // Usar filteredProductos en lugar de productos para respetar los filtros
@@ -199,7 +323,7 @@ export default function ProductosTienda() {
         `"${(producto.descripcion || '').replace(/"/g, '""')}"`,
         producto.precio || '',
         producto.stock ?? '',
-        producto.sku || '',
+        '', // SKU no existe en el tipo ProductoTienda
         producto.categoria_id || '',
         producto.marca_id || '',
         producto.activo ? 'Activo' : 'Inactivo',
@@ -453,160 +577,16 @@ export default function ProductosTienda() {
         </div>
       </div>
 
-      {/* Tabla/Cards responsive */}
-      {currentItems.length === 0 ? (
-        <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
-          theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
-        }`}>
-          <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-            No se encontraron productos
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Vista Desktop */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className={`w-full rounded-lg overflow-hidden ${
-              theme === 'light' ? 'bg-white' : 'bg-gray-800'
-            }`}>
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Imagen
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Nombre
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Descripción
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Precio
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Stock
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Estado
-                  </th>
-                  <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-              }`}>
-                {currentItems.map((producto) => (
-                  <tr
-                    key={producto.id}
-                    onClick={() => {
-                      setSelectedProducto(producto);
-                      setIsModalOpen(true);
-                    }}
-                    className={`transition-colors cursor-pointer ${
-                      theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                    }`}
-                  >
-                    <td className="px-6 py-4">
-                      {(() => {
-                        // Usar imagenes[] directamente
-                        const primeraImagen = producto.imagenes && producto.imagenes.length > 0 
-                          ? producto.imagenes[0] 
-                          : null;
-                        
-                        return primeraImagen ? (
-                          <div className="relative">
-                            <img
-                              src={primeraImagen}
-                              alt={producto.nombre}
-                              className="w-16 h-16 object-cover rounded-lg"
-                            />
-                            {producto.imagenes && producto.imagenes.length > 1 && (
-                              <span className={`absolute -top-1 -right-1 px-1.5 py-0.5 text-xs font-bold rounded-full ${
-                                theme === 'light' ? 'bg-yellow-500 text-white' : 'bg-yellow-400 text-black'
-                              }`}>
-                                +{producto.imagenes.length - 1}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className={`w-16 h-16 flex items-center justify-center rounded-lg ${
-                            theme === 'light' ? 'bg-gray-100' : 'bg-gray-700'
-                          }`}>
-                            <ImageIcon className="w-8 h-8 text-gray-400" />
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td className={`px-6 py-4 font-medium ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {producto.nombre}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      <div className="max-w-xs truncate" title={producto.descripcion || '-'}>
-                        {producto.descripcion || '-'}
-                      </div>
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {producto.precio ? `$${producto.precio.toLocaleString()}` : '-'}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {producto.stock ?? '-'}
-                    </td>
-                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => handleToggleActivo(producto.id, producto.activo ?? false)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          producto.activo
-                            ? 'bg-green-500'
-                            : 'bg-red-500'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            producto.activo ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => handleDelete(producto.id, producto.nombre)}
-                        className="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        title="Eliminar producto"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={currentItems}
+        columns={columns}
+        actions={getActions}
+        onRowClick={handleRowClick}
+        isLoading={isLoading}
+        emptyMessage="No se encontraron productos"
+        mobileImageLayout={true}
+      />
 
       {/* Paginación */}
       {totalPages > 1 && (

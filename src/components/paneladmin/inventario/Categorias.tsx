@@ -6,6 +6,7 @@ import { useTheme } from '../../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { obtenerTodasLasCategorias, desactivarCategoria, type Categoria } from '@/lib/services/categoriaService';
 import CategoriaModal from '../ordenes/CategoriaModal';
+import ResponsiveTable, { TableColumn, TableAction } from '../ResponsiveTable';
 
 export default function Categorias() {
   const { theme } = useTheme();
@@ -92,6 +93,51 @@ export default function Categorias() {
   const handleItemsPerPageChange = (value: number) => {
     setItemsPerPage(value);
     setCurrentPage(1);
+  };
+
+  // Definición de columnas para la tabla
+  const columns: TableColumn<Categoria>[] = [
+    {
+      key: 'nombre',
+      label: 'Categoría',
+      render: (categoria) => (
+        <span className={`font-medium ${
+          theme === 'light' ? 'text-gray-900' : 'text-white'
+        }`}>
+          {categoria.nombre}
+        </span>
+      ),
+    },
+    {
+      key: 'descripcion',
+      label: 'Descripción',
+      render: (categoria) => (
+        <div className={`max-w-md truncate ${
+          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+        }`}>
+          {categoria.descripcion || '-'}
+        </div>
+      ),
+    },
+  ];
+
+  // Definición de acciones para cada fila
+  const actions: TableAction<Categoria>[] = [
+    {
+      icon: <Trash2 className="w-4 h-4" />,
+      title: 'Desactivar categoría',
+      className: 'p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20',
+      onClick: (categoria, event) => {
+        event.stopPropagation();
+        handleDelete(categoria.id, categoria.nombre);
+      },
+    },
+  ];
+
+  const handleRowClick = (categoria: Categoria) => {
+    setSelectedCategoria(categoria);
+    setCategoriaToEdit(categoria);
+    setIsModalOpen(true);
   };
 
   if (isLoading) {
@@ -188,121 +234,14 @@ export default function Categorias() {
         </div>
       </div>
 
-      {/* Tabla/Cards responsive */}
-      {currentItems.length === 0 ? (
-        <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
-          theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
-        }`}>
-          <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-            No se encontraron categorías
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Vista Desktop */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className={`w-full rounded-lg overflow-hidden ${
-              theme === 'light' ? 'bg-white' : 'bg-gray-800'
-            }`}>
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Categoría
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Descripción
-                  </th>
-                  <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-              }`}>
-                {currentItems.map((categoria) => (
-                  <tr
-                    key={categoria.id}
-                    onClick={() => {
-                      setSelectedCategoria(categoria);
-                      setCategoriaToEdit(categoria);
-                      setIsModalOpen(true);
-                    }}
-                    className={`transition-colors cursor-pointer ${
-                      theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                    }`}>
-                    <td className={`px-6 py-4 whitespace-nowrap ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      <span className="font-medium">{categoria.nombre}</span>
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                    }`}>
-                      <div className="max-w-md truncate">
-                        {categoria.descripcion || '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(ev) => ev.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleDelete(categoria.id, categoria.nombre)}
-                          className="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Vista Mobile */}
-          <div className="md:hidden space-y-4">
-            {currentItems.map((categoria) => (
-              <div
-                key={categoria.id}
-                className={`rounded-lg p-4 ${
-                  theme === 'light' ? 'bg-white border border-gray-200' : 'bg-gray-800 border border-gray-700'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <h3 className={`font-medium mb-1 ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {categoria.nombre}
-                    </h3>
-                    {categoria.descripcion && (
-                      <p className={`text-sm mt-1 ${
-                        theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                      }`}>
-                        {categoria.descripcion}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleDelete(categoria.id, categoria.nombre)}
-                      className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={currentItems}
+        columns={columns}
+        actions={actions}
+        onRowClick={handleRowClick}
+        emptyMessage="No se encontraron categorías"
+      />
 
       {/* Paginación */}
       {totalPages > 1 && (

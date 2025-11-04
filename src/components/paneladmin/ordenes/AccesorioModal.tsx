@@ -4,7 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useTheme } from '../../ThemeProvider';
 import { crearAccesorio } from '@/lib/services/accesorioService';
+import { obtenerTodasLasMarcas, type Marca } from '@/lib/services/marcaService';
 import { useToast } from '@/contexts/ToastContext';
+import SearchableSelect from './SearchableSelect';
+import MarcaModal from './MarcaModal';
 
 interface AccesorioModalProps {
   isOpen: boolean;
@@ -18,30 +21,51 @@ export default function AccesorioModal({ isOpen, onClose, onSuccess, accesorioEd
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [marcaModalOpen, setMarcaModalOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
     descripcion: '',
-    marca: ''
+    marcaId: ''
   });
+
+  // Cargar marcas cuando se abre el modal
+  useEffect(() => {
+    const cargarMarcas = async () => {
+      try {
+        const marcasData = await obtenerTodasLasMarcas();
+        setMarcas(marcasData);
+      } catch (err) {
+        console.error('Error al cargar marcas:', err);
+        toast.error('Error al cargar las marcas');
+      }
+    };
+
+    if (isOpen) {
+      cargarMarcas();
+    }
+  }, [isOpen, toast]);
 
   // Reset form cuando se abre o cargar datos para editar
   useEffect(() => {
     if (isOpen) {
       if (accesorioEditar) {
+        // Buscar la marca por nombre en la lista de marcas
+        const marcaEncontrada = marcas.find(m => m.nombre === accesorioEditar.marca);
         setFormData({
           descripcion: accesorioEditar.descripcion || '',
-          marca: accesorioEditar.marca || ''
+          marcaId: marcaEncontrada?.id || ''
         });
       } else {
         setFormData({
           descripcion: '',
-          marca: ''
+          marcaId: ''
         });
       }
       setError('');
     }
-  }, [isOpen, accesorioEditar]);
+  }, [isOpen, accesorioEditar, marcas]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -61,12 +85,16 @@ export default function AccesorioModal({ isOpen, onClose, onSuccess, accesorioEd
         return;
       }
 
+      // Obtener el nombre de la marca a partir del ID
+      const marcaSeleccionada = marcas.find(m => m.id === formData.marcaId);
+      const marcaNombre = marcaSeleccionada?.nombre || null;
+
       if (accesorioEditar) {
         // Modo edición
         const { actualizarAccesorio } = await import('@/lib/services/accesorioService');
         const accesorioActualizado = await actualizarAccesorio(accesorioEditar.id, {
           descripcion: formData.descripcion,
-          marca: formData.marca || undefined
+          marca: marcaNombre || undefined
         });
         toast.success('Accesorio actualizado exitosamente');
         onSuccess(accesorioActualizado);
@@ -74,7 +102,7 @@ export default function AccesorioModal({ isOpen, onClose, onSuccess, accesorioEd
         // Modo creación
         const accesorioCreado = await crearAccesorio({
           descripcion: formData.descripcion,
-          marca: formData.marca || undefined
+          marca: marcaNombre || undefined
         });
         toast.success('Accesorio creado exitosamente');
         onSuccess(accesorioCreado);
@@ -88,6 +116,21 @@ export default function AccesorioModal({ isOpen, onClose, onSuccess, accesorioEd
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Manejar creación de nueva marca
+  const handleCrearMarca = () => {
+    setMarcaModalOpen(true);
+  };
+
+  // Manejar éxito al crear marca
+  const handleMarcaCreada = (nuevaMarca: Marca) => {
+    // Agregar la nueva marca a la lista
+    setMarcas(prev => [...prev, nuevaMarca]);
+    // Seleccionar automáticamente la nueva marca
+    setFormData(prev => ({ ...prev, marcaId: nuevaMarca.id }));
+    setMarcaModalOpen(false);
+    toast.success('Marca creada y seleccionada exitosamente');
   };
 
   if (!isOpen) return null;
@@ -150,25 +193,19 @@ export default function AccesorioModal({ isOpen, onClose, onSuccess, accesorioEd
           </div>
 
           {/* Marca */}
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              Marca
-            </label>
-            <input
-              type="text"
-              name="marca"
-              value={formData.marca}
-              onChange={handleChange}
-              placeholder="Ej: Kärcher"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                theme === 'light'
-                  ? 'border-gray-300 bg-white text-gray-900'
-                  : 'border-gray-600 bg-gray-700 text-gray-100'
-              }`}
-            />
-          </div>
+          <SearchableSelect
+            value={formData.marcaId}
+            onChange={(value) => setFormData(prev => ({ ...prev, marcaId: value }))}
+            options={marcas.map(marca => ({
+              id: marca.id,
+              label: marca.nombre,
+              searchText: marca.nombre.toLowerCase()
+            }))}
+            placeholder="Buscar marca..."
+            label="Marca"
+            onCreateNew={handleCrearMarca}
+            createButtonText="Crear Nueva Marca"
+          />
 
           {/* Footer */}
           <div className="flex items-center justify-end space-x-3 pt-4">
@@ -205,6 +242,13 @@ export default function AccesorioModal({ isOpen, onClose, onSuccess, accesorioEd
           </div>
         </form>
       </div>
+
+      {/* Modal de Marca */}
+      <MarcaModal
+        isOpen={marcaModalOpen}
+        onClose={() => setMarcaModalOpen(false)}
+        onSuccess={handleMarcaCreada}
+      />
     </div>
   );
 }

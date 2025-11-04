@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Save, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Save, Trash2, Loader2, MessageCircle } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 import { actualizarCotizacion, marcarEsperaRepuestos } from '@/lib/services/ordenService';
+import { notificarCotizacionWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
+import { notificarCambioFase } from '@/lib/services/emailNotificationService';
 import { obtenerRepuestosDelModelo, obtenerRepuestosDiagnostico, guardarRepuestosCotizacion, obtenerRepuestosCotizacion } from '@/lib/services/repuestoService';
 
 interface Repuesto {
@@ -28,6 +30,17 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [esperandoRepuestos, setEsperandoRepuestos] = useState(false);
+  
+  // Sincronizar aprobación del cliente en tiempo real
+  const [aprobadoCliente, setAprobadoCliente] = useState(orden.aprobado_cliente || false);
+  
+  React.useEffect(() => {
+    console.log('🔄 Actualizando aprobación del cliente:', {
+      aprobado_cliente: orden.aprobado_cliente,
+      estado_actual: orden.estado_actual
+    });
+    setAprobadoCliente(orden.aprobado_cliente || false);
+  }, [orden.aprobado_cliente]);
 
   // Usuario automático (con caché)
   const [usuarioCotizacion, setUsuarioCotizacion] = React.useState(() => {
@@ -260,9 +273,9 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
 
   const estado = orden.estado_actual;
   const puedeEditarGeneral = estado === 'Cotización' || estado === 'Esperando repuestos' || estado === 'Esperando aceptación';
-  const bloqueadoPorAceptacion = estado === 'Esperando aceptación' || !!orden.aprobado_cliente;
+  const bloqueadoPorAceptacion = estado === 'Esperando aceptación' || !!aprobadoCliente;
   const puedeEditarRepuestos = (estado === 'Cotización' || estado === 'Esperando repuestos') && !bloqueadoPorAceptacion;
-  const puedeEditarCamposCotizacion = (estado === 'Cotización' || estado === 'Esperando repuestos') && !orden.aprobado_cliente;
+  const puedeEditarCamposCotizacion = (estado === 'Cotización' || estado === 'Esperando repuestos') && !aprobadoCliente;
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('es-CO', {
@@ -525,18 +538,58 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
     try {
       const { supabase } = await import('@/lib/supabaseClient');
       const now = new Date().toISOString();
-      const updateData: any = {
-        estado_actual: 'Esperando aceptación',
-        ultima_actualizacion: now
-      };
-      await supabase
+      
+      console.log('📤 Actualizando orden ID:', orden.id);
+      
+      // Actualizar estado y envio_cotizacion
+      const { data, error } = await supabase
         .from('ordenes')
-        .update(updateData)
-        .eq('id', orden.id);
+        .update({
+          estado_actual: 'Esperando aceptación',
+          envio_cotizacion: true,
+          ultima_actualizacion: now
+        })
+        .eq('id', orden.id)
+        .select('id, estado_actual, envio_cotizacion, ultima_actualizacion')
+        .single();
+      
+      if (error) {
+        console.error('❌ Error al actualizar:', error);
+        throw error;
+      }
+      
+      console.log('✅ Actualización exitosa:', data);
+      
+      // Actualizar objeto local
       orden.estado_actual = 'Esperando aceptación';
+      orden.envio_cotizacion = true;
       orden.ultima_actualizacion = now;
-      updateOrdenFields(updateData);
+      
+      updateOrdenFields({
+        estado_actual: 'Esperando aceptación',
+        envio_cotizacion: true,
+        ultima_actualizacion: now
+      });
       toast.success('Estado actualizado a "Esperando aceptación"');
+      
+      // Enviar notificaciones por email y WhatsApp
+      const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://gleeful-mochi-2bc33c.netlify.app/';
+      const cotizacionUrl = `${trackingUrl}?orden=${orden.codigo}`;
+      
+      try {
+        // Email automático con notificación de cotización
+        await notificarCambioFase(orden.id, 'Cotización');
+      } catch (emailError) {
+        console.error('⚠️ Error al enviar correo:', emailError);
+      }
+      
+      try {
+        // WhatsApp manual (abre ventana con mensaje de cotización)
+        await notificarCotizacionWhatsApp(orden.id, cotizacionUrl, totales.total);
+      } catch (whatsappError) {
+        console.error('⚠️ Error al abrir WhatsApp:', whatsappError);
+      }
+      
       if (onSuccess) onSuccess();
     } catch (error) {
       console.error('Error al enviar cotización:', error);
@@ -573,6 +626,24 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
           }`}>
             Esta cotización ya fue completada y la orden avanzó a la siguiente fase.
           </p>
+        </div>
+      )}
+
+      {/* Mensaje de aprobación del cliente */}
+      {aprobadoCliente && estado === 'Esperando aceptación' && (
+        <div className={`mb-6 p-4 rounded-lg border ${
+          theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-green-900/20 border-green-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className={`text-sm font-medium ${
+              theme === 'light' ? 'text-green-800' : 'text-green-300'
+            }`}>
+              ¡El cliente ha aprobado la cotización! Puede avanzar a la siguiente fase.
+            </p>
+          </div>
         </div>
       )}
 
@@ -1012,7 +1083,7 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
       </div>
 
       {/* Acción: Enviar cotización (cambia estado_actual a "Esperando aceptación") */}
-      {(estado === 'Cotización' || estado === 'Esperando repuestos') && !orden.aprobado_cliente && (
+      {(estado === 'Cotización' || estado === 'Esperando repuestos') && !aprobadoCliente && !orden.envio_cotizacion && (
         <div className={`mt-6 p-4 rounded-lg border ${
           theme === 'light' ? 'bg-purple-50 border-purple-200' : 'bg-purple-900/20 border-purple-800'
         }`}>

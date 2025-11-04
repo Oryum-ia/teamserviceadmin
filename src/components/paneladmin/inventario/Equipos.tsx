@@ -6,6 +6,7 @@ import { useTheme } from '../../ThemeProvider';
 import { obtenerTodosLosEquipos, buscarEquipos } from '@/lib/services/equipoService';
 import { obtenerTodosLosClientes } from '@/lib/services/clienteService';
 import EquipoModal from '../ordenes/EquipoModal';
+import ResponsiveTable, { TableColumn, TableAction } from '../ResponsiveTable';
 
 export default function Equipos() {
   const { theme } = useTheme();
@@ -47,7 +48,7 @@ export default function Equipos() {
         const parts = [
           e?.serie_pieza,
           e?.modelo?.equipo,
-          e?.modelo?.marca,
+          e?.modelo?.marca?.nombre || e?.modelo?.marca,
           e?.cliente?.identificacion,
           e?.cliente?.razon_social,
           e?.cliente?.nombre_comercial,
@@ -55,6 +56,93 @@ export default function Equipos() {
         return parts.some((p: string) => p.includes(t));
       }));
     }
+  };
+
+  // Definición de columnas para la tabla
+  const columns: TableColumn<any>[] = [
+    {
+      key: 'cliente',
+      label: 'Cliente',
+      render: (equipo) => (
+        <span className={theme === 'light' ? 'text-gray-900 font-medium' : 'text-gray-100 font-medium'}>
+          {equipo?.cliente?.es_juridica 
+            ? (equipo?.cliente?.razon_social || '-') 
+            : (equipo?.cliente?.nombre_comercial || '-')}
+        </span>
+      ),
+    },
+    {
+      key: 'identificacion',
+      label: 'Identificación',
+      render: (equipo) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {equipo?.cliente?.identificacion || '-'}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'equipo',
+      label: 'Equipo',
+      render: (equipo) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {equipo?.modelo?.equipo || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'marca',
+      label: 'Marca',
+      render: (equipo) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {equipo?.modelo?.marca?.nombre || equipo?.modelo?.marca || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'referencia',
+      label: 'Referencia',
+      render: (equipo) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {equipo?.modelo?.referencia || '-'}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'serie',
+      label: 'Serie/Pieza',
+      render: (equipo) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {equipo?.serie_pieza || '-'}
+        </span>
+      ),
+    },
+  ];
+
+  // Definición de acciones para cada fila
+  const actions: TableAction<any>[] = [
+    {
+      icon: <Trash2 className="w-4 h-4" />,
+      title: 'Eliminar',
+      className: 'p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20',
+      onClick: async (equipo, event) => {
+        event.stopPropagation();
+        if (!confirm('¿Desactivar este equipo?')) return;
+        const { desactivarEquipo } = await import('@/lib/services/equipoService');
+        await desactivarEquipo(equipo.id);
+        await cargarEquipos();
+      },
+    },
+  ];
+
+  const handleRowClick = async (equipo: any) => {
+    try {
+      const data = await obtenerTodosLosClientes();
+      setClientes(data || []);
+    } catch {}
+    setSelectedEquipo(equipo);
+    setIsModalOpen(true);
   };
 
   return (
@@ -122,76 +210,15 @@ export default function Equipos() {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="flex items-center justify-center h-48">
-          <Loader2 className={`w-8 h-8 animate-spin ${theme === 'light' ? 'text-yellow-500' : 'text-yellow-400'}`} />
-        </div>
-      ) : (
-        <div className={`rounded-lg border overflow-hidden ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'}`}>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Cliente</th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Identificación</th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Equipo</th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Marca</th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Referencia</th>
-                  <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Serie/Pieza</th>
-                  <th className={`px-4 py-3 text-right text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'}`}>
-                {equipos.map((e: any) => (
-                  <tr
-                    key={e.id}
-                    onClick={async () => {
-                      try {
-                        const data = await obtenerTodosLosClientes();
-                        setClientes(data || []);
-                      } catch {}
-                      setIsModalOpen(true);
-                      // Pasar el objeto seleccionado al modal mediante state local
-                      setSelectedEquipo(e);
-                    }}
-                    className={`${theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'} cursor-pointer`}
-                  >
-                    <td className={`px-4 py-3 ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'}`}>
-                      {e?.cliente?.es_juridica ? (e?.cliente?.razon_social || '-') : (e?.cliente?.nombre_comercial || '-')}
-                    </td>
-                    <td className={`px-4 py-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>{e?.cliente?.identificacion || '-'}</td>
-                    <td className={`px-4 py-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>{e?.modelo?.equipo || '-'}</td>
-                    <td className={`px-4 py-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>{e?.modelo?.marca || '-'}</td>
-                    <td className={`px-4 py-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>{e?.modelo?.referencia || '-'}</td>
-                    <td className={`px-4 py-3 ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>{e?.serie_pieza || '-'}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
-                      <button
-                        onClick={async () => {
-                          if (!confirm('¿Desactivar este equipo?')) return;
-                          const { desactivarEquipo } = await import('@/lib/services/equipoService');
-                          await desactivarEquipo(e.id);
-                          await cargarEquipos();
-                        }}
-                        className="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {equipos.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className={`px-4 py-8 text-center ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                      No se encontraron equipos
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={equipos}
+        columns={columns}
+        actions={actions}
+        onRowClick={handleRowClick}
+        isLoading={isLoading}
+        emptyMessage="No se encontraron equipos"
+      />
 
       {/* Modal Crear Equipo */}
       <EquipoModal

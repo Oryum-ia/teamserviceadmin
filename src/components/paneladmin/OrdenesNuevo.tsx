@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Filter, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
-import { Orden, OrdenPhase, OrdenStatus } from '@/types/database.types';
+import { Orden, OrdenStatus } from '@/types/database.types';
 import { obtenerTodasLasOrdenes } from '@/lib/services/ordenService';
 import OrdenModal from './ordenes/OrdenModal';
 
@@ -50,23 +50,6 @@ const getEstadoActualInfo = (estadoActual?: string, fallbackStatus?: OrdenStatus
   return getStatusInfo((fallbackStatus as OrdenStatus) || 'pendiente');
 };
 
-const getPhaseInfo = (phase: OrdenPhase) => {
-  switch (phase) {
-    case 'recepcion':
-      return { label: 'Recepción', step: 0 };
-    case 'diagnostico':
-      return { label: 'Diagnóstico', step: 1 };
-    case 'cotizacion':
-      return { label: 'Cotización', step: 2 };
-    case 'reparacion':
-      return { label: 'Reparación', step: 3 };
-    case 'finalizada':
-      return { label: 'Finalizada', step: 4 };
-    default:
-      return { label: phase, step: 0 };
-  }
-};
-
 interface ColumnFilters {
   numeroOrden: string;
   cliente: string;
@@ -76,14 +59,9 @@ interface ColumnFilters {
   marca: string;
   modelo: string;
   estado: OrdenStatus | 'all';
-  fase: OrdenPhase | 'all';
 }
 
-interface OrdenesNuevoProps {
-  filtroFaseInicial?: OrdenPhase | 'all';
-}
-
-export default function OrdenesNuevo({ filtroFaseInicial }: OrdenesNuevoProps = {}) {
+export default function OrdenesNuevo() {
   const { theme } = useTheme();
   const router = useRouter();
   const [ordenes, setOrdenes] = useState<any[]>([]);
@@ -92,7 +70,6 @@ export default function OrdenesNuevo({ filtroFaseInicial }: OrdenesNuevoProps = 
   const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Column filters - inicializar con el filtro de fase si viene
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({
     numeroOrden: '',
     cliente: '',
@@ -101,8 +78,7 @@ export default function OrdenesNuevo({ filtroFaseInicial }: OrdenesNuevoProps = 
     serial: '',
     marca: '',
     modelo: '',
-    estado: 'all',
-    fase: filtroFaseInicial || 'all'
+    estado: 'all'
   });
 
   // No abrir filtros automáticamente - solo aplicarlos
@@ -200,11 +176,6 @@ export default function OrdenesNuevo({ filtroFaseInicial }: OrdenesNuevoProps = 
       resultado = resultado.filter(orden => orden.estado === columnFilters.estado);
     }
 
-    // Filtrar por fase
-    if (columnFilters.fase !== 'all') {
-      resultado = resultado.filter(orden => orden.fase_actual === columnFilters.fase);
-    }
-
     setFilteredOrdenes(resultado);
     setCurrentPage(1);
   };
@@ -229,15 +200,14 @@ export default function OrdenesNuevo({ filtroFaseInicial }: OrdenesNuevoProps = 
       serial: '',
       marca: '',
       modelo: '',
-      estado: 'all',
-      fase: 'all'
+      estado: 'all'
     });
   };
 
   const hasActiveFilters = () => {
     return columnFilters.numeroOrden || columnFilters.cliente || columnFilters.identificacion ||
            columnFilters.equipo || columnFilters.serial || columnFilters.marca ||
-           columnFilters.modelo || columnFilters.estado !== 'all' || columnFilters.fase !== 'all';
+           columnFilters.modelo || columnFilters.estado !== 'all';
   };
 
   // Cálculos de paginación
@@ -509,25 +479,6 @@ export default function OrdenesNuevo({ filtroFaseInicial }: OrdenesNuevoProps = 
               </select>
             </div>
 
-{/* Fase */}
-            <div>
-              <select
-                value={columnFilters.fase}
-                onChange={(e) => setColumnFilters({...columnFilters, fase: e.target.value as OrdenPhase | 'all'})}
-                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
-              >
-                <option value="all">Todas las fases</option>
-                <option value="recepcion">Recepción</option>
-                <option value="diagnostico">Diagnóstico</option>
-                <option value="cotizacion">Cotización</option>
-                <option value="reparacion">Reparación</option>
-                <option value="finalizada">Finalizada</option>
-              </select>
-            </div>
           </div>
         </div>
       )}
@@ -652,11 +603,6 @@ export default function OrdenesNuevo({ filtroFaseInicial }: OrdenesNuevoProps = 
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                       theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                     }`}>
-                      Fase
-                    </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
                       Estado
                     </th>
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
@@ -676,7 +622,6 @@ export default function OrdenesNuevo({ filtroFaseInicial }: OrdenesNuevoProps = 
                 }`}>
                   {currentItems.map((orden) => {
                     const statusInfo = getEstadoActualInfo(orden.estado_actual, orden.estado);
-                    const phaseInfo = getPhaseInfo(orden.fase_actual);
 
                     return (
                       <tr 
@@ -724,15 +669,6 @@ export default function OrdenesNuevo({ filtroFaseInicial }: OrdenesNuevoProps = 
                           theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                         }`}>
                           {orden.serial || '-'}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            theme === 'light'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-purple-900/30 text-purple-300'
-                          }`}>
-                            {phaseInfo.label}
-                          </span>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${statusInfo.color}`}>

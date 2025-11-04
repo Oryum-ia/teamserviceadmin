@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { notificarCambioFaseWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
+import { notificarCambioFase } from '@/lib/services/emailNotificationService';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -73,15 +75,22 @@ export default function OrdenDetallePage() {
   };
 
   useEffect(() => {
-    if (ordenId) {
-      cargarOrden();
-      configurarRealtime();
-    }
+    let channel: any = null;
+    
+    const inicializar = async () => {
+      if (ordenId) {
+        await cargarOrden();
+        channel = await configurarRealtime();
+      }
+    };
+    
+    inicializar();
     
     return () => {
       // Limpiar suscripción al desmontar
-      if (typeof window !== 'undefined' && (window as any).realtimeChannel) {
-        (window as any).realtimeChannel.unsubscribe();
+      if (channel) {
+        console.log('🧹 Limpiando canal de realtime');
+        channel.unsubscribe();
       }
     };
   }, [ordenId]);
@@ -170,37 +179,68 @@ export default function OrdenDetallePage() {
     try {
       const { supabase } = await import('@/lib/supabaseClient');
       
+      console.log('🔌 Configurando realtime para orden ID:', ordenId);
+      
       const channel = supabase
         .channel(`orden-${ordenId}`)
         .on(
           'postgres_changes',
           {
-            event: 'UPDATE',
+            event: '*', // Escuchar todos los eventos (UPDATE, INSERT, DELETE)
             schema: 'public',
             table: 'ordenes',
             filter: `id=eq.${ordenId}`
           },
-          (payload) => {
-            console.log('🔔 Orden actualizada en tiempo real:', payload.new);
+          async (payload) => {
+            console.log('🔔 Evento recibido en realtime:', {
+              evento: payload.eventType,
+              id: payload.new?.id,
+              terminos_aceptados: payload.new?.terminos_aceptados,
+              firma_cliente: payload.new?.firma_cliente ? 'Sí tiene' : 'No tiene',
+              fecha_aceptacion: payload.new?.fecha_aceptacion_terminos,
+              fecha_firma: payload.new?.fecha_firma_cliente
+            });
             
-            // Actualizar estado y localStorage
-            const nuevaOrden = payload.new as any;
-            setOrden(nuevaOrden);
-            saveOrdenToLocalStorage(nuevaOrden);
-            
-            toast.info('La orden ha sido actualizada');
+            // Recargar la orden completa con todas las relaciones
+            try {
+              const ordenCompleta = await obtenerOrdenPorId(ordenId);
+              console.log('✅ Orden completa recargada:', {
+                id: ordenCompleta.id,
+                terminos_aceptados: ordenCompleta.terminos_aceptados,
+                firma_cliente: ordenCompleta.firma_cliente ? 'Sí tiene' : 'No tiene',
+                fecha_aceptacion: ordenCompleta.fecha_aceptacion_terminos,
+                fecha_firma: ordenCompleta.fecha_firma_cliente
+              });
+              setOrden(ordenCompleta);
+              saveOrdenToLocalStorage(ordenCompleta);
+            } catch (error) {
+              console.error('❌ Error recargando orden:', error);
+              // Fallback: usar solo los datos del payload
+              if (payload.new) {
+                const nuevaOrden = payload.new as any;
+                setOrden(nuevaOrden);
+                saveOrdenToLocalStorage(nuevaOrden);
+              }
+            }
           }
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Realtime SUSCRITO exitosamente para orden', ordenId);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ Error en canal de realtime:', err);
+          } else if (status === 'TIMED_OUT') {
+            console.error('⏱️ Timeout en suscripción de realtime');
+          } else {
+            console.log('🔔 Estado de realtime:', status);
+          }
+        });
       
-      // Guardar referencia para limpiar después
-      if (typeof window !== 'undefined') {
-        (window as any).realtimeChannel = channel;
-      }
-      
-      console.log('✅ Realtime configurado para orden', ordenId);
+      console.log('📡 Canal de realtime creado');
+      return channel;
     } catch (error) {
       console.error('❌ Error configurando realtime:', error);
+      return null;
     }
   };
 
@@ -307,6 +347,21 @@ export default function OrdenDetallePage() {
       toast.success(`Fase retrocedida a ${faseAnterior.label}`);
       setShowRetrocederModal(false);
       setComentarioRetroceso('');
+      
+      // Enviar notificaciones por email y WhatsApp
+      try {
+        // Email automático
+        await notificarCambioFase(ordenId, faseAnterior.label);
+      } catch (emailError) {
+        console.error('⚠️ Error al enviar correo:', emailError);
+      }
+      
+      try {
+        // WhatsApp manual (abre ventana)
+        await notificarCambioFaseWhatsApp(ordenId, faseAnterior.label);
+      } catch (whatsappError) {
+        console.error('⚠️ Error al abrir WhatsApp:', whatsappError);
+      }
     } catch (error) {
       console.error('Error al retroceder fase:', error);
       toast.error('Error al retroceder la fase');
@@ -322,24 +377,54 @@ export default function OrdenDetallePage() {
   };
 
   const puedeAvanzar = () => {
-    // Bloquear avance si está esperando repuestos o aceptación
-    if (orden?.estado_actual === 'Esperando repuestos' || orden?.estado_actual === 'Esperando aceptación') {
+    // Bloquear avance si está esperando repuestos
+    if (orden?.estado_actual === 'Esperando repuestos') {
       return false;
     }
+    // Si está esperando aceptación, solo permitir avanzar si el cliente aprobó
+    if (orden?.estado_actual === 'Esperando aceptación') {
+      return orden?.aprobado_cliente === true;
+    }
+    
     const faseId = mapEstadoAFase(orden?.estado_actual);
     const currentPhaseStep = FASES.find(f => f.id === faseId)?.step || 0;
+    
+    // Validación especial para fase de recepción
+    if (faseId === 'recepcion') {
+      // Solo permitir avanzar si tiene términos aceptados y firma del cliente
+      return orden?.terminos_aceptados && orden?.firma_cliente;
+    }
+    
     return currentPhaseStep < FASES.length - 1; // Puede avanzar si no está en la última fase
   };
 
   const handleAvanzarFase = async () => {
-    // Bloqueo explícito por estado de espera
-    if (orden?.estado_actual === 'Esperando repuestos' || orden?.estado_actual === 'Esperando aceptación') {
-      toast.error(`No puede avanzar de fase mientras está en "${orden.estado_actual}"`);
+    // Bloqueo explícito si está esperando repuestos
+    if (orden?.estado_actual === 'Esperando repuestos') {
+      toast.error('No puede avanzar de fase mientras está esperando repuestos');
+      return;
+    }
+    
+    // Si está esperando aceptación, validar que el cliente haya aprobado
+    if (orden?.estado_actual === 'Esperando aceptación' && !orden?.aprobado_cliente) {
+      toast.error('No puede avanzar hasta que el cliente apruebe la cotización');
       return;
     }
 
     const faseId = mapEstadoAFase(orden?.estado_actual);
     const currentPhaseStep = FASES.find(f => f.id === faseId)?.step || 0;
+    
+    // Validación especial para fase de recepción: debe tener términos aceptados y firma
+    if (faseId === 'recepcion') {
+      if (!orden?.terminos_aceptados) {
+        toast.error('Debe aceptar los términos y condiciones antes de avanzar');
+        return;
+      }
+      if (!orden?.firma_cliente) {
+        toast.error('Debe tener la firma del cliente antes de avanzar');
+        return;
+      }
+    }
     
     if (currentPhaseStep >= FASES.length - 1) {
       toast.error('Ya está en la última fase');
@@ -405,6 +490,21 @@ export default function OrdenDetallePage() {
       saveOrdenToLocalStorage(ordenActualizada);
       
       toast.success(`Avanzado a fase de ${siguienteFase.label}`);
+      
+      // Enviar notificaciones por email y WhatsApp
+      try {
+        // Email automático
+        await notificarCambioFase(ordenId, siguienteFase.label);
+      } catch (emailError) {
+        console.error('⚠️ Error al enviar correo:', emailError);
+      }
+      
+      try {
+        // WhatsApp manual (abre ventana)
+        await notificarCambioFaseWhatsApp(ordenId, siguienteFase.label);
+      } catch (whatsappError) {
+        console.error('⚠️ Error al abrir WhatsApp:', whatsappError);
+      }
     } catch (error) {
       console.error('Error al avanzar fase:', error);
       toast.error('Error al avanzar la fase');
@@ -440,6 +540,21 @@ export default function OrdenDetallePage() {
       saveOrdenToLocalStorage(ordenActualizada);
 
       toast.success('Orden finalizada');
+      
+      // Enviar notificaciones por email y WhatsApp
+      try {
+        // Email automático
+        await notificarCambioFase(ordenId, 'Finalizada');
+      } catch (emailError) {
+        console.error('⚠️ Error al enviar correo:', emailError);
+      }
+      
+      try {
+        // WhatsApp manual (abre ventana)
+        await notificarCambioFaseWhatsApp(ordenId, 'Finalizada');
+      } catch (whatsappError) {
+        console.error('⚠️ Error al abrir WhatsApp:', whatsappError);
+      }
     } catch (error) {
       console.error('Error al finalizar orden:', error);
       toast.error('Error al finalizar la orden');
@@ -499,70 +614,135 @@ export default function OrdenDetallePage() {
     <div className={`min-h-screen ${theme === 'light' ? 'bg-gray-50' : 'bg-gray-900'}`}>
       {/* Header */}
       <div className={`sticky top-0 z-10 ${theme === 'light' ? 'bg-white border-b border-gray-200' : 'bg-gray-800 border-b border-gray-700'} shadow-sm`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push('/paneladmin')}
-                className={`p-2 rounded-lg transition-colors ${
-                  theme === 'light'
-                    ? 'hover:bg-gray-100 text-gray-600'
-                    : 'hover:bg-gray-700 text-gray-400'
-                }`}
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className={`text-2xl font-bold ${
-                    theme === 'light' ? 'text-gray-900' : 'text-white'
-                  }`}>
-                    Orden {orden.codigo}
-                  </h1>
-                  {/* Botón de nota con indicador */}
-                  <button
-                    onClick={() => setShowNotaModal(true)}
-                    className={`relative p-2 rounded-lg transition-colors ${
-                      theme === 'light'
-                        ? 'hover:bg-gray-100 text-gray-600'
-                        : 'hover:bg-gray-700 text-gray-400'
-                    }`}
-                    title={notaOrden ? 'Ver nota' : 'Agregar nota'}
-                  >
-                    <StickyNote className="w-5 h-5" />
-                    {notaOrden && (
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
-                    )}
-                  </button>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 mt-1">
-                  <p className={`text-sm ${
-                    theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                  }`}>
-                    Cliente: {orden.cliente?.nombre_comercial || orden.cliente?.razon_social}
-                  </p>
-                  <span className={`text-gray-400 hidden sm:inline`}>•</span>
-                  <p className={`text-sm ${
-                    theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                  }`}>
-                    Producto: <span className="font-semibold">{orden.equipo?.modelo ? `${orden.equipo.modelo.marca?.nombre || ''} ${orden.equipo.modelo.equipo}` : orden.tipo_producto || 'No especificado'}</span>
-                  </p>
-                  <span className={`text-gray-400 hidden sm:inline`}>•</span>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${
-                    orden.estado_actual === 'Esperando repuestos' ? 'bg-orange-500' :
-                    orden.estado_actual === 'Cotización' ? 'bg-blue-500' :
-                    orden.estado_actual === 'Esperando aceptación' ? 'bg-purple-600' :
-                    orden.estado_actual === 'Diagnóstico' ? 'bg-purple-500' :
-                    orden.estado_actual === 'Reparación' ? 'bg-indigo-500' :
-                    orden.estado_actual === 'Finalizada' ? 'bg-green-500' : 'bg-gray-500'
-                  }`}>
-                    {orden.estado_actual || 'Sin estado'}
-                  </span>
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 sm:py-4">
+          {/* Layout móvil y desktop */}
+          <div className="flex flex-col gap-3 sm:gap-0">
+            {/* Primera fila: Botón volver + Título + Nota */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                <button
+                  onClick={() => router.push('/paneladmin?section=ordenes')}
+                  className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                    theme === 'light'
+                      ? 'hover:bg-gray-100 text-gray-600'
+                      : 'hover:bg-gray-700 text-gray-400'
+                  }`}
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h1 className={`text-lg sm:text-2xl font-bold truncate ${
+                      theme === 'light' ? 'text-gray-900' : 'text-white'
+                    }`}>
+                      Orden {orden.codigo}
+                    </h1>
+                    {/* Botón de nota con indicador */}
+                    <button
+                      onClick={() => setShowNotaModal(true)}
+                      className={`relative p-2 rounded-lg transition-colors flex-shrink-0 ${
+                        theme === 'light'
+                          ? 'hover:bg-gray-100 text-gray-600'
+                          : 'hover:bg-gray-700 text-gray-400'
+                      }`}
+                      title={notaOrden ? 'Ver nota' : 'Agregar nota'}
+                    >
+                      <StickyNote className="w-4 h-4 sm:w-5 sm:h-5" />
+                      {notaOrden && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-            
-            <div className="flex items-center gap-3">
+
+            {/* Segunda fila: Info del cliente, producto y estado en una línea */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:ml-14 text-xs sm:text-sm">
+              <p className={`truncate max-w-[200px] sm:max-w-none ${
+                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+              }`}>
+                <span className="font-medium">Cliente:</span> {orden.cliente?.nombre_comercial || orden.cliente?.razon_social}
+              </p>
+              <span className={`text-gray-400`}>•</span>
+              <p className={`truncate max-w-[200px] sm:max-w-none ${
+                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+              }`}>
+                <span className="font-medium">Producto:</span> <span className="font-semibold">{orden.equipo?.modelo ? `${orden.equipo.modelo.marca?.nombre || ''} ${orden.equipo.modelo.equipo}` : orden.tipo_producto || 'No especificado'}</span>
+              </p>
+              <span className={`text-gray-400`}>•</span>
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${
+                orden.estado_actual === 'Esperando repuestos' ? 'bg-orange-500' :
+                orden.estado_actual === 'Cotización' ? 'bg-blue-500' :
+                orden.estado_actual === 'Esperando aceptación' ? 'bg-purple-600' :
+                orden.estado_actual === 'Diagnóstico' ? 'bg-purple-500' :
+                orden.estado_actual === 'Reparación' ? 'bg-indigo-500' :
+                orden.estado_actual === 'Finalizada' ? 'bg-green-500' : 'bg-gray-500'
+              }`}>
+                {orden.estado_actual || 'Sin estado'}
+              </span>
+            </div>
+
+            {/* Tercera fila: Botones de acción (solo en móvil) */}
+            <div className="flex items-center gap-2 sm:hidden">
+              {puedeRetroceder() && (
+                <button
+                  onClick={() => setShowRetrocederModal(true)}
+                  disabled={isRetrocediendo || isAvanzando}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    theme === 'light'
+                      ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
+                      : 'bg-orange-900/30 hover:bg-orange-900/50 text-orange-300'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <ChevronLeftIcon className="w-4 h-4" />
+                  Retroceder
+                </button>
+              )}
+              {/* Botón Avanzar/Finalizar en móvil */}
+              {orden?.estado_actual === 'Entrega' ? (
+                <button
+                  onClick={handleFinalizarOrden}
+                  disabled={isAvanzando || isRetrocediendo}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    theme === 'light'
+                      ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                      : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  title="Finalizar orden"
+                >
+                  <span>Finalizar</span>
+                  <ChevronRightIcon className="w-4 h-4" />
+                </button>
+              ) : (
+                puedeAvanzar() && (
+                  <button
+                    onClick={handleAvanzarFase}
+                    disabled={isAvanzando || isRetrocediendo}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      theme === 'light'
+                        ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                        : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {isAvanzando ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Avanzando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Avanzar</span>
+                        <ChevronRightIcon className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                )
+              )}
+            </div>
+
+            {/* Botones de acción (solo en desktop) */}
+            <div className="hidden sm:flex items-center gap-3 absolute right-4 top-4">
               {puedeRetroceder() && (
                 <button
                   onClick={() => setShowRetrocederModal(true)}
@@ -577,7 +757,6 @@ export default function OrdenDetallePage() {
                   Retroceder
                 </button>
               )}
-              {/* En la misma ubicación del botón Avanzar Fase */}
               {orden?.estado_actual === 'Entrega' ? (
                 <button
                   onClick={handleFinalizarOrden}

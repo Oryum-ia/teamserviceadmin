@@ -33,24 +33,37 @@ export async function cambiarContraseñaUsuario(
   nuevaContraseña: string
 ) {
   try {
-    // Esta función requiere permisos de admin en Supabase
-    // Usamos la API de administrador para cambiar la contraseña en auth.users
-    const { data, error } = await supabase.auth.admin.updateUserById(
-      userId,
-      { password: nuevaContraseña }
-    );
+    console.log("🔄 Intentando cambiar contraseña para usuario:", userId);
+    
+    const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password: nuevaContraseña }),
+    });
 
-    if (error) {
-      console.error("❌ Error al cambiar contraseña del usuario:", error);
-      throw error;
+    console.log("📡 Respuesta de la API:", {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
+    const result = await response.json().catch((err) => {
+      console.error("❌ Error al parsear respuesta JSON:", err);
+      return null;
+    });
+
+    console.log("📦 Resultado parseado:", result);
+
+    if (!response.ok) {
+      const message = result?.message || result?.error || `Error ${response.status}: No se pudo actualizar la contraseña del usuario`;
+      console.error("❌ Error en la respuesta:", message);
+      throw new Error(message);
     }
 
-    if (!data.user) {
-      throw new Error("No se pudo actualizar la contraseña del usuario");
-    }
-
-    console.log("✅ Contraseña del usuario actualizada en auth.users");
-    return data.user;
+    console.log("✅ Contraseña actualizada exitosamente");
+    return result?.user ?? null;
   } catch (error) {
     console.error("❌ Error al cambiar contraseña del usuario:", error);
     throw error;

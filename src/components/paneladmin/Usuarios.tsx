@@ -1,15 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { UserCog, Search, Loader2, Plus, Trash2, Power, ChevronLeft, ChevronRight } from 'lucide-react';
+import { UserCog, Search, Loader2, Plus, Trash2, Power, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { Usuario, UserRole } from '@/types/database.types';
 import {
   obtenerTodosLosUsuarios,
   toggleActivoUsuario,
+  eliminarUsuario,
 } from '@/lib/services/usuarioService';
 import UsuarioModal from './UsuarioModal';
+import ResponsiveTable, { TableColumn, TableAction } from './ResponsiveTable';
 
 export default function Usuarios() {
   const { theme } = useTheme();
@@ -25,6 +27,8 @@ export default function Usuarios() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [usuarioToDelete, setUsuarioToDelete] = useState<Usuario | null>(null);
 
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,6 +88,27 @@ export default function Usuarios() {
     }
   };
 
+  const handleDeleteClick = (usuario: Usuario, ev: React.MouseEvent) => {
+    ev.stopPropagation();
+    setUsuarioToDelete(usuario);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!usuarioToDelete) return;
+
+    try {
+      await eliminarUsuario(usuarioToDelete.id);
+      toast.success('Usuario eliminado exitosamente');
+      cargarUsuarios();
+      setShowDeleteModal(false);
+      setUsuarioToDelete(null);
+    } catch (err: any) {
+      console.error('Error al eliminar usuario:', err);
+      toast.error(err.message || 'Error al eliminar el usuario');
+    }
+  };
+
   const getRoleLabel = (rol: UserRole) => {
     const labels: Record<UserRole, string> = {
       tecnico: 'Técnico',
@@ -102,6 +127,92 @@ export default function Usuarios() {
         'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 border border-red-200 dark:border-red-500/30',
     };
     return colors[rol];
+  };
+
+  // Definición de columnas para la tabla
+  const columns: TableColumn<Usuario>[] = [
+    {
+      key: 'nombre',
+      label: 'Nombre',
+      render: (usuario) => (
+        <span className={`font-medium ${
+          theme === 'light' ? 'text-gray-900' : 'text-white'
+        }`}>
+          {usuario.nombre}
+        </span>
+      ),
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      render: (usuario) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {usuario.email}
+        </span>
+      ),
+    },
+    {
+      key: 'rol',
+      label: 'Rol',
+      render: (usuario) => (
+        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(usuario.rol)}`}>
+          {getRoleLabel(usuario.rol)}
+        </span>
+      ),
+    },
+    {
+      key: 'sede',
+      label: 'Sede',
+      render: (usuario) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {usuario.sede || '-'}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (usuario) => (
+        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${
+          usuario.activo
+            ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400 border-green-200 dark:border-green-500/30'
+            : 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-400 border-gray-200 dark:border-gray-500/30'
+        }`}>
+          {usuario.activo ? 'Activo' : 'Inactivo'}
+        </span>
+      ),
+    },
+  ];
+
+  // Definición de acciones para cada fila - renderizamos dinámicamente el botón de activar/desactivar
+  const getActions = (usuario: Usuario): TableAction<Usuario>[] => [
+    {
+      icon: <Power className="w-4 h-4" />,
+      title: usuario.activo ? 'Desactivar' : 'Activar',
+      className: `p-2 rounded-lg transition-colors ${
+        usuario.activo
+          ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+          : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+      }`,
+      onClick: (usuario, event) => {
+        event.stopPropagation();
+        handleToggleActivo(usuario);
+      },
+    },
+    {
+      icon: <Trash2 className="w-4 h-4" />,
+      title: 'Eliminar usuario',
+      className: 'p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20',
+      onClick: (usuario, event) => {
+        handleDeleteClick(usuario, event);
+      },
+    },
+  ];
+
+  const handleRowClick = (usuario: Usuario) => {
+    setSelectedUsuario(usuario);
+    setIsModalOpen(true);
   };
 
   // Cálculos de paginación
@@ -231,119 +342,14 @@ export default function Usuarios() {
         </div>
       </div>
 
-      {/* Tabla/Cards responsive */}
-      {currentItems.length === 0 ? (
-        <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
-          theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
-        }`}>
-          <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-            No se encontraron usuarios
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Vista Desktop */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className={`w-full rounded-lg overflow-hidden ${
-              theme === 'light' ? 'bg-white' : 'bg-gray-800'
-            }`}>
-              <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
-                <tr>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Nombre
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Email
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Rol
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Sede
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Estado
-                  </th>
-                  <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-              }`}>
-                {currentItems.map((usuario) => (
-                  <tr
-                    key={usuario.id}
-                    onClick={() => {
-                      setSelectedUsuario(usuario);
-                      setIsModalOpen(true);
-                    }}
-                    className={`transition-colors cursor-pointer ${
-                      theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                    }`}
-                  >
-                    <td className={`px-6 py-4 font-medium ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {usuario.nombre}
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {usuario.email}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(usuario.rol)}`}>
-                        {getRoleLabel(usuario.rol)}
-                      </span>
-                    </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {usuario.sede || '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${
-                        usuario.activo
-                          ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400 border-green-200 dark:border-green-500/30'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-400 border-gray-200 dark:border-gray-500/30'
-                      }`}>
-                        {usuario.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(ev) => ev.stopPropagation()}>
-                      <button
-                        onClick={() => handleToggleActivo(usuario)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          usuario.activo
-                            ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
-                            : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
-                        }`}
-                        title={usuario.activo ? 'Desactivar' : 'Activar'}
-                      >
-                        <Power className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+      {/* Tabla responsive */}
+      <ResponsiveTable
+        data={currentItems}
+        columns={columns}
+        actions={getActions}
+        onRowClick={handleRowClick}
+        emptyMessage="No se encontraron usuarios"
+      />
 
       {/* Paginación */}
       {totalPages > 1 && (
@@ -408,6 +414,87 @@ export default function Usuarios() {
             <span className="hidden sm:inline">Siguiente</span>
             <ChevronRight className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteModal && usuarioToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div
+            className={`relative w-full max-w-md rounded-lg shadow-xl ${
+              theme === 'light' ? 'bg-white' : 'bg-gray-800'
+            }`}
+          >
+            {/* Header */}
+            <div
+              className={`flex items-center justify-between p-6 border-b ${
+                theme === 'light' ? 'border-gray-200' : 'border-gray-700'
+              }`}
+            >
+              <h2
+                className={`text-xl font-semibold ${
+                  theme === 'light' ? 'text-gray-900' : 'text-white'
+                }`}
+              >
+                Confirmar eliminación
+              </h2>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setUsuarioToDelete(null);
+                }}
+                className={`p-2 rounded-lg transition-colors ${
+                  theme === 'light'
+                    ? 'hover:bg-gray-100 text-gray-500'
+                    : 'hover:bg-gray-700 text-gray-400'
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className={`text-sm mb-4 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                ¿Está seguro que desea eliminar al usuario{' '}
+                <span className="font-semibold">{usuarioToDelete.nombre}</span>?
+              </p>
+              <p className={`text-xs mb-6 ${
+                theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+              }`}>
+                Esta acción no se puede deshacer. El usuario será eliminado permanentemente del sistema.
+              </p>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setUsuarioToDelete(null);
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    theme === 'light'
+                      ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    theme === 'light'
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-red-500 hover:bg-red-600 text-white'
+                  }`}
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
