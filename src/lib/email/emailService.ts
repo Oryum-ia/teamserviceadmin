@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { templateCambioFase, templateConfirmacionOrden, templateRespuestaPQR, getDescripcionFase } from './templates';
+import { templateCambioFase, templateConfirmacionOrden, templateRespuestaPQR, templateRecordatorioMantenimiento, getDescripcionFase } from './templates';
 
 /**
  * Servicio de envío de correos electrónicos
@@ -139,6 +139,33 @@ export async function enviarCorreoRespuestaPQR(data: {
   return enviarCorreo(
     data.clienteEmail,
     `📩 Respuesta a tu ${data.tipoPQR} - Team Service Costa`,
+    html
+  );
+}
+
+/**
+ * Enviar correo de recordatorio de mantenimiento
+ */
+export async function enviarCorreoRecordatorioMantenimiento(data: {
+  clienteEmail: string;
+  clienteNombre: string;
+  ordenId: string;
+  equipoDescripcion: string;
+  fechaMantenimiento: string;
+}): Promise<boolean> {
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://gleeful-mochi-2bc33c.netlify.app/';
+
+  const html = templateRecordatorioMantenimiento({
+    clienteNombre: data.clienteNombre,
+    ordenId: data.ordenId,
+    equipoDescripcion: data.equipoDescripcion,
+    fechaMantenimiento: data.fechaMantenimiento,
+    trackingUrl,
+  });
+
+  return enviarCorreo(
+    data.clienteEmail,
+    `🔔 Recordatorio de Mantenimiento - Orden ${data.ordenId}`,
     html
   );
 }

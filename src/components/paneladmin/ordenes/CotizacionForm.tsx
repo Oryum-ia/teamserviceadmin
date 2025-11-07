@@ -184,6 +184,45 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
     cargarTecnicos();
   }, []);
 
+  // Funciones de cálculo (definidas antes para poder usarlas en useEffect)
+  const calcularSubtotalRepuesto = (repuesto: Repuesto): number => {
+    const subtotal = repuesto.cantidad * repuesto.precio_unitario;
+    const conDescuento = subtotal - (subtotal * repuesto.descuento / 100);
+    return conDescuento;
+  };
+
+  const calcularIvaRepuesto = (repuesto: Repuesto): number => {
+    const subtotal = calcularSubtotalRepuesto(repuesto);
+    return subtotal * repuesto.iva / 100;
+  };
+
+  const calcularTotalRepuesto = (repuesto: Repuesto): number => {
+    return calcularSubtotalRepuesto(repuesto) + calcularIvaRepuesto(repuesto);
+  };
+
+  const calcularTotalesConRepuestos = (repuestosArray: Repuesto[]) => {
+    // Si es retrabajo, el total es 0
+    if (orden.es_retrabajo) {
+      return { subtotal: 0, iva: 0, total: 0, valor_revision: 0 };
+    }
+    
+    // Obtener valor de revisión del modelo
+    const valorRevision = orden.equipo?.modelo?.valor_revision || 0;
+    
+    // Calcular subtotal de repuestos
+    const subtotalRepuestos = repuestosArray.reduce((acc, r) => acc + calcularSubtotalRepuesto(r), 0);
+    
+    // Subtotal total = repuestos + valor revisión
+    const subtotal = subtotalRepuestos + valorRevision;
+    
+    // IVA solo sobre repuestos (no sobre valor_revision)
+    const iva = repuestosArray.reduce((acc, r) => acc + calcularIvaRepuesto(r), 0);
+    
+    const total = subtotal + iva;
+    
+    return { subtotal, iva, total, valor_revision: valorRevision };
+  };
+
   // Cargar repuestos: primero de localStorage, luego de cotización, luego de diagnóstico
   useEffect(() => {
     const cargarRepuestos = async () => {
@@ -234,8 +273,9 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
           }));
           setRepuestos(repuestosMapeados);
           localStorage.setItem(cacheKey, JSON.stringify(repuestosMapeados));
-          // Guardar inmediatamente en cotización
-          await guardarRepuestosCotizacion(orden.id, repuestosMapeados);
+          // Guardar inmediatamente en cotización con totales
+          const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
+          await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
           setRepuestosCargados(true);
           return;
         }
@@ -257,7 +297,8 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
             }));
             setRepuestos(repuestosMapeados);
             localStorage.setItem(cacheKey, JSON.stringify(repuestosMapeados));
-            await guardarRepuestosCotizacion(orden.id, repuestosMapeados);
+            const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
+            await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
           }
         }
       } catch (error) {
@@ -287,7 +328,16 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
   };
 
   const parseCurrency = (value: string): number => {
-    return Number(value.replace(/[^0-9.-]+/g, '')) || 0;
+    // Remover todo excepto números, puntos y guiones
+    const cleaned = value.replace(/[^0-9.-]+/g, '');
+    // Si está vacío, devolver 0
+    if (!cleaned || cleaned === '-' || cleaned === '.') {
+      return 0;
+    }
+    // Convertir a número usando Number() que maneja mejor números grandes
+    const num = Number(cleaned);
+    // Si no es un número finito válido, devolver 0
+    return isFinite(num) ? num : 0;
   };
 
   const formatPercent = (value: number): string => {
@@ -295,7 +345,22 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
   };
 
   const parsePercent = (value: string): number => {
-    return Number(value.replace(/[^0-9.-]+/g, '')) || 0;
+    // Remover todo excepto números, puntos y guiones
+    const cleaned = value.replace(/[^0-9.-]+/g, '');
+    // Si está vacío, devolver 0
+    if (!cleaned || cleaned === '-' || cleaned === '.') {
+      return 0;
+    }
+    // Convertir a número
+    const num = Number(cleaned);
+    // Si no es un número finito válido, devolver 0
+    // No limitar entre 0-100 para permitir cualquier porcentaje
+    return isFinite(num) ? num : 0;
+  };
+
+  const formatNumberWithCommas = (value: number): string => {
+    if (!Number.isFinite(value)) return '';
+    return value.toLocaleString('es-CO');
   };
 
   // Guardar con debounce optimizado
@@ -307,7 +372,9 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
     
     // Crear nuevo timeout de 5 segundos
     saveTimeoutRef.current = setTimeout(async () => {
-      await guardarRepuestosCotizacion(orden.id, nuevosRepuestos);
+      // Calcular totales con los nuevos repuestos
+      const totalesCalculados = calcularTotalesConRepuestos(nuevosRepuestos);
+      await guardarRepuestosCotizacion(orden.id, nuevosRepuestos, totalesCalculados);
       // Actualizar caché
       const cacheKey = `repuestos_cotizacion_${orden.id}`;
       localStorage.setItem(cacheKey, JSON.stringify(nuevosRepuestos));
@@ -369,7 +436,8 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
     const nuevosRepuestos = repuestos.filter((_, i) => i !== index);
     setRepuestos(nuevosRepuestos);
     // Guardar inmediatamente al eliminar
-    await guardarRepuestosCotizacion(orden.id, nuevosRepuestos);
+    const totalesCalculados = calcularTotalesConRepuestos(nuevosRepuestos);
+    await guardarRepuestosCotizacion(orden.id, nuevosRepuestos, totalesCalculados);
     // Actualizar caché
     const cacheKey = `repuestos_cotizacion_${orden.id}`;
     localStorage.setItem(cacheKey, JSON.stringify(nuevosRepuestos));
@@ -387,7 +455,8 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
         clearTimeout(saveTimeoutRef.current);
       }
       // Guardar inmediatamente
-      await guardarRepuestosCotizacion(orden.id, nuevosRepuestos);
+      const totalesCalculados = calcularTotalesConRepuestos(nuevosRepuestos);
+      await guardarRepuestosCotizacion(orden.id, nuevosRepuestos, totalesCalculados);
       // Actualizar caché
       const cacheKey = `repuestos_cotizacion_${orden.id}`;
       localStorage.setItem(cacheKey, JSON.stringify(nuevosRepuestos));
@@ -446,26 +515,8 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
     }
   };
 
-  const calcularSubtotalRepuesto = (repuesto: Repuesto): number => {
-    const subtotal = repuesto.cantidad * repuesto.precio_unitario;
-    const conDescuento = subtotal - (subtotal * repuesto.descuento / 100);
-    return conDescuento;
-  };
-
-  const calcularIvaRepuesto = (repuesto: Repuesto): number => {
-    const subtotal = calcularSubtotalRepuesto(repuesto);
-    return subtotal * repuesto.iva / 100;
-  };
-
-  const calcularTotalRepuesto = (repuesto: Repuesto): number => {
-    return calcularSubtotalRepuesto(repuesto) + calcularIvaRepuesto(repuesto);
-  };
-
   const calcularTotales = () => {
-    const subtotal = repuestos.reduce((acc, r) => acc + calcularSubtotalRepuesto(r), 0);
-    const iva = repuestos.reduce((acc, r) => acc + calcularIvaRepuesto(r), 0);
-    const total = subtotal + iva;
-    return { subtotal, iva, total };
+    return calcularTotalesConRepuestos(repuestos);
   };
 
   const handleMarcarEsperaRepuestos = async () => {
@@ -626,6 +677,24 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
           }`}>
             Esta cotización ya fue completada y la orden avanzó a la siguiente fase.
           </p>
+        </div>
+      )}
+
+      {/* Mensaje de retrabajo */}
+      {orden.es_retrabajo && (
+        <div className={`mb-6 p-4 rounded-lg border ${
+          theme === 'light' ? 'bg-orange-50 border-orange-200' : 'bg-orange-900/20 border-orange-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p className={`text-sm font-medium ${
+              theme === 'light' ? 'text-orange-800' : 'text-orange-300'
+            }`}>
+              Esta orden es un retrabajo. La cotización es sin costo (Total: $0).
+            </p>
+          </div>
         </div>
       )}
 
@@ -845,7 +914,6 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
                           type="number"
                           value={repuesto.cantidad}
                           readOnly
-                          min="1"
                           className={`w-16 px-2 py-1 border rounded text-sm text-center ${
                             theme === 'light'
                               ? 'border-gray-300 bg-blue-50 text-gray-900'
@@ -856,10 +924,13 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
                       <td className="px-3 py-2">
                         <input
                           type="text"
-                          value={formatCurrency(repuesto.precio_unitario)}
-                          onChange={(e) => actualizarRepuesto(index, 'precio_unitario', parseCurrency(e.target.value))}
+                          value={repuesto.precio_unitario === 0 ? '' : repuesto.precio_unitario}
+                          onChange={(e) => {
+                            const valor = parseCurrency(e.target.value);
+                            actualizarRepuesto(index, 'precio_unitario', valor);
+                          }}
                           disabled={!puedeEditarRepuestos}
-                          className={`w-20 px-2 py-1 border rounded text-sm text-right ${
+                          className={`w-32 px-2 py-1 border rounded text-sm text-right ${
                             theme === 'light'
                               ? 'border-gray-300 bg-white text-gray-900'
                               : 'border-gray-600 bg-gray-700 text-gray-100'
@@ -869,10 +940,13 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
                       <td className="px-3 py-2">
                         <input
                           type="text"
-                          value={formatPercent(repuesto.descuento)}
-                          onChange={(e) => actualizarRepuesto(index, 'descuento', parsePercent(e.target.value))}
+                          value={repuesto.descuento === 0 ? '' : `${formatNumberWithCommas(repuesto.descuento)}%`}
+                          onChange={(e) => {
+                            const valor = parsePercent(e.target.value);
+                            actualizarRepuesto(index, 'descuento', valor);
+                          }}
                           disabled={!puedeEditarRepuestos}
-                          className={`w-20 px-2 py-1 border rounded text-sm text-center
+                          className={`w-24 px-2 py-1 border rounded text-sm text-center ${
                             theme === 'light'
                               ? 'border-gray-300 bg-white text-gray-900'
                               : 'border-gray-600 bg-gray-700 text-gray-100'
@@ -882,10 +956,13 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
                       <td className="px-3 py-2">
                         <input
                           type="text"
-                          value={formatPercent(repuesto.iva)}
-                          onChange={(e) => actualizarRepuesto(index, 'iva', parsePercent(e.target.value))}
+                          value={repuesto.iva === 0 ? '' : `${formatNumberWithCommas(repuesto.iva)}%`}
+                          onChange={(e) => {
+                            const valor = parsePercent(e.target.value);
+                            actualizarRepuesto(index, 'iva', valor);
+                          }}
                           disabled={!puedeEditarRepuestos}
-                          className={`w-20 px-2 py-1 border rounded text-sm text-center ${
+                          className={`w-24 px-2 py-1 border rounded text-sm text-center ${
                             theme === 'light'
                               ? 'border-gray-300 bg-white text-gray-900'
                               : 'border-gray-600 bg-gray-700 text-gray-100'
@@ -918,6 +995,21 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
                 theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-700 border-gray-600'
               }`}>
                 <div className="flex items-center justify-end gap-8">
+                  {totales.valor_revision > 0 && (
+                    <div className="text-right">
+                      <p className={`text-xs font-medium ${
+                        theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                      }`}>
+                        Valor Revisión
+                      </p>
+                      <p className={`text-lg font-bold ${
+                        theme === 'light' ? 'text-blue-600' : 'text-blue-400'
+                      }`}>
+                        {formatCurrency(totales.valor_revision)}
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="text-right">
                     <p className={`text-xs font-medium ${
                       theme === 'light' ? 'text-gray-600' : 'text-gray-400'

@@ -237,6 +237,20 @@ export interface DesempenoSede {
 }
 
 // ============================================
+// CUPON (Coupon)
+// ============================================
+export interface Cupon {
+  id: string;
+  codigo: string; // Nombre/código único del cupón
+  porcentaje_descuento: number; // Porcentaje de descuento (0-100)
+  usado: boolean; // Si ya fue usado
+  activo: boolean; // Si está activo o no
+  fecha_uso?: string; // Fecha en que fue usado
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================
 // API RESPONSES
 // ============================================
 export interface ApiResponse<T> {

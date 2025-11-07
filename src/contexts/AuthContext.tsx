@@ -10,6 +10,7 @@ interface User {
   email: string
   nombre: string
   rol: UserRole
+  activo: boolean
 }
 
 interface AuthContextType {
@@ -31,7 +32,8 @@ const MOCK_USERS = {
       id: '1',
       email: 'admin@teamservice.com',
       nombre: 'Administrador',
-      rol: 'administrador' as UserRole
+      rol: 'administrador' as UserRole,
+      activo: true
     }
   },
   'tecnico@teamservice.com': {
@@ -40,7 +42,8 @@ const MOCK_USERS = {
       id: '2',
       email: 'tecnico@teamservice.com',
       nombre: 'Técnico',
-      rol: 'tecnico' as UserRole
+      rol: 'tecnico' as UserRole,
+      activo: true
     }
   }
 }
@@ -56,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser)
-        setUser(userData)
+        setUser({ ...userData, activo: userData.activo ?? true })
       } catch (error) {
         console.error('Error parsing saved user:', error)
         localStorage.removeItem('teamservice_user')
@@ -77,7 +80,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
       throw new Error('Credenciales incorrectas')
     }
-    
+
+    if (!mockUser.user.activo) {
+      setLoading(false)
+      throw new Error('El usuario está inactivo. Contacte al administrador.')
+    }
+
     // Guardar usuario en localStorage
     localStorage.setItem('teamservice_user', JSON.stringify(mockUser.user))
     setUser(mockUser.user)

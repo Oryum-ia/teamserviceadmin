@@ -1,6 +1,6 @@
 export interface Notification {
   id: string;
-  type: 'order_authorized' | 'warranty_info' | 'system_alert' | 'success' | 'error' | 'warning' | 'info';
+  type: 'pqr_nuevo' | 'encuesta_nueva' | 'cotizacion_aceptada' | 'order_authorized' | 'warranty_info' | 'system_alert' | 'success' | 'error' | 'warning' | 'info';
   title: string;
   message: string;
   timestamp: Date;
@@ -11,12 +11,17 @@ export interface Notification {
     action: () => void;
   };
   data?: NotificationData;
+  referenciaId?: string;
+  referenciaTipo?: 'orden' | 'pqr' | 'encuesta';
 }
 
 export interface NotificationData {
   orderInfo?: OrderInfo;
   warrantyInfo?: WarrantyInfo;
   customerInfo?: CustomerInfo;
+  pqrInfo?: PQRInfo;
+  encuestaInfo?: EncuestaInfo;
+  cotizacionInfo?: CotizacionInfo;
 }
 
 export interface OrderInfo {
@@ -43,6 +48,40 @@ export interface CustomerInfo {
   email?: string;
   phone?: string;
   address?: string;
+}
+
+export interface PQRInfo {
+  pqrId: string;
+  radicado: string;
+  tipoSolicitud: 'peticion' | 'queja' | 'reclamo' | 'sugerencia' | 'felicitacion';
+  prioridad: 'baja' | 'media' | 'alta' | 'urgente';
+  email: string;
+  telefono: string;
+  ciudad: string;
+  asunto: string;
+}
+
+export interface EncuestaInfo {
+  encuestaId: string;
+  nombre: string;
+  email: string;
+  sede: 'monteria' | 'cartagena' | 'apartado';
+  promedio: number;
+  nps: number;
+  atencion: number;
+  calidad: number;
+  tiempo: number;
+  productos: number;
+  satisfaccion: number;
+  comentarios?: string;
+}
+
+export interface CotizacionInfo {
+  ordenId: string;
+  numeroOrden: string;
+  clienteNombre: string;
+  total: number;
+  faseActual: string;
 }
 
 export type NotificationType = Notification['type'];

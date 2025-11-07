@@ -27,7 +27,6 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
   const { theme } = useTheme();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [reemplazarEquipo, setReemplazarEquipo] = useState(false);
   
   // Fechas automáticas (solo lectura)
   const fechaInicio = orden.fecha_inicio_diagnostico || orden.fecha_creacion;
@@ -387,26 +386,6 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Checkbox Reemplazar Equipo */}
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="reemplazar_equipo"
-            checked={reemplazarEquipo}
-            onChange={(e) => setReemplazarEquipo(e.target.checked)}
-            disabled={!puedeEditar}
-            className="w-4 h-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-500"
-          />
-          <label
-            htmlFor="reemplazar_equipo"
-            className={`ml-2 text-sm ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}
-          >
-            Reemplazar equipo
-          </label>
         </div>
 
         {/* Tabla de Repuestos */}

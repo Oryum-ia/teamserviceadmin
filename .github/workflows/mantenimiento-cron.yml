@@ -1,0 +1,51 @@
+name: Procesar Notificaciones de Mantenimiento
+
+# Este workflow se ejecuta automáticamente todos los días a las 8:00 AM hora de Colombia (13:00 UTC)
+# También permite ejecución manual desde la pestaña "Actions" en GitHub
+
+on:
+  # Programación automática
+  schedule:
+    - cron: '0 13 * * *'  # 8:00 AM Colombia (UTC-5)
+  
+  # Permite ejecutar manualmente desde GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  procesar-notificaciones:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Llamar API de procesamiento de mantenimiento
+        run: |
+          echo "🔄 Procesando notificaciones de mantenimiento..."
+          
+          response=$(curl -s -w "\n%{http_code}" -X GET "${{ secrets.APP_URL }}/api/mantenimiento/procesar" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TOKEN }}" \
+            -H "Content-Type: application/json")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "HTTP Status: $http_code"
+          echo "Response Body: $body"
+          
+          if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 207 ]; then
+            echo "✅ Procesamiento completado exitosamente"
+            exit 0
+          else
+            echo "❌ Error al procesar notificaciones"
+            exit 1
+          fi
+      
+      - name: Notificar resultado (opcional)
+        if: failure()
+        run: |
+          echo "❌ El procesamiento de notificaciones falló. Revisa los logs."
+          # Aquí puedes agregar notificaciones adicionales (Slack, Discord, Email, etc.)
+
+# Configuración de secretos requeridos en GitHub:
+# 1. Ve a Settings > Secrets and variables > Actions
+# 2. Agrega estos secretos:
+#    - APP_URL: https://tu-sitio-admin.com
+#    - CRON_SECRET_TOKEN: tu-token-secreto-aleatorio

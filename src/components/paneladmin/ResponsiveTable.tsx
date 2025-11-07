@@ -1,7 +1,8 @@
 "use client";
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { useTheme } from '../ThemeProvider';
+import { useSupabaseRealtime } from '../../hooks/useSupabaseRealtime';
 
 export interface TableColumn<T = any> {
   /** Identificador único de la columna */
@@ -36,8 +37,8 @@ export interface TableAction<T = any> {
 }
 
 interface ResponsiveTableProps<T = any> {
-  /** Array de datos a mostrar */
-  data: T[];
+  /** Array de datos a mostrar (solo si no se usa realtime) */
+  data?: T[];
   /** Definición de las columnas */
   columns: TableColumn<T>[];
   /** Acciones disponibles para cada fila (opcional) - puede ser array o función que retorna array */
@@ -54,20 +55,53 @@ interface ResponsiveTableProps<T = any> {
   className?: string;
   /** Mostrar imagen a la izquierda en móvil (opcional, default: false) */
   mobileImageLayout?: boolean;
+  /** Configuración de Realtime (opcional) */
+  realtime?: {
+    /** Nombre de la tabla en Supabase */
+    table: string;
+    /** Función para obtener los datos iniciales */
+    fetchData: () => Promise<T[]>;
+    /** Habilitar/deshabilitar realtime (default: true) */
+    enabled?: boolean;
+    /** Callback cuando se inserta un nuevo registro */
+    onInsert?: (newItem: T) => void;
+    /** Callback cuando se actualiza un registro */
+    onUpdate?: (updatedItem: T) => void;
+    /** Callback cuando se elimina un registro */
+    onDelete?: (deletedId: string) => void;
+  };
 }
 
 export default function ResponsiveTable<T = any>({
-  data,
+  data: externalData,
   columns,
   actions,
   onRowClick,
   emptyMessage = 'No se encontraron resultados',
   keyExtractor = (item: any) => item.id,
-  isLoading = false,
+  isLoading: externalLoading = false,
   className = '',
   mobileImageLayout = false,
+  realtime,
 }: ResponsiveTableProps<T>) {
   const { theme } = useTheme();
+
+  // Usar Realtime si está configurado
+  const realtimeResult = realtime
+    ? useSupabaseRealtime({
+        table: realtime.table,
+        fetchData: realtime.fetchData,
+        keyExtractor,
+        enabled: realtime.enabled ?? true,
+        onInsert: realtime.onInsert,
+        onUpdate: realtime.onUpdate,
+        onDelete: realtime.onDelete,
+      })
+    : null;
+
+  // Determinar qué datos y estado de loading usar
+  const data = realtime ? realtimeResult!.data : (externalData || []);
+  const isLoading = realtime ? realtimeResult!.isLoading : externalLoading;
 
   // Helper para obtener las acciones de un item (puede ser array estático o función)
   const getItemActions = (item: T): TableAction<T>[] => {

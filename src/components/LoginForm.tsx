@@ -60,6 +60,13 @@ export function LoginForm() {
             return;
           }
 
+          if (!userData.activo) {
+            console.warn("⚠️ Usuario inactivo intentando iniciar sesión:", userData.email);
+            setError("El usuario está inactivo. Contacta al administrador.");
+            await supabase.auth.signOut();
+            return;
+          }
+
           console.log("✅ Datos de usuario obtenidos:", userData);
 
           // Almacenar sesión de usuario
@@ -68,6 +75,7 @@ export function LoginForm() {
               email: userData.email,
               rol: userData.rol,
               nombre: userData.nombre,
+              activo: userData.activo,
               isAuthenticated: true,
               loginTime: new Date().toISOString(),
               userId: data.user.id

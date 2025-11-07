@@ -86,10 +86,16 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
       const modelo = orden.equipo.modelo?.equipo || '';
       const modeloCompleto = marca && modelo ? `${marca} ${modelo}` : modelo || marca || 'N/A';
       
+      // Usar serie_pieza del schema de equipos
+      const serie = orden.equipo.serie_pieza || 'N/A';
+      
+      // El tipo de equipo viene del modelo (campo 'equipo' en la tabla modelos)
+      const tipo = orden.equipo.modelo?.equipo || 'N/A';
+      
       return {
         modelo: modeloCompleto,
-        serie: orden.equipo.serial || 'N/A',
-        tipo: orden.equipo.tipo_equipo || 'N/A',
+        serie: serie,
+        tipo: tipo,
         descripcion: orden.descripcion_problema || 'N/A'
       };
     }

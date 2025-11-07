@@ -205,12 +205,34 @@ export async function guardarRepuestosCotizacion(
     descuento: number;
     iva: number;
     en_stock: boolean;
-  }>
+  }>,
+  totales?: {
+    subtotal: number;
+    iva: number;
+    total: number;
+    valor_revision?: number;
+  }
 ) {
+  // Construir el objeto a guardar
+  const dataToSave: any = {
+    repuestos: repuestos,
+    ultima_actualizacion: new Date().toISOString()
+  };
+
+  // Si se proporcionan totales, incluirlos en el JSON
+  if (totales) {
+    dataToSave.subtotal = totales.subtotal;
+    dataToSave.iva = totales.iva;
+    dataToSave.total = totales.total;
+    if (totales.valor_revision !== undefined) {
+      dataToSave.valor_revision = totales.valor_revision;
+    }
+  }
+
   const { error } = await supabase
     .from("ordenes")
     .update({
-      repuestos_cotizacion: repuestos,
+      repuestos_cotizacion: dataToSave,
       ultima_actualizacion: new Date().toISOString()
     })
     .eq("id", ordenId);
@@ -220,7 +242,7 @@ export async function guardarRepuestosCotizacion(
     throw error;
   }
 
-  console.log("✅ Repuestos de cotización guardados");
+  console.log("✅ Repuestos de cotización guardados con totales:", totales);
   return true;
 }
 
@@ -239,5 +261,13 @@ export async function obtenerRepuestosCotizacion(ordenId: string) {
     throw error;
   }
 
-  return data?.repuestos_cotizacion || [];
+  const cotizacionData = data?.repuestos_cotizacion;
+  
+  // Si es el nuevo formato (objeto con repuestos y totales)
+  if (cotizacionData && typeof cotizacionData === 'object' && 'repuestos' in cotizacionData) {
+    return cotizacionData.repuestos || [];
+  }
+  
+  // Si es el formato antiguo (array directo)
+  return cotizacionData || [];
 }

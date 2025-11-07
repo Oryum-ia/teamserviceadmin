@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Mail, MessageSquare, Upload, AlertCircle } from 'lucide-react';
+import { Upload, AlertCircle } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { subirMultiplesImagenes, eliminarImagenOrden, descargarImagen, actualizarFotosEntrega } from '@/lib/services/imagenService';
@@ -71,13 +71,48 @@ const formatForInput = (date: Date) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+const tipoEntregaInicial = orden.entrega?.tipo_entrega
+  ? orden.entrega.tipo_entrega
+  : orden.aprobado_cliente === true
+    ? 'Reparado'
+    : 'Devuelto';
+
 const [formData, setFormData] = useState({
-  tipo_entrega: orden.entrega?.tipo_entrega || 'Reparada',
+  tipo_entrega: tipoEntregaInicial,
   fecha_entrega: orden.fecha_entrega ? formatForInput(new Date(orden.fecha_entrega)) : formatForInput(new Date()),
-  fecha_proximo_mantenimiento: orden.entrega?.fecha_proximo_mantenimiento || '',
-  calificacion: orden.entrega?.calificacion || '',
-  comentarios_cliente: orden.entrega?.comentarios_cliente || ''
+  fecha_proximo_mantenimiento: orden.fecha_proximo_mantenimiento || '',
+  calificacion: (orden.entrega?.calificacion ?? orden.calificacion) || '',
+  comentarios_cliente: (orden.entrega?.comentarios_cliente ?? orden.comentarios_cliente) || ''
 });
+
+  useEffect(() => {
+    const tipoEntrega = orden.entrega?.tipo_entrega
+      ? orden.entrega.tipo_entrega
+      : orden.aprobado_cliente === true
+        ? 'Reparado'
+        : 'Devuelto';
+
+    setFormData(prev => ({
+      ...prev,
+      tipo_entrega: tipoEntrega,
+      fecha_entrega: orden.fecha_entrega
+        ? formatForInput(new Date(orden.fecha_entrega))
+        : prev.fecha_entrega || formatForInput(new Date()),
+      fecha_proximo_mantenimiento: orden.fecha_proximo_mantenimiento || '',
+      calificacion: (orden.entrega?.calificacion ?? orden.calificacion) || '',
+      comentarios_cliente: (orden.entrega?.comentarios_cliente ?? orden.comentarios_cliente) || ''
+    }));
+  }, [
+    orden.id,
+    orden.entrega?.tipo_entrega,
+    orden.aprobado_cliente,
+    orden.fecha_entrega,
+    orden.fecha_proximo_mantenimiento,
+    orden.entrega?.calificacion,
+    orden.entrega?.comentarios_cliente,
+    orden.calificacion,
+    orden.comentarios_cliente
+  ]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -161,6 +196,22 @@ const [formData, setFormData] = useState({
         </p>
       </div>
 
+      {/* Mensaje de devolución por no aceptación */}
+      {!orden.aprobado_cliente && (
+        <div className={`mb-6 p-4 rounded-lg border ${
+          theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <p className={`text-sm font-medium ${
+              theme === 'light' ? 'text-red-800' : 'text-red-300'
+            }`}>
+              El cliente no aceptó la cotización. Este equipo será devuelto sin reparación.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Grid de campos principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -171,22 +222,13 @@ const [formData, setFormData] = useState({
             }`}>
               Tipo de entrega <span className="text-red-500">*</span>
             </label>
-            <select
-              name="tipo_entrega"
-              value={formData.tipo_entrega}
-              onChange={handleChange}
-              disabled={!puedeEditar}
-              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                theme === 'light'
-                  ? 'border-gray-300 bg-white text-gray-900'
-                  : 'border-gray-600 bg-gray-700 text-gray-100'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              <option value="Reparada">Reparada</option>
-              <option value="Sin reparar">Sin reparar</option>
-              <option value="Reparación parcial">Reparación parcial</option>
-              <option value="Reemplazo">Reemplazo</option>
-            </select>
+            <div className={`w-full px-4 py-3 border rounded-lg ${
+              theme === 'light'
+                ? 'border-gray-300 bg-gray-100 text-gray-600'
+                : 'border-gray-600 bg-gray-800 text-gray-400'
+            }`}>
+              {formData.tipo_entrega === 'Reparado' ? 'Reparado' : 'Devuelto (cliente no aceptó reparación)'}
+            </div>
           </div>
 
           {/* Usuario que entrega */}
@@ -242,26 +284,53 @@ const [formData, setFormData] = useState({
             />
           </div>
 
-          {/* Fecha próximo mantenimiento */}
-          <div>
-            <label className={`block text-sm font-medium mb-2 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              Fecha próximo mantenimiento
-            </label>
-            <input
-              type="date"
-              name="fecha_proximo_mantenimiento"
-              value={formData.fecha_proximo_mantenimiento}
-              onChange={handleChange}
-              disabled={!puedeEditar}
-              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                theme === 'light'
-                  ? 'border-gray-300 bg-white text-gray-900'
-                  : 'border-gray-600 bg-gray-700 text-gray-100'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            />
-          </div>
+          {/* Fecha próximo mantenimiento - Solo si fue reparado */}
+          {orden.aprobado_cliente && (
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                Fecha próximo mantenimiento
+              </label>
+              <input
+                type="date"
+                name="fecha_proximo_mantenimiento"
+                value={formData.fecha_proximo_mantenimiento}
+                onChange={handleChange}
+                onBlur={async () => {
+                  if (!formData.fecha_proximo_mantenimiento) return;
+                  try {
+                    const { supabase } = await import('@/lib/supabaseClient');
+                    const { error } = await supabase
+                      .from('ordenes')
+                      .update({ 
+                        fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento,
+                        ultima_actualizacion: new Date().toISOString() 
+                      })
+                      .eq('id', orden.id);
+                    if (error) throw error;
+                    toast.success('Fecha de mantenimiento actualizada');
+                  } catch (e) {
+                    console.error(e);
+                    toast.error('Error al actualizar la fecha de mantenimiento');
+                  }
+                }}
+                disabled={!puedeEditar}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900'
+                    : 'border-gray-600 bg-gray-700 text-gray-100'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              />
+              {formData.fecha_proximo_mantenimiento && (
+                <p className={`text-xs mt-1 ${
+                  theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                }`}>
+                  🔔 Se enviará un recordatorio automático un día antes
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Fotos de entrega */}
@@ -322,6 +391,30 @@ const [formData, setFormData] = useState({
             )
           )}
         </div>
+
+        {/* Cuidados de Uso del Modelo */}
+        {orden.equipo?.modelo?.cuidado_uso && (
+          <div className={`rounded-lg border p-6 ${
+            theme === 'light' ? 'bg-blue-50 border-blue-200' : 'bg-blue-900/20 border-blue-700'
+          }`}>
+            <h3 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${
+              theme === 'light' ? 'text-blue-900' : 'text-blue-300'
+            }`}>
+              <AlertCircle className="w-5 h-5" />
+              Cuidados de Uso - {orden.equipo?.modelo?.equipo || 'Equipo'}
+            </h3>
+            <div className={`text-sm whitespace-pre-wrap ${
+              theme === 'light' ? 'text-blue-800' : 'text-blue-200'
+            }`}>
+              {orden.equipo.modelo.cuidado_uso}
+            </div>
+            <p className={`text-xs mt-3 italic ${
+              theme === 'light' ? 'text-blue-600' : 'text-blue-400'
+            }`}>
+              💡 Esta información se mostrará al cliente en la página de seguimiento
+            </p>
+          </div>
+        )}
 
         {/* Firma de Entrega (solo visualización) */}
         <div>
@@ -400,7 +493,7 @@ const [formData, setFormData] = useState({
           </label>
           <textarea
             name="comentarios_cliente"
-            value={formData.comentarios_cliente}
+            value={formData.comentarios_cliente || orden.comentarios_cliente}
             onChange={handleChange}
             rows={4}
             placeholder="Comentarios del cliente sobre el servicio..."
@@ -411,32 +504,6 @@ const [formData, setFormData] = useState({
                 : 'border-gray-600 bg-gray-800 text-gray-400'
             }`}
           />
-        </div>
-
-        {/* Botones de acción */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              theme === 'light'
-                ? 'bg-green-500 hover:bg-green-600 text-white'
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            WhatsApp
-          </button>
-          <button
-            type="button"
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              theme === 'light'
-                ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-          >
-            <Mail className="w-4 h-4" />
-            Email
-          </button>
         </div>
       </div>
     </div>

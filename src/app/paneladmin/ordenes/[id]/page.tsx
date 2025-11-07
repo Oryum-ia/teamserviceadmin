@@ -195,24 +195,51 @@ export default function OrdenDetallePage() {
             console.log('🔔 Evento recibido en realtime:', {
               evento: payload.eventType,
               id: payload.new?.id,
+              estado_actual: payload.new?.estado_actual,
+              aprobado_cliente: payload.new?.aprobado_cliente,
               terminos_aceptados: payload.new?.terminos_aceptados,
               firma_cliente: payload.new?.firma_cliente ? 'Sí tiene' : 'No tiene',
               fecha_aceptacion: payload.new?.fecha_aceptacion_terminos,
               fecha_firma: payload.new?.fecha_firma_cliente
             });
             
+            // Detectar cambio de estado
+            const estadoAnterior = payload.old?.estado_actual;
+            const estadoNuevo = payload.new?.estado_actual;
+            
+            if (estadoAnterior && estadoNuevo && estadoAnterior !== estadoNuevo) {
+              console.log('🔄 Cambio de estado detectado:', {
+                anterior: estadoAnterior,
+                nuevo: estadoNuevo
+              });
+              
+              // Mostrar notificación al usuario
+              toast.success(`Estado actualizado: ${estadoNuevo}`);
+            }
+            
             // Recargar la orden completa con todas las relaciones
             try {
               const ordenCompleta = await obtenerOrdenPorId(ordenId);
               console.log('✅ Orden completa recargada:', {
                 id: ordenCompleta.id,
+                estado_actual: ordenCompleta.estado_actual,
+                aprobado_cliente: ordenCompleta.aprobado_cliente,
                 terminos_aceptados: ordenCompleta.terminos_aceptados,
                 firma_cliente: ordenCompleta.firma_cliente ? 'Sí tiene' : 'No tiene',
                 fecha_aceptacion: ordenCompleta.fecha_aceptacion_terminos,
                 fecha_firma: ordenCompleta.fecha_firma_cliente
               });
+              
+              // Actualizar estado de la orden
               setOrden(ordenCompleta);
               saveOrdenToLocalStorage(ordenCompleta);
+              
+              // Actualizar el paso actual según el nuevo estado
+              const faseId = mapEstadoAFase(ordenCompleta.estado_actual);
+              const nuevoStep = FASES.find(f => f.id === faseId)?.step || 0;
+              setCurrentStep(nuevoStep);
+              
+              console.log('📍 Vista actualizada al paso:', nuevoStep, '(', ordenCompleta.estado_actual, ')');
             } catch (error) {
               console.error('❌ Error recargando orden:', error);
               // Fallback: usar solo los datos del payload
@@ -220,6 +247,11 @@ export default function OrdenDetallePage() {
                 const nuevaOrden = payload.new as any;
                 setOrden(nuevaOrden);
                 saveOrdenToLocalStorage(nuevaOrden);
+                
+                // Actualizar el paso actual
+                const faseId = mapEstadoAFase(nuevaOrden.estado_actual);
+                const nuevoStep = FASES.find(f => f.id === faseId)?.step || 0;
+                setCurrentStep(nuevoStep);
               }
             }
           }
@@ -381,6 +413,10 @@ export default function OrdenDetallePage() {
     if (orden?.estado_actual === 'Esperando repuestos') {
       return false;
     }
+    // Si está en Cotización, solo permitir avanzar si el cliente aprobó
+    if (orden?.estado_actual === 'Cotización') {
+      return orden?.aprobado_cliente === true;
+    }
     // Si está esperando aceptación, solo permitir avanzar si el cliente aprobó
     if (orden?.estado_actual === 'Esperando aceptación') {
       return orden?.aprobado_cliente === true;
@@ -405,9 +441,9 @@ export default function OrdenDetallePage() {
       return;
     }
     
-    // Si está esperando aceptación, validar que el cliente haya aprobado
-    if (orden?.estado_actual === 'Esperando aceptación' && !orden?.aprobado_cliente) {
-      toast.error('No puede avanzar hasta que el cliente apruebe la cotización');
+    // Si está en Cotización o Esperando aceptación, validar respuesta del cliente
+    if ((orden?.estado_actual === 'Cotización' || orden?.estado_actual === 'Esperando aceptación') && orden?.aprobado_cliente === null) {
+      toast.error('Debe esperar a que el cliente responda la cotización');
       return;
     }
 
@@ -433,11 +469,16 @@ export default function OrdenDetallePage() {
 
     setIsAvanzando(true);
     try {
-      const siguienteFase = FASES[currentPhaseStep + 1];
+      let siguienteFase = FASES[currentPhaseStep + 1];
       const faseActual = FASES[currentPhaseStep].id;
       const now = new Date().toISOString();
       const tecnicoId = await obtenerTecnicoActual();
       const { supabase } = await import('@/lib/supabaseClient');
+      
+      // Si el cliente rechazó la cotización, saltar directamente a Entrega
+      if (faseActual === 'cotizacion' && orden?.aprobado_cliente === false) {
+        siguienteFase = FASES.find(f => f.id === 'entrega') || siguienteFase;
+      }
       
       // Preparar campos según fase actual y siguiente
       const camposActualizacion: any = {
@@ -467,9 +508,19 @@ export default function OrdenDetallePage() {
           }
         }
         
-        camposActualizacion.fecha_aprobacion = now;
         camposActualizacion.tecnico_cotiza = tecnicoId;
-        camposActualizacion.fecha_inicio_reparacion = now;
+        
+        // Si el cliente rechazó, ir directo a entrega
+        if (orden.aprobado_cliente === false) {
+          // No establecer fecha_aprobacion ni fecha_inicio_reparacion
+          // Ir directamente a entrega sin reparar
+        } else if (orden.aprobado_cliente === true) {
+          // Cliente aprobó, continuar con reparación
+          if (!orden.fecha_aprobacion) {
+            camposActualizacion.fecha_aprobacion = now;
+          }
+          camposActualizacion.fecha_inicio_reparacion = now;
+        }
       } else if (faseActual === 'reparacion') {
         camposActualizacion.fecha_fin_reparacion = now;
         camposActualizacion.tecnico_repara = tecnicoId;

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { useTheme } from '../../components/ThemeProvider';
@@ -27,6 +27,7 @@ import Encuestas from '../../components/paneladmin/Encuestas';
 import PQR from '../../components/paneladmin/PQR';
 import Indicadores from '../../components/paneladmin/Indicadores';
 import Desempeno from '../../components/paneladmin/Desempeno';
+import Cupones from '../../components/paneladmin/Cupones';
 
 interface UserSession {
   email: string;
@@ -37,7 +38,7 @@ interface UserSession {
   userId: string;
 }
 
-export default function PanelAdmin() {
+function PanelAdminContent() {
   const [userSession, setUserSession] = useState<UserSession | null>(null);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -99,7 +100,7 @@ export default function PanelAdmin() {
       case 'dashboard':
         return <DashboardNuevo onSectionChange={handleSectionChange} />;
       case 'ordenes':
-        return <OrdenesNuevo key={filtroFase || 'all'} filtroFaseInicial={filtroFase as any} />;
+        return <OrdenesNuevo key={filtroFase || 'all'} />;
       case 'clientes':
         return <Clientes />;
       case 'comentarios':
@@ -130,6 +131,8 @@ export default function PanelAdmin() {
         return <Encuestas />;
       case 'admin-tienda-pqr':
         return <PQR />;
+      case 'admin-tienda-cupones':
+        return <Cupones />;
 
       // Estadísticas
       case 'indicadores':
@@ -208,5 +211,17 @@ export default function PanelAdmin() {
         {renderActiveSection()}
       </main>
     </div>
+  );
+}
+
+export default function PanelAdmin() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <PanelAdminContent />
+    </Suspense>
   );
 }

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { 
   enviarCorreoCambioFase, 
   enviarCorreoConfirmacionOrden, 
-  enviarCorreoRespuestaPQR 
+  enviarCorreoRespuestaPQR,
+  enviarCorreoRecordatorioMantenimiento
 } from '@/lib/email/emailService';
 
 /**
@@ -55,6 +56,17 @@ export async function POST(request: NextRequest) {
           );
         }
         resultado = await enviarCorreoRespuestaPQR(data);
+        break;
+
+      case 'recordatorio_mantenimiento':
+        // Validar campos requeridos
+        if (!data.clienteEmail || !data.clienteNombre || !data.ordenId || !data.fechaMantenimiento || !data.equipoDescripcion) {
+          return NextResponse.json(
+            { error: 'Campos requeridos: clienteEmail, clienteNombre, ordenId, fechaMantenimiento, equipoDescripcion' },
+            { status: 400 }
+          );
+        }
+        resultado = await enviarCorreoRecordatorioMantenimiento(data);
         break;
 
       default:

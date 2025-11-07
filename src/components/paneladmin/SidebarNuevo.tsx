@@ -22,11 +22,21 @@ import {
   Image,
   Folder,
   ClipboardCheck,
-  MessageCircle
+  MessageCircle,
+  Ticket
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 
-const menuItems = [
+type SidebarMenuItem = {
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  key: string;
+  hasSubmenu?: boolean;
+  submenu?: SidebarMenuItem[];
+  requireRole?: string;
+};
+
+const menuItems: SidebarMenuItem[] = [
   {
     name: 'Panel de control',
     icon: Home,
@@ -101,6 +111,11 @@ const menuItems = [
         name: 'PQR',
         icon: MessageCircle,
         key: 'admin-tienda-pqr',
+      },
+      {
+        name: 'Cupones',
+        icon: Ticket,
+        key: 'admin-tienda-cupones',
       },
     ],
   },
@@ -177,14 +192,39 @@ export default function SidebarNuevo({
   };
 
   // Filtrar items del menú basados en el rol
-  const filterMenuItemsByRole = (items: any[]) => {
-    return items.filter(item => {
+  const filterMenuItemsByRole = (items: SidebarMenuItem[]): SidebarMenuItem[] => {
+    const itemsByRequiredRole = items.filter(item => {
       // Si el item requiere un rol específico, verificar que coincida
       if (item.requireRole) {
         return userRole === item.requireRole;
       }
       return true;
     });
+
+    if (userRole === 'tecnico') {
+      const allowedKeys = new Set(['ordenes', 'inventario']);
+
+      return itemsByRequiredRole
+        .filter(item => allowedKeys.has(item.key))
+        .map(item => {
+          if (item.hasSubmenu && item.submenu) {
+            return {
+              ...item,
+              submenu: item.submenu
+            };
+          }
+          return item;
+        });
+    }
+
+    if (userRole === 'administrador') {
+      const excludedKeys = new Set(['admin-tienda', 'usuarios']);
+
+      return itemsByRequiredRole
+        .filter(item => !excludedKeys.has(item.key));
+    }
+
+    return itemsByRequiredRole;
   };
 
   const filteredMenuItems = filterMenuItemsByRole(menuItems);

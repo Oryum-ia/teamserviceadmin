@@ -1,12 +1,159 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Notification, NotificationContextType } from '../types/notifications';
+import { supabase } from '../lib/supabaseClient';
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Parsear datos adicionales según el tipo de notificación
+  const parseNotificationData = useCallback((tipo: string, datosAdicionales: any) => {
+    if (!datosAdicionales) return undefined;
+
+    switch (tipo) {
+      case 'pqr_nuevo':
+        return {
+          pqrInfo: {
+            pqrId: datosAdicionales.pqr_id || '',
+            radicado: datosAdicionales.radicado || '',
+            tipoSolicitud: datosAdicionales.tipo_solicitud || '',
+            prioridad: datosAdicionales.prioridad || '',
+            email: datosAdicionales.email || '',
+            telefono: datosAdicionales.telefono || '',
+            ciudad: datosAdicionales.ciudad || '',
+            asunto: datosAdicionales.asunto || '',
+          },
+        };
+      case 'encuesta_nueva':
+        return {
+          encuestaInfo: {
+            encuestaId: datosAdicionales.encuesta_id || '',
+            nombre: datosAdicionales.nombre || '',
+            email: datosAdicionales.email || '',
+            sede: datosAdicionales.sede || '',
+            promedio: parseFloat(datosAdicionales.promedio) || 0,
+            nps: parseInt(datosAdicionales.nps) || 0,
+            atencion: parseInt(datosAdicionales.atencion) || 0,
+            calidad: parseInt(datosAdicionales.calidad) || 0,
+            tiempo: parseInt(datosAdicionales.tiempo) || 0,
+            productos: parseInt(datosAdicionales.productos) || 0,
+            satisfaccion: parseInt(datosAdicionales.satisfaccion) || 0,
+            comentarios: datosAdicionales.comentarios,
+          },
+        };
+      case 'cotizacion_aceptada':
+        return {
+          cotizacionInfo: {
+            ordenId: datosAdicionales.orden_id || '',
+            numeroOrden: datosAdicionales.numero_orden || '',
+            clienteNombre: datosAdicionales.cliente_nombre || '',
+            total: parseFloat(datosAdicionales.total) || 0,
+            faseActual: datosAdicionales.fase_actual || '',
+          },
+        };
+      default:
+        return undefined;
+    }
+  }, []);
+
+  const mapSupabaseNotification = useCallback((record: any): Notification => ({
+    id: record.id,
+    type: record.tipo,
+    title: record.titulo,
+    message: record.mensaje,
+    timestamp: new Date(record.created_at),
+    isRead: record.leida,
+    referenciaId: record.referencia_id,
+    referenciaTipo: record.referencia_tipo,
+    data: parseNotificationData(record.tipo, record.datos_adicionales),
+  }), [parseNotificationData]);
+
+  // Cargar notificaciones desde Supabase
+  const loadNotifications = useCallback(async () => {
+    try {
+      const { data: notificaciones, error } = await supabase
+        .from('notificaciones')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      if (notificaciones) {
+        const mappedNotifications: Notification[] = notificaciones.map(mapSupabaseNotification);
+
+        setNotifications(mappedNotifications);
+      }
+    } catch (error) {
+      console.error('Error al cargar notificaciones:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [mapSupabaseNotification]);
+
+  // Cargar notificaciones al montar el componente
+  useEffect(() => {
+    loadNotifications();
+
+    // Suscribirse a cambios en tiempo real
+    const channel = supabase
+      .channel('notificaciones_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notificaciones',
+        },
+        (payload) => {
+          const newNotification = mapSupabaseNotification(payload.new as any);
+          setNotifications((prev) => [newNotification, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notificaciones',
+        },
+        (payload) => {
+          const updatedNotification = mapSupabaseNotification(payload.new as any);
+          setNotifications((prev) => {
+            const exists = prev.some((notif) => notif.id === updatedNotification.id);
+            if (!exists) {
+              return [updatedNotification, ...prev];
+            }
+
+            return prev.map((notif) =>
+              notif.id === updatedNotification.id ? updatedNotification : notif
+            );
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notificaciones',
+        },
+        (payload) => {
+          const deletedId = (payload.old as any)?.id;
+          if (!deletedId) return;
+          setNotifications((prev) => prev.filter((notif) => notif.id !== deletedId));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadNotifications, mapSupabaseNotification]);
 
   const addNotification = useCallback((notificationData: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => {
     const newNotification: Notification = {
@@ -16,7 +163,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       isRead: false,
     };
 
-    setNotifications(prev => [newNotification, ...prev]);
+    setNotifications((prev) => [newNotification, ...prev]);
 
     // Auto-remove notification if duration is specified
     if (newNotification.duration) {
@@ -29,17 +176,30 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const removeNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
+    setNotifications((prev) => prev.filter((notification) => notification.id !== id));
   }, []);
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
+  const markAsRead = useCallback(async (id: string) => {
+    // Actualizar en Supabase
+    try {
+      const { error } = await supabase
+        .from('notificaciones')
+        .update({ leida: true })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Actualizar en el estado local
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === id
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error('Error al marcar notificación como leída:', error);
+    }
   }, []);
 
   const clearAllNotifications = useCallback(() => {

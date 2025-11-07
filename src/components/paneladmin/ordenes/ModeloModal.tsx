@@ -49,7 +49,8 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
     marca_id: '',
     referencia: '',
     valor_revision: '',
-    serial: ''
+    serial: '',
+    cuidado_uso: ''
   });
 
   // Cargar marcas, accesorios y repuestos
@@ -121,7 +122,8 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           marca_id: modeloEditar.marca_id || (typeof modeloEditar.marca === 'object' ? modeloEditar.marca?.id : '') || '',
           referencia: modeloEditar.referencia || '',
           valor_revision: modeloEditar.valor_revision ? modeloEditar.valor_revision.toString() : '',
-          serial: modeloEditar.serial || ''
+          serial: modeloEditar.serial || '',
+          cuidado_uso: modeloEditar.cuidado_uso || ''
         });
         // Cargar accesorios y repuestos del modelo
         cargarAccesoriosDelModelo(modeloEditar.id);
@@ -132,7 +134,8 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           marca_id: '',
           referencia: '',
           valor_revision: '',
-          serial: ''
+          serial: '',
+          cuidado_uso: ''
         });
         setAccesoriosSeleccionados([]);
         setRepuestosSeleccionados([]);
@@ -142,7 +145,7 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
   }, [isOpen, modeloEditar]);
 
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -169,7 +172,8 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           marca_id: formData.marca_id || undefined,
           referencia: formData.referencia || undefined,
           valor_revision: formData.valor_revision ? parseFloat(formData.valor_revision) : undefined,
-          serial: formData.serial || undefined
+          serial: formData.serial || undefined,
+          cuidado_uso: formData.cuidado_uso || undefined
         });
 
         // Actualizar accesorios y repuestos
@@ -185,7 +189,8 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           marca_id: formData.marca_id || undefined,
           referencia: formData.referencia || undefined,
           valor_revision: formData.valor_revision ? parseFloat(formData.valor_revision) : undefined,
-          serial: formData.serial || undefined
+          serial: formData.serial || undefined,
+          cuidado_uso: formData.cuidado_uso || undefined
         });
 
         // Asignar accesorios y repuestos
@@ -306,6 +311,32 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
                       : 'border-gray-600 bg-gray-700 text-gray-100'
                   }`}
                 />
+              </div>
+
+              {/* Cuidado de Uso */}
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Cuidados de Uso
+                </label>
+                <textarea
+                  name="cuidado_uso"
+                  value={formData.cuidado_uso}
+                  onChange={handleChange}
+                  placeholder="Ej: Limpiar el filtro después de cada uso. No sumergir en agua. Usar solo en superficies secas..."
+                  rows={4}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-y ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                />
+                <p className={`text-xs mt-1 ${
+                  theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                }`}>
+                  Instrucciones y recomendaciones de uso que se mostrarán al cliente en la entrega
+                </p>
               </div>
 
               {/* Accesorios */}

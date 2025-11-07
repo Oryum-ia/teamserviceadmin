@@ -300,6 +300,89 @@ export function templateRespuestaPQR(data: {
 }
 
 /**
+ * Plantilla para recordatorio de mantenimiento
+ */
+export function templateRecordatorioMantenimiento(data: {
+  clienteNombre: string;
+  ordenId: string;
+  equipoDescripcion: string;
+  fechaMantenimiento: string;
+  trackingUrl: string;
+}): string {
+  const { clienteNombre, ordenId, equipoDescripcion, fechaMantenimiento, trackingUrl } = data;
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recordatorio de Mantenimiento - Team Service Costa</title>
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+      <h1>🔔 Recordatorio de Mantenimiento</h1>
+    </div>
+    <div class="content">
+      <p>Hola <strong>${clienteNombre}</strong>,</p>
+      
+      <p>Te recordamos que <strong>mañana ${fechaMantenimiento}</strong> es la fecha programada para el mantenimiento de tu equipo.</p>
+      
+      <div class="info-box" style="border-left-color: #f5576c;">
+        <p><strong>Orden de Referencia:</strong> ${ordenId}</p>
+        <p><strong>Equipo:</strong> ${equipoDescripcion}</p>
+        <p><strong>Fecha de Mantenimiento:</strong> <span class="status-badge" style="background-color: #f5576c; color: white;">${fechaMantenimiento}</span></p>
+      </div>
+      
+      <div style="background-color: #fff3cd; padding: 20px; border-left: 4px solid #ffc107; border-radius: 8px; margin: 20px 0;">
+        <h3 style="margin-top: 0; color: #856404;">⚙️ ¿Por qué es importante el mantenimiento preventivo?</h3>
+        <ul style="line-height: 1.8; color: #856404;">
+          <li>Prolonga la vida útil de tu equipo</li>
+          <li>Previene averías costosas</li>
+          <li>Garantiza el máximo rendimiento</li>
+          <li>Mantiene la garantía del fabricante</li>
+        </ul>
+      </div>
+      
+      <p>
+        <strong>¿Qué debes hacer?</strong><br>
+        Puedes contactarnos para agendar una cita o traer tu equipo directamente a nuestras instalaciones.
+      </p>
+      
+      <div style="text-align: center;">
+        <a href="${trackingUrl}" class="btn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+          📅 Agendar Mantenimiento
+        </a>
+      </div>
+      
+      <div style="margin-top: 30px; padding: 15px; background-color: #d1ecf1; border-left: 4px solid #0dcaf0; border-radius: 4px;">
+        <p style="margin: 0; color: #055160;">
+          <strong>💡 Tip:</strong> Si tienes alguna pregunta sobre el mantenimiento o necesitas reprogramar la fecha, 
+          contáctanos por WhatsApp, correo o teléfono.
+        </p>
+      </div>
+      
+      <p style="margin-top: 20px; font-size: 14px; color: #666;">
+        En Team Service Costa, nos aseguramos de que tu equipo funcione siempre al 100%.
+      </p>
+    </div>
+    <div class="footer">
+      <p><strong>Team Service Costa S.A.S.</strong></p>
+      <p>Centro Autorizado KÄRCHER</p>
+      <p>📍 Montería, Cartagena y Apartadó</p>
+      <p>📞 WhatsApp: <a href="https://wa.me/573000000000">+57 300 000 0000</a></p>
+      <p>📧 Email: <a href="mailto:fede.saus26@gmail.com">fede.saus26@gmail.com</a></p>
+      <p><a href="https://gleeful-mochi-2bc33c.netlify.app/">Visita nuestro sitio web</a></p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+}
+
+/**
  * Obtener descripción de la fase para el correo
  */
 export function getDescripcionFase(fase: string): string {

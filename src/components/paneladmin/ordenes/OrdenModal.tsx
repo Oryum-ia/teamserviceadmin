@@ -46,7 +46,8 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
     serie_pieza: '',
     tipo: '',
     tipo_orden: 'Reparación',
-    descripcion_problema: ''
+    descripcion_problema: '',
+    es_retrabajo: false
   });
 
   // Cargar clientes, modelos y equipos
@@ -203,7 +204,8 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
         serie_pieza: '',
         tipo: '',
         tipo_orden: 'Reparación',
-        descripcion_problema: ''
+        descripcion_problema: '',
+        es_retrabajo: false
       });
 
       onSuccess();
@@ -424,6 +426,25 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
                     : 'border-gray-600 bg-gray-700 text-gray-100'
                 }`}
               />
+            </div>
+
+            {/* Checkbox Es Retrabajo */}
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="es_retrabajo"
+                checked={formData.es_retrabajo}
+                onChange={(e) => setFormData(prev => ({ ...prev, es_retrabajo: e.target.checked }))}
+                className="w-4 h-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-500"
+              />
+              <label
+                htmlFor="es_retrabajo"
+                className={`ml-2 text-sm ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}
+              >
+                Es retrabajo (cotización sin costo)
+              </label>
             </div>
           </div>
 
