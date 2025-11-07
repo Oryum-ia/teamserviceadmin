@@ -61,6 +61,7 @@ export default function OrdenDetallePage() {
   const [isAvanzando, setIsAvanzando] = useState(false);
   const [showNotaModal, setShowNotaModal] = useState(false);
   const [notaOrden, setNotaOrden] = useState('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   // Obtener ID del técnico actual
   const obtenerTecnicoActual = async () => {
@@ -74,12 +75,43 @@ export default function OrdenDetallePage() {
     }
   };
 
+  // Verificar si el usuario es super-admin
+  const verificarSuperAdmin = async () => {
+    try {
+      const { supabase } = await import('@/lib/supabaseClient');
+      const { data: authData } = await supabase.auth.getUser();
+      
+      if (!authData?.user?.id) {
+        setIsSuperAdmin(false);
+        return;
+      }
+
+      const { data: userData, error } = await supabase
+        .from('usuarios')
+        .select('rol')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (error) {
+        console.error('Error al verificar rol:', error);
+        setIsSuperAdmin(false);
+        return;
+      }
+
+      setIsSuperAdmin(userData?.rol === 'super-admin');
+    } catch (error) {
+      console.error('Error al verificar super-admin:', error);
+      setIsSuperAdmin(false);
+    }
+  };
+
   useEffect(() => {
     let channel: any = null;
     
     const inicializar = async () => {
       if (ordenId) {
         await cargarOrden();
+        await verificarSuperAdmin();
         channel = await configurarRealtime();
       }
     };
@@ -403,6 +435,9 @@ export default function OrdenDetallePage() {
   };
 
   const puedeRetroceder = () => {
+    // Solo super-admin puede retroceder
+    if (!isSuperAdmin) return false;
+    
     const faseId = mapEstadoAFase(orden?.estado_actual);
     const currentPhaseStep = FASES.find(f => f.id === faseId)?.step || 0;
     return currentPhaseStep > 0; // Puede retroceder si no está en recepción

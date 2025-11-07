@@ -13,17 +13,26 @@ export async function crearUsuario(data: {
   sede?: string;
 }) {
   try {
-    console.log('🔑 Creando cuenta de usuario usando Admin API...', { email: data.email });
+    console.log('🔑 Creando cuenta de usuario...', { email: data.email });
 
-    // Usar Admin API para crear usuario sin afectar la sesión actual
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    // Guardar la sesión actual del admin
+    const { data: { session: adminSession } } = await supabase.auth.getSession();
+
+    // Crear el nuevo usuario usando signUp
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
-      email_confirm: true, // Auto-confirma el email
+      options: {
+        emailRedirectTo: undefined, // No enviar email de confirmación
+        data: {
+          nombre: data.nombre,
+          rol: data.rol,
+        }
+      }
     });
 
     if (authError) {
-      console.error("❌ Error al crear cuenta:", { message: authError.message, status: (authError as any).status });
+      console.error("❌ Error al crear cuenta:", { message: authError.message });
 
       if (authError.message?.includes("already registered") || authError.message?.includes("already been registered")) {
         throw new Error('Este email ya está registrado');
@@ -36,7 +45,19 @@ export async function crearUsuario(data: {
       throw new Error('No se pudo crear la cuenta');
     }
 
-    console.log('✅ Cuenta creada exitosamente con Admin API:', authData.user.id);
+    console.log('✅ Cuenta creada exitosamente:', authData.user.id);
+
+    // Cerrar la sesión del nuevo usuario inmediatamente
+    await supabase.auth.signOut();
+
+    // Restaurar la sesión del admin
+    if (adminSession) {
+      await supabase.auth.setSession({
+        access_token: adminSession.access_token,
+        refresh_token: adminSession.refresh_token,
+      });
+      console.log('✅ Sesión de admin restaurada');
+    }
 
     // Insertar el usuario en la tabla public.usuarios
     console.log('📝 Insertando usuario en tabla usuarios...', {
@@ -63,13 +84,9 @@ export async function crearUsuario(data: {
 
     if (dbError) {
       console.error('❌ Error al insertar en tabla usuarios:', dbError);
-      // Intentar eliminar el usuario de auth si falló la inserción en la tabla
-      try {
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        console.log('🔄 Usuario eliminado de auth debido a error en tabla usuarios');
-      } catch (deleteError) {
-        console.error('❌ Error al revertir creación de usuario:', deleteError);
-      }
+      // NOTA: El usuario quedó creado en auth pero no en la tabla usuarios
+      // Se recomienda limpiarlo manualmente desde el dashboard de Supabase
+      console.warn('⚠️ Usuario creado en auth pero no en tabla usuarios. ID:', authData.user.id);
       throw new Error(`Error al crear usuario en base de datos: ${dbError.message}`);
     }
 
@@ -300,16 +317,11 @@ export async function eliminarUsuario(id: string) {
 
     console.log('✅ Usuario eliminado de la tabla usuarios');
 
-    // Luego eliminar de Supabase Auth
-    const { error: authError } = await supabase.auth.admin.deleteUser(id);
-
-    if (authError) {
-      console.error("⚠️ Error al eliminar usuario de auth (la eliminación de la tabla ya se completó):", authError);
-      // No lanzar error aquí porque el usuario ya se eliminó de la tabla
-      // En producción, se podría registrar esto para limpieza manual
-    } else {
-      console.log('✅ Usuario eliminado de Supabase Auth');
-    }
+    // NOTA: No podemos eliminar de Supabase Auth sin Service Role Key
+    // El usuario quedará en auth pero no en la tabla usuarios
+    // Se recomienda limpiarlo manualmente desde el dashboard de Supabase
+    console.warn('⚠️ Usuario eliminado de tabla pero permanece en auth. ID:', id);
+    console.warn('💡 Para eliminarlo completamente, ve a Authentication > Users en Supabase Dashboard');
 
     return true;
   } catch (error) {
