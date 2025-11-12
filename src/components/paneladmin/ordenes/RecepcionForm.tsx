@@ -379,7 +379,7 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
             }`}>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 onChange={async (e) => {
                   const files = Array.from(e.target.files || []);

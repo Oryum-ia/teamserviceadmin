@@ -11,7 +11,7 @@ interface ImagenViewerProps {
   puedeEditar?: boolean;
   onFilesDropped?: (files: File[]) => void;
   isUploading?: boolean;
-  onReordenar?: (nuevasImagenes: string[]) => void; // Nueva prop
+  onReordenar?: (nuevasImagenes: string[]) => void;
 }
 
 export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeEditar = true, onFilesDropped, isUploading = false, onReordenar }: ImagenViewerProps) {
@@ -125,10 +125,13 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
     if (!puedeEditar || isUploading) return;
 
     const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    // Aceptar imágenes y videos
+    const mediaFiles = files.filter(file => 
+      file.type.startsWith('image/') || file.type.startsWith('video/')
+    );
     
-    if (imageFiles.length > 0 && onFilesDropped) {
-      onFilesDropped(imageFiles);
+    if (mediaFiles.length > 0 && onFilesDropped) {
+      onFilesDropped(mediaFiles);
     }
   };
 
@@ -199,7 +202,7 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-yellow-400/90 dark:bg-yellow-500/90 rounded-lg border-4 border-dashed border-yellow-600 dark:border-yellow-300">
             <div className="text-center">
               <div className="text-white text-xl font-bold mb-2">Suelta para subir</div>
-              <div className="text-white/90 text-sm">Las imágenes se añadirán aquí</div>
+              <div className="text-white/90 text-sm">Las imágenes y videos se añadirán aquí</div>
             </div>
           </div>
         )}
@@ -228,11 +231,20 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
               }
             }}
           >
-            <img
-              src={url}
-              alt={`Foto ${index + 1}`}
-              className="w-full h-full object-cover transition-transform group-hover:scale-110"
-            />
+            {url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') || url.includes('video') ? (
+              <video
+                src={url}
+                className="w-full h-full object-cover"
+                muted
+                playsInline
+              />
+            ) : (
+              <img
+                src={url}
+                alt={`Foto ${index + 1}`}
+                className="w-full h-full object-cover transition-transform group-hover:scale-110"
+              />
+            )}
             
             {/* Overlay con botones */}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -324,14 +336,24 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
             </button>
           )}
 
-          {/* Imagen principal */}
+          {/* Imagen o video principal */}
           <div className="max-w-7xl max-h-[85vh] p-4">
-            <img
-              src={imagenes[currentIndex]}
-              alt={`Foto ${currentIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
+            {imagenes[currentIndex].includes('.mp4') || imagenes[currentIndex].includes('.webm') || imagenes[currentIndex].includes('.mov') || imagenes[currentIndex].includes('video') ? (
+              <video
+                src={imagenes[currentIndex]}
+                controls
+                autoPlay
+                className="max-w-full max-h-full object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <img
+                src={imagenes[currentIndex]}
+                alt={`Foto ${currentIndex + 1}`}
+                className="max-w-full max-h-full object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
           </div>
 
           {/* Navegación derecha */}
@@ -359,11 +381,20 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
                         : 'border-white/30 hover:border-white/60'
                     }`}
                   >
-                    <img
-                      src={url}
-                      alt={`Miniatura ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                    {url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') || url.includes('video') ? (
+                      <video
+                        src={url}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      <img
+                        src={url}
+                        alt={`Miniatura ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
                   </button>
                 ))}
               </div>

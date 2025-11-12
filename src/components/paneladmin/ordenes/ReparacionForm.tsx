@@ -251,7 +251,7 @@ export default function ReparacionForm({ orden, onSuccess }: ReparacionFormProps
               }`}>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/*"
                   multiple
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);

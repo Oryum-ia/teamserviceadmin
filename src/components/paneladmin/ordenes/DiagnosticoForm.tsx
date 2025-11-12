@@ -555,7 +555,7 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
               }`}>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/*"
                   multiple
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);

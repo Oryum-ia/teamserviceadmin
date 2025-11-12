@@ -346,12 +346,18 @@ export default function OrdenDetallePage() {
         camposALimpiar.fecha_inicio_diagnostico = null;
         camposALimpiar.fecha_fin_diagnostico = null;
         camposALimpiar.tecnico_diagnostico = null;
+        // Limpiar repuestos del diagnóstico al retroceder
+        camposALimpiar.repuestos_diagnostico = null;
       } else if (faseActual === 'cotizacion') {
         camposALimpiar.fecha_cotizacion = null; // fecha_inicio de cotización
         camposALimpiar.fecha_aprobacion = null;
         camposALimpiar.tecnico_cotiza = null;
         camposALimpiar.fecha_solicitud_repuestos = null;
         camposALimpiar.fecha_recepcion_repuestos = null;
+        // Limpiar repuestos de cotización y estado de aprobación al retroceder
+        camposALimpiar.repuestos_cotizacion = null;
+        camposALimpiar.aprobado_cliente = null;
+        camposALimpiar.envio_cotizacion = false;
       } else if (faseActual === 'reparacion') {
         camposALimpiar.fecha_inicio_reparacion = null;
         camposALimpiar.fecha_fin_reparacion = null;
@@ -407,6 +413,13 @@ export default function OrdenDetallePage() {
       };
       setOrden(ordenActualizada);
       saveOrdenToLocalStorage(ordenActualizada);
+      
+      // Limpiar caché de repuestos en localStorage si se retrocede de cotización o diagnóstico
+      if (faseActual === 'cotizacion') {
+        localStorage.removeItem(`repuestos_cotizacion_${ordenId}`);
+      } else if (faseActual === 'diagnostico') {
+        localStorage.removeItem(`repuestos_diagnostico_${ordenId}`);
+      }
 
       toast.success(`Fase retrocedida a ${faseAnterior.label}`);
       setShowRetrocederModal(false);
@@ -898,7 +911,7 @@ export default function OrdenDetallePage() {
               const isClickable = index <= currentPhaseStep;
 
               return (
-                <React.Fragment key={fase.id}>
+                <React.Fragment key={`${fase.id}-${index}-${currentPhaseStep}`}>
                   <div className="flex flex-col items-center flex-1">
                     <button
                       onClick={() => isClickable && handleStepChange(index)}

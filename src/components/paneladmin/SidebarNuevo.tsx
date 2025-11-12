@@ -88,7 +88,7 @@ const menuItems: SidebarMenuItem[] = [
     hasSubmenu: true,
     submenu: [
       {
-        name: 'Productos',
+        name: 'Productos Kärcher',
         icon: ShoppingBag,
         key: 'admin-tienda-productos',
       },

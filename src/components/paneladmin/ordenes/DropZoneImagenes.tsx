@@ -37,10 +37,13 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
     if (disabled || isUploading) return;
 
     const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    // Aceptar imágenes y videos
+    const mediaFiles = files.filter(file => 
+      file.type.startsWith('image/') || file.type.startsWith('video/')
+    );
     
-    if (imageFiles.length > 0) {
-      onFilesSelected(imageFiles);
+    if (mediaFiles.length > 0) {
+      onFilesSelected(mediaFiles);
     }
   };
 
@@ -52,10 +55,13 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    // Aceptar imágenes y videos
+    const mediaFiles = files.filter(file => 
+      file.type.startsWith('image/') || file.type.startsWith('video/')
+    );
     
-    if (imageFiles.length > 0) {
-      onFilesSelected(imageFiles);
+    if (mediaFiles.length > 0) {
+      onFilesSelected(mediaFiles);
     }
     
     // Limpiar el input para permitir subir las mismas imágenes
@@ -81,7 +87,7 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         multiple
         onChange={handleFileChange}
         className="hidden"
@@ -122,7 +128,7 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
               <p className={`text-base font-medium mb-1 ${
                 theme === 'light' ? 'text-gray-700' : 'text-gray-300'
               }`}>
-                {isDragging ? 'Suelta las imágenes aquí' : 'Arrastra imágenes aquí'}
+                {isDragging ? 'Suelta las imágenes/videos aquí' : 'Arrastra imágenes o videos aquí'}
               </p>
               <p className={`text-sm ${
                 theme === 'light' ? 'text-gray-500' : 'text-gray-400'
@@ -134,7 +140,7 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
             <div className={`flex items-center gap-2 text-xs ${
               theme === 'light' ? 'text-gray-400' : 'text-gray-500'
             }`}>
-              <span>PNG, JPG, GIF hasta 10MB</span>
+              <span>PNG, JPG, GIF, MP4, WEBM hasta 50MB</span>
             </div>
           </>
         )}

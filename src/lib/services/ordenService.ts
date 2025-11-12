@@ -50,7 +50,7 @@ Descripción: ${data.descripcion_problema || 'N/A'}
     es_retrabajo: false,
     valor_revision: 0,
     revision_pagada: false,
-    aprobado_cliente: false,
+    aprobado_cliente: null,
     total: 0
   };
 

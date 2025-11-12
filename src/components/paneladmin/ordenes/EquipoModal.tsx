@@ -44,7 +44,6 @@ export default function EquipoModal({
     serie_pieza: '',
     fecha_compra: '',
     descripcion: '',
-    soporte_garantia: 'factura',
     estado: 'Habilitado',
     comentarios: ''
   });
@@ -60,7 +59,6 @@ export default function EquipoModal({
           serie_pieza: equipoEditar.serie_pieza || '',
           fecha_compra: equipoEditar.fecha_compra || '',
           descripcion: equipoEditar.descripcion || '',
-          soporte_garantia: equipoEditar.soporte_garantia || 'factura',
           estado: equipoEditar.estado || 'Habilitado',
           comentarios: equipoEditar.comentarios || ''
         });
@@ -71,7 +69,6 @@ export default function EquipoModal({
           serie_pieza: '',
           fecha_compra: '',
           descripcion: '',
-          soporte_garantia: 'factura',
           estado: 'Habilitado',
           comentarios: ''
         });
@@ -129,7 +126,6 @@ export default function EquipoModal({
           serie_pieza: formData.serie_pieza,
           fecha_compra: formData.fecha_compra || null,
           descripcion: formData.descripcion || null,
-          soporte_garantia: formData.soporte_garantia,
           estado: formData.estado,
           comentarios: formData.comentarios || null
         };
@@ -144,7 +140,6 @@ export default function EquipoModal({
           serie_pieza: formData.serie_pieza,
           fecha_compra: formData.fecha_compra || undefined,
           descripcion: formData.descripcion || undefined,
-          soporte_garantia: formData.soporte_garantia,
           estado: formData.estado,
           comentarios: formData.comentarios || undefined
         });
@@ -257,47 +252,24 @@ export default function EquipoModal({
                 />
               </div>
 
-              {/* Grid: Fecha compra y Soporte garantía */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Fecha de Compra
-                  </label>
-                  <input
-                    type="date"
-                    name="fecha_compra"
-                    value={formData.fecha_compra}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                      theme === 'light'
-                        ? 'border-gray-300 bg-white text-gray-900'
-                        : 'border-gray-600 bg-gray-700 text-gray-100'
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Soporte Garantía
-                  </label>
-                  <select
-                    name="soporte_garantia"
-                    value={formData.soporte_garantia}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                      theme === 'light'
-                        ? 'border-gray-300 bg-white text-gray-900'
-                        : 'border-gray-600 bg-gray-700 text-gray-100'
-                    }`}
-                  >
-                    <option value="factura">Factura</option>
-                    <option value="poliza">Póliza</option>
-                  </select>
-                </div>
+              {/* Fecha de compra */}
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Fecha de Compra
+                </label>
+                <input
+                  type="date"
+                  name="fecha_compra"
+                  value={formData.fecha_compra}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                />
               </div>
 
               {/* Estado */}

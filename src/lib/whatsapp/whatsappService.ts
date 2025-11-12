@@ -5,11 +5,21 @@
 
 /**
  * Formatear número de teléfono para WhatsApp
- * Elimina caracteres especiales y espacios
+ * Elimina caracteres especiales y espacios, y agrega código de país si no lo tiene
  */
 export function formatPhoneNumber(phone: string): string {
   // Eliminar espacios, guiones, paréntesis y el símbolo +
-  return phone.replace(/[\s\-\(\)\+]/g, '');
+  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  
+  // Si ya tiene +, solo removerlo y continuar
+  cleaned = cleaned.replace(/\+/g, '');
+  
+  // Si el número no empieza con 57 (código de Colombia), agregarlo
+  if (!cleaned.startsWith('57')) {
+    cleaned = '57' + cleaned;
+  }
+  
+  return cleaned;
 }
 
 /**
