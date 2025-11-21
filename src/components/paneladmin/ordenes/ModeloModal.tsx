@@ -49,7 +49,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
     marca_id: '',
     referencia: '',
     valor_revision: '',
-    serial: '',
     cuidado_uso: ''
   });
 
@@ -122,7 +121,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           marca_id: modeloEditar.marca_id || (typeof modeloEditar.marca === 'object' ? modeloEditar.marca?.id : '') || '',
           referencia: modeloEditar.referencia || '',
           valor_revision: modeloEditar.valor_revision ? modeloEditar.valor_revision.toString() : '',
-          serial: modeloEditar.serial || '',
           cuidado_uso: modeloEditar.cuidado_uso || ''
         });
         // Cargar accesorios y repuestos del modelo
@@ -134,7 +132,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           marca_id: '',
           referencia: '',
           valor_revision: '',
-          serial: '',
           cuidado_uso: ''
         });
         setAccesoriosSeleccionados([]);
@@ -172,7 +169,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           marca_id: formData.marca_id || undefined,
           referencia: formData.referencia || undefined,
           valor_revision: formData.valor_revision ? parseFloat(formData.valor_revision) : undefined,
-          serial: formData.serial || undefined,
           cuidado_uso: formData.cuidado_uso || undefined
         });
 
@@ -189,7 +185,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           marca_id: formData.marca_id || undefined,
           referencia: formData.referencia || undefined,
           valor_revision: formData.valor_revision ? parseFloat(formData.valor_revision) : undefined,
-          serial: formData.serial || undefined,
           cuidado_uso: formData.cuidado_uso || undefined
         });
 
@@ -371,47 +366,25 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
                 tagColor="blue"
               />
 
-              {/* Grid: Serial y Valor revisión */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Serial
-                  </label>
-                  <input
-                    type="text"
-                    name="serial"
-                    value={formData.serial}
-                    onChange={handleChange}
-                    placeholder="Ej: ABC123"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                      theme === 'light'
-                        ? 'border-gray-300 bg-white text-gray-900'
-                        : 'border-gray-600 bg-gray-700 text-gray-100'
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Valor Revisión
-                  </label>
-                  <input
-                    type="number"
-                    name="valor_revision"
-                    value={formData.valor_revision}
-                    onChange={handleChange}
-                    placeholder="Ej: 50000"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                      theme === 'light'
-                        ? 'border-gray-300 bg-white text-gray-900'
-                        : 'border-gray-600 bg-gray-700 text-gray-100'
-                    }`}
-                  />
-                </div>
+              {/* Valor revisión */}
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Valor Revisión
+                </label>
+                <input
+                  type="number"
+                  name="valor_revision"
+                  value={formData.valor_revision}
+                  onChange={handleChange}
+                  placeholder="Ej: 50000"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                />
               </div>
             </div>
 

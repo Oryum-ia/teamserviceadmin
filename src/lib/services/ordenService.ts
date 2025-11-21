@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import { Orden, OrdenPhase, OrdenStatus } from "@/types/database.types";
 import { notificarOrdenCreada, notificarCambioFase } from "./emailNotificationService";
+import { crearEquipo } from "./equipoService";
 
 /**
  * Crear una nueva orden
@@ -14,6 +15,7 @@ export async function crearOrden(data: {
   tipo?: string;
   tipo_orden?: string;
   descripcion_problema?: string;
+  es_retrabajo?: boolean;
 }) {
   // Generar código de orden único (no usar codigo_qr para evitar duplicados)
   const codigo = `ORD-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
@@ -28,6 +30,26 @@ export async function crearOrden(data: {
     // Ignorar si no hay sesión
   }
 
+  // Si no se proporciona equipo_id, crear el equipo automáticamente
+  let equipoId = data.equipo_id;
+  if (!equipoId && data.cliente_id && data.modelo && data.serie_pieza) {
+    try {
+      console.log('🔧 Creando equipo automáticamente...');
+      const equipoCreado = await crearEquipo({
+        cliente_id: data.cliente_id,
+        modelo_id: data.modelo,
+        serie_pieza: data.serie_pieza,
+        descripcion: data.descripcion_problema,
+        estado: 'Habilitado'
+      });
+      equipoId = equipoCreado.id;
+      console.log('✅ Equipo creado automáticamente:', equipoId);
+    } catch (equipoError) {
+      console.error('❌ Error al crear equipo automáticamente:', equipoError);
+      // Continuar sin equipo si falla la creación
+    }
+  }
+
   // Construir comentario de recepción con los datos del equipo
   const comentarioRecepcion = `
 Modelo: ${data.modelo || 'N/A'}
@@ -38,7 +60,7 @@ Descripción: ${data.descripcion_problema || 'N/A'}
 
   const ordenData = {
     cliente_id: data.cliente_id,
-    equipo_id: data.equipo_id || null,
+    equipo_id: equipoId || null,
     codigo: codigo,
     responsable,
     estado_actual: 'Recepción',
@@ -47,7 +69,7 @@ Descripción: ${data.descripcion_problema || 'N/A'}
     tipo_entrega: 'En sitio',
     fecha_creacion: new Date().toISOString(),
     comentarios_recepcion: comentarioRecepcion,
-    es_retrabajo: false,
+    es_retrabajo: data.es_retrabajo || false,
     valor_revision: 0,
     revision_pagada: false,
     aprobado_cliente: null,

@@ -29,7 +29,7 @@ export async function crearModelo(data: {
   marca?: string;  // Mantener por compatibilidad con datos antiguos
   referencia?: string;
   valor_revision?: number;
-  serial?: string;
+  cuidado_uso?: string;
 }) {
   // Limpiar datos: convertir strings vacíos a null para foreign keys
   const modeloData = {
@@ -38,7 +38,7 @@ export async function crearModelo(data: {
     marca: data.marca || null,  // Mantener por compatibilidad
     referencia: data.referencia || null,
     valor_revision: data.valor_revision || 0,
-    serial: data.serial || null
+    cuidado_uso: data.cuidado_uso || null
   };
 
   const { data: modelo, error } = await supabase
@@ -68,7 +68,7 @@ export async function actualizarModelo(id: string, data: Partial<{
   marca?: string;
   referencia?: string;
   valor_revision?: number;
-  serial?: string;
+  cuidado_uso?: string;
 }>) {
   const { data: modelo, error } = await supabase
     .from("modelos")

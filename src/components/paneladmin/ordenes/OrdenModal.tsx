@@ -6,12 +6,10 @@ import { useTheme } from '../../ThemeProvider';
 import { Cliente } from '@/types/database.types';
 import { crearOrden } from '@/lib/services/ordenService';
 import { obtenerTodosLosClientes } from '@/lib/services/clienteService';
-import { obtenerTodosLosEquipos, obtenerEquipoPorId } from '@/lib/services/equipoService';
 import { obtenerTodosLosModelos } from '@/lib/services/modeloService';
 import { notificarOrdenCreadaWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import SearchableSelect from './SearchableSelect';
 import ClienteModal from '../ClienteModal';
-import EquipoModal from './EquipoModal';
 import ModeloModal from './ModeloModal';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -29,17 +27,13 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
   const [error, setError] = useState('');
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [modelos, setModelos] = useState<Array<any>>([]);
-  const [equipos, setEquipos] = useState<Array<any>>([]);
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [showModeloModal, setShowModeloModal] = useState(false);
-  const [showEquipoModal, setShowEquipoModal] = useState(false);
-  const [prefilledClienteData, setPrefilledClienteData] = useState<{identificacion?: string; nombre?: string}>({});
   const [uploadedFileName, setUploadedFileName] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [formData, setFormData] = useState({
-    equipo_id: '',
     cliente_id: '',
     codigo_qr: '',
     modelo: '',
@@ -50,12 +44,11 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
     es_retrabajo: false
   });
 
-  // Cargar clientes, modelos y equipos
+  // Cargar clientes y modelos
   useEffect(() => {
     if (isOpen) {
       cargarClientes();
       cargarModelos();
-      cargarEquipos();
     }
   }, [isOpen]);
 
@@ -80,46 +73,6 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
     } catch (err) {
       console.error('❌ Error al cargar modelos:', err);
       toast.error('Error al cargar modelos');
-    }
-  };
-
-  const cargarEquipos = async () => {
-    try {
-      const data = await obtenerTodosLosEquipos();
-      setEquipos(data);
-    } catch (err) {
-      console.error('❌ Error al cargar equipos:', err);
-    }
-  };
-
-  // Manejar selección de equipo y precargar datos
-  const handleEquipoChange = async (equipoId: string) => {
-    setFormData(prev => ({ ...prev, equipo_id: equipoId }));
-
-    if (!equipoId) return;
-
-    try {
-      const { equipo, ultimaOrden } = await obtenerEquipoPorId(equipoId);
-      
-      // Precargar datos del equipo
-      setFormData(prev => ({
-        ...prev,
-        equipo_id: equipoId,
-        cliente_id: equipo.cliente_id || '',
-        modelo: equipo.modelo_id || '',  // Usar el ID del modelo, no el nombre
-        serie_pieza: equipo.serie_pieza || '',
-        tipo: equipo.modelo?.equipo || '',
-        // Si hay orden previa, cargar algunos datos (excepto comentarios ni código)
-        tipo_orden: ultimaOrden?.tipo_orden || prev.tipo_orden
-      }));
-
-      console.log('✅ Datos precargados desde equipo:', equipo);
-      console.log('🔍 Modelo ID precargado:', equipo.modelo_id);
-      if (ultimaOrden) {
-        console.log('📋 Orden previa encontrada:', ultimaOrden.codigo);
-      }
-    } catch (err) {
-      console.error('❌ Error al cargar datos del equipo:', err);
     }
   };
 
@@ -197,7 +150,6 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
 
       // Reset form
       setFormData({
-        equipo_id: '',
         cliente_id: '',
         codigo_qr: '',
         modelo: '',
@@ -258,22 +210,6 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
               </div>
             )}
 
-            {/* Equipo - PRIMERO para precargar datos */}
-            <SearchableSelect
-              value={formData.equipo_id}
-              onChange={handleEquipoChange}
-              options={equipos.map(e => ({
-                id: e.id,
-                label: `${e.serie_pieza || 'Sin serie'} - ${e.modelo?.equipo || 'Sin modelo'} - ${e.cliente?.identificacion || 'Sin cliente'}`,
-                searchText: `${e.serie_pieza || ''} ${e.modelo?.equipo || ''} ${e.modelo?.marca?.nombre || e.modelo?.marca || ''} ${e.cliente?.identificacion || ''} ${e.cliente?.nombre_comercial || ''}`
-              }))}
-              placeholder="Buscar equipo por serie, modelo o cliente"
-              label="Equipo"
-              required={false}
-              onCreateNew={() => setShowEquipoModal(true)}
-              createButtonText="Crear nuevo equipo"
-            />
-
             {/* Cliente */}
             {isLoadingClientes ? (
               <div className="flex items-center space-x-2 text-sm text-gray-500">
@@ -292,12 +228,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
                 placeholder="Buscar por cédula o nombre"
                 label="Cliente"
                 required
-                onCreateNew={() => {
-                  // Detectar si es número o texto para precargar
-                  const input = '';
-                  setPrefilledClienteData({});
-                  setShowClienteModal(true);
-                }}
+                onCreateNew={() => setShowClienteModal(true)}
                 createButtonText="Crear nuevo cliente"
               />
             )}
@@ -390,7 +321,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
               <label className={`block text-sm font-medium mb-1 ${
                 theme === 'light' ? 'text-gray-700' : 'text-gray-300'
               }`}>
-                Tipo *
+                Tipo
               </label>
               <input
                 type="text"
@@ -403,7 +334,6 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
                     ? 'border-gray-300 bg-white text-gray-900'
                     : 'border-gray-600 bg-gray-700 text-gray-100'
                 }`}
-                required
               />
             </div>
 
@@ -493,21 +423,6 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
         onSuccess={() => {
           cargarClientes();
           setShowClienteModal(false);
-        }}
-      />
-
-      {/* Modal de Crear Equipo */}
-      <EquipoModal
-        isOpen={showEquipoModal}
-        onClose={() => setShowEquipoModal(false)}
-        clientes={clientes}
-        onClientesChange={cargarClientes}
-        onSuccess={async (equipoCreado) => {
-          // Recargar equipos
-          await cargarEquipos();
-          // Seleccionar el equipo recién creado y precargar datos
-          await handleEquipoChange(equipoCreado.id);
-          setShowEquipoModal(false);
         }}
       />
 
