@@ -299,33 +299,40 @@ export async function obtenerUsuariosActivos() {
 /**
  * Eliminar un usuario del sistema
  * Elimina tanto de la tabla usuarios como de Supabase Auth
+ * Usa una API route para acceder a la Service Role Key de forma segura
  */
 export async function eliminarUsuario(id: string) {
   console.log('🗑️ Eliminando usuario:', { id });
 
   try {
-    // Primero eliminar de la tabla usuarios
-    const { error: dbError } = await supabase
-      .from("usuarios")
-      .delete()
-      .eq("id", id);
-
-    if (dbError) {
-      console.error("❌ Error al eliminar usuario de la tabla:", dbError);
-      throw dbError;
+    // Obtener el token de sesión actual
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error('No hay sesión activa');
     }
 
-    console.log('✅ Usuario eliminado de la tabla usuarios');
+    // Llamar a la API route que tiene acceso al cliente admin
+    const response = await fetch(`/api/usuarios/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
 
-    // NOTA: No podemos eliminar de Supabase Auth sin Service Role Key
-    // El usuario quedará en auth pero no en la tabla usuarios
-    // Se recomienda limpiarlo manualmente desde el dashboard de Supabase
-    console.warn('⚠️ Usuario eliminado de tabla pero permanece en auth. ID:', id);
-    console.warn('💡 Para eliminarlo completamente, ve a Authentication > Users en Supabase Dashboard');
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("❌ Error al eliminar usuario:", data.error);
+      throw new Error(data.error || 'Error al eliminar usuario');
+    }
+
+    console.log('✅ Usuario eliminado completamente del sistema');
 
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Error al eliminar usuario:", error);
-    throw error;
+    throw new Error(error.message || 'Error al eliminar usuario');
   }
 }

@@ -699,19 +699,41 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
       )}
 
       {/* Mensaje de aprobación del cliente */}
-      {aprobadoCliente && estado === 'Esperando aceptación' && (
+      {aprobadoCliente && (
         <div className={`mb-6 p-4 rounded-lg border ${
           theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-green-900/20 border-green-800'
         }`}>
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-start gap-3">
+            <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className={`text-sm font-medium ${
-              theme === 'light' ? 'text-green-800' : 'text-green-300'
-            }`}>
-              ¡El cliente ha aprobado la cotización! Puede avanzar a la siguiente fase.
-            </p>
+            <div className="flex-1">
+              <p className={`text-base font-semibold mb-1 ${
+                theme === 'light' ? 'text-green-800' : 'text-green-300'
+              }`}>
+                ✅ Cotización Aceptada por el Cliente
+              </p>
+              {orden.fecha_aprobacion && (
+                <p className={`text-sm ${
+                  theme === 'light' ? 'text-green-700' : 'text-green-400'
+                }`}>
+                  Fecha de aprobación: {new Date(orden.fecha_aprobacion).toLocaleString('es-CO', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              )}
+              {estado === 'Esperando aceptación' && (
+                <p className={`text-sm mt-2 ${
+                  theme === 'light' ? 'text-green-700' : 'text-green-400'
+                }`}>
+                  Puede avanzar a la siguiente fase.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1085,93 +1107,6 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
             } disabled:opacity-50 disabled:text-black`}
           />
         </div>
-
-
-        {/* Alistamiento para reparación */}
-        <div className={`p-4 rounded-lg border ${
-          theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-green-900/20 border-green-800'
-        }`}>
-          <h3 className={`text-lg font-semibold mb-4 ${
-            theme === 'light' ? 'text-green-900' : 'text-green-300'
-          }`}>
-            Alistamiento para reparación
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${
-                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}>
-                Fecha de solicitud de repuestos *
-              </label>
-              <input
-                type="text"
-                value={orden.fecha_solicitud_repuestos ? new Date(orden.fecha_solicitud_repuestos).toLocaleString('es-CO', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) : ''}
-                disabled
-                className={`w-full px-4 py-2 border rounded-lg ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-gray-100 text-gray-600'
-                    : 'border-gray-600 bg-gray-800 text-gray-400'
-                }`}
-              />
-            </div>
-
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${
-                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}>
-                Fecha de recepción de repuestos
-              </label>
-              <input
-                type="text"
-                value={orden.fecha_recepcion_repuestos ? new Date(orden.fecha_recepcion_repuestos).toLocaleString('es-CO', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) : ''}
-                disabled
-                className={`w-full px-4 py-2 border rounded-lg ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-gray-100 text-gray-600'
-                    : 'border-gray-600 bg-gray-800 text-gray-400'
-                }`}
-              />
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className={`block text-sm font-medium mb-2 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              Usuario que repara *
-            </label>
-            <select
-              value={formData.tecnico_reparacion_id}
-              onChange={(e) => setFormData({ ...formData, tecnico_reparacion_id: e.target.value })}
-              disabled={!puedeEditarCamposCotizacion}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                theme === 'light'
-                  ? 'border-gray-300 bg-white text-gray-900'
-                  : 'border-gray-600 bg-gray-700 text-gray-100'
-              } disabled:opacity-50 disabled:text-black`}
-            >
-              <option value="">Seleccionar técnico...</option>
-              {tecnicos.map((tecnico) => (
-                <option key={tecnico.id} value={tecnico.id}>
-                  {tecnico.nombre || tecnico.email}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
       </div>
 
       {/* Acción: Enviar cotización (cambia estado_actual a "Esperando aceptación") */}
@@ -1219,3 +1154,4 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
     </div>
   );
 }
+
