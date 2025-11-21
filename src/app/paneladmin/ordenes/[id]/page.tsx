@@ -461,31 +461,23 @@ export default function OrdenDetallePage() {
     if (orden?.estado_actual === 'Esperando repuestos') {
       return false;
     }
-    // Si está en Cotización, solo permitir avanzar si el cliente aprobó
-    if (orden?.estado_actual === 'Cotización') {
-      return orden?.aprobado_cliente === true;
-    }
-    // Si está esperando aceptación, solo permitir avanzar si el cliente aprobó
-    if (orden?.estado_actual === 'Esperando aceptación') {
-      return orden?.aprobado_cliente === true;
-    }
-    
+
     const faseId = mapEstadoAFase(orden?.estado_actual);
     const currentPhaseStep = FASES.find(f => f.id === faseId)?.step || 0;
-    
+
     // Validación especial para fase de recepción
     if (faseId === 'recepcion') {
       // Solo permitir avanzar si tiene términos aceptados y firma del cliente
       return orden?.terminos_aceptados && orden?.firma_cliente;
     }
-    
+
     return currentPhaseStep < FASES.length - 1; // Puede avanzar si no está en la última fase
   };
 
   const handleAvanzarFase = async () => {
-    // Bloqueo explícito si está esperando repuestos
+    // Bloquear avance si está esperando repuestos
     if (orden?.estado_actual === 'Esperando repuestos') {
-      toast.error('No puede avanzar de fase mientras está esperando repuestos');
+      toast.error('No se puede avanzar mientras se esperan repuestos');
       return;
     }
     
@@ -613,6 +605,11 @@ export default function OrdenDetallePage() {
   };
 
   const handleFinalizarOrden = async () => {
+    if (!orden?.firma_entrega) {
+      toast.error('Debe tener la firma del cliente antes de finalizar la orden');
+      return;
+    }
+
     setIsAvanzando(true);
     try {
       const now = new Date().toISOString();
@@ -799,45 +796,49 @@ export default function OrdenDetallePage() {
                 </button>
               )}
               {/* Botón Avanzar/Finalizar en móvil */}
-              {orden?.estado_actual === 'Entrega' ? (
-                <button
-                  onClick={handleFinalizarOrden}
-                  disabled={isAvanzando || isRetrocediendo}
-                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                    theme === 'light'
-                      ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                      : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  title="Finalizar orden"
-                >
-                  <span>Finalizar</span>
-                  <ChevronRightIcon className="w-4 h-4" />
-                </button>
-              ) : (
-                puedeAvanzar() && (
-                  <button
-                    onClick={handleAvanzarFase}
-                    disabled={isAvanzando || isRetrocediendo}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                      theme === 'light'
-                        ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                        : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {isAvanzando ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Avanzando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Avanzar</span>
+              {orden?.estado_actual === 'Entrega'
+                ? (
+                    orden?.firma_entrega && (
+                      <button
+                        onClick={handleFinalizarOrden}
+                        disabled={isAvanzando || isRetrocediendo}
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                          theme === 'light'
+                            ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                            : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        title="Finalizar orden"
+                      >
+                        <span>Finalizar</span>
                         <ChevronRightIcon className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                )
-              )}
+                      </button>
+                    )
+                  )
+                : (
+                    puedeAvanzar() && (
+                      <button
+                        onClick={handleAvanzarFase}
+                        disabled={isAvanzando || isRetrocediendo}
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                          theme === 'light'
+                            ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                            : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {isAvanzando ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Avanzando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Avanzar</span>
+                            <ChevronRightIcon className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    )
+                  )}
             </div>
 
             {/* Botones de acción (solo en desktop) */}
@@ -856,45 +857,49 @@ export default function OrdenDetallePage() {
                   Retroceder
                 </button>
               )}
-              {orden?.estado_actual === 'Entrega' ? (
-                <button
-                  onClick={handleFinalizarOrden}
-                  disabled={isAvanzando || isRetrocediendo}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    theme === 'light'
-                      ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                      : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  title="Finalizar orden"
-                >
-                  <span>Finalizar orden</span>
-                  <ChevronRightIcon className="w-4 h-4" />
-                </button>
-              ) : (
-                puedeAvanzar() && (
-                  <button
-                    onClick={handleAvanzarFase}
-                    disabled={isAvanzando || isRetrocediendo}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      theme === 'light'
-                        ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                        : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {isAvanzando ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Avanzando...
-                      </>
-                    ) : (
-                      <>
-                        <span>Avanzar Fase</span>
+              {orden?.estado_actual === 'Entrega'
+                ? (
+                    orden?.firma_entrega && (
+                      <button
+                        onClick={handleFinalizarOrden}
+                        disabled={isAvanzando || isRetrocediendo}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          theme === 'light'
+                            ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                            : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        title="Finalizar orden"
+                      >
+                        <span>Finalizar orden</span>
                         <ChevronRightIcon className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                )
-              )}
+                      </button>
+                    )
+                  )
+                : (
+                    puedeAvanzar() && (
+                      <button
+                        onClick={handleAvanzarFase}
+                        disabled={isAvanzando || isRetrocediendo}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          theme === 'light'
+                            ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                            : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {isAvanzando ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Avanzando...
+                          </>
+                        ) : (
+                          <>
+                            <span>Avanzar Fase</span>
+                            <ChevronRightIcon className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    )
+                  )}
             </div>
           </div>
         </div>
