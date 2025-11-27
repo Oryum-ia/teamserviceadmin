@@ -17,7 +17,9 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   MessageSquare,
-  StickyNote
+  StickyNote,
+  Copy,
+  Check
 } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
@@ -62,6 +64,7 @@ export default function OrdenDetallePage() {
   const [showNotaModal, setShowNotaModal] = useState(false);
   const [notaOrden, setNotaOrden] = useState('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
 
   // Obtener ID del técnico actual
   const obtenerTecnicoActual = async () => {
@@ -154,6 +157,15 @@ export default function OrdenDetallePage() {
       setNotaOrden(orden.nota_orden || '');
     }
   }, [orden?.estado_actual, orden?.nota_orden]);
+
+  const handleCopyId = () => {
+    if (orden?.codigo) {
+      navigator.clipboard.writeText(orden.codigo);
+      setCopiedId(true);
+      toast.success('ID copiado al portapapeles');
+      setTimeout(() => setCopiedId(false), 2000);
+    }
+  };
 
   const cargarOrden = async () => {
     setIsLoading(true);
@@ -538,6 +550,15 @@ export default function OrdenDetallePage() {
         if (!orden.fecha_cotizacion) {
           camposActualizacion.fecha_cotizacion = now;
         }
+
+        // Al avanzar desde diagnóstico, guardar comentarios
+        if (typeof window !== 'undefined' && (window as any).guardarDatosDiagnostico) {
+          const datosDiagnostico = await (window as any).guardarDatosDiagnostico();
+          // Aplicar los datos de diagnóstico a camposActualizacion
+          if (datosDiagnostico) {
+            Object.assign(camposActualizacion, datosDiagnostico);
+          }
+        }
       } else if (faseActual === 'cotizacion') {
         // Al avanzar desde cotización, guardar todos los datos primero
         if (typeof window !== 'undefined' && (window as any).guardarDatosCotizacion) {
@@ -562,8 +583,20 @@ export default function OrdenDetallePage() {
           camposActualizacion.fecha_inicio_reparacion = now;
         }
       } else if (faseActual === 'reparacion') {
+        // Al avanzar desde reparación, obtener el técnico seleccionado
+        if (typeof window !== 'undefined' && (window as any).guardarDatosReparacion) {
+          const datosReparacion = await (window as any).guardarDatosReparacion();
+          if (!datosReparacion) {
+            setIsAvanzando(false);
+            return; // Detener si no hay datos (validación falló)
+          }
+          Object.assign(camposActualizacion, datosReparacion);
+        } else {
+           // Fallback si no hay función (no debería pasar)
+           camposActualizacion.tecnico_repara = tecnicoId;
+        }
+
         camposActualizacion.fecha_fin_reparacion = now;
-        camposActualizacion.tecnico_repara = tecnicoId;
         // La fecha de entrega se establecerá al finalizar la orden
       }
       
@@ -733,6 +766,20 @@ export default function OrdenDetallePage() {
                     }`}>
                       Orden {orden.codigo}
                     </h1>
+                    
+                    {/* Botón para copiar ID */}
+                    <button
+                      onClick={handleCopyId}
+                      className={`p-1.5 rounded-md transition-colors ${
+                        theme === 'light'
+                          ? 'hover:bg-gray-200 text-gray-500'
+                          : 'hover:bg-gray-700 text-gray-400'
+                      }`}
+                      title="Copiar ID de orden"
+                    >
+                      {copiedId ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </button>
+
                     {/* Botón de nota con indicador */}
                     <button
                       onClick={() => setShowNotaModal(true)}

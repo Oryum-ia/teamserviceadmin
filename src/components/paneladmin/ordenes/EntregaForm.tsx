@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, AlertCircle } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
+import { formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
 import { subirMultiplesImagenes, eliminarImagenOrden, descargarImagen, actualizarFotosEntrega } from '@/lib/services/imagenService';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
@@ -65,10 +66,12 @@ export default function EntregaForm({ orden, onSuccess }: EntregaFormProps) {
     obtenerUsuarioActual();
   }, []);
 
-// Helper para formatear fecha en formato compatible con input datetime-local (hora local)
+// Helper para formatear fecha en formato compatible con input datetime-local (hora Colombia)
 const formatForInput = (date: Date) => {
+  // Restar 5 horas para convertir UTC a Colombia
+  const colombiaDate = new Date(date.getTime() - (5 * 60 * 60 * 1000));
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${colombiaDate.getFullYear()}-${pad(colombiaDate.getMonth() + 1)}-${pad(colombiaDate.getDate())}T${pad(colombiaDate.getHours())}:${pad(colombiaDate.getMinutes())}`;
 };
 
 const tipoEntregaInicial = orden.entrega?.tipo_entrega
@@ -198,16 +201,163 @@ const [formData, setFormData] = useState({
 
       {/* Mensaje de devolución por no aceptación */}
       {!orden.aprobado_cliente && (
-        <div className={`mb-6 p-4 rounded-lg border ${
+        <div className={`mb-6 p-6 rounded-lg border ${
           theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
         }`}>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="w-5 h-5 text-red-600" />
             <p className={`text-sm font-medium ${
               theme === 'light' ? 'text-red-800' : 'text-red-300'
             }`}>
               El cliente no aceptó la cotización. Este equipo será devuelto sin reparación.
             </p>
+          </div>
+          
+          {/* Tabla de Cobro - Solo Revisión */}
+          {orden.equipo?.modelo?.valor_revision > 0 && (
+            <div className={`mt-4 rounded-lg border overflow-hidden ${
+              theme === 'light' ? 'bg-white border-red-300' : 'bg-gray-800 border-red-700'
+            }`}>
+              <div className={`px-4 py-3 font-semibold ${
+                theme === 'light' ? 'bg-red-100 text-red-900' : 'bg-red-900/40 text-red-200'
+              }`}>
+                💵 Cobro por Revisión
+              </div>
+              <div className="p-4">
+                <table className="w-full">
+                  <tbody className={`divide-y ${
+                    theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
+                  }`}>
+                    <tr>
+                      <td className={`py-2 text-sm ${
+                        theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>Valor de Revisión Técnica</td>
+                      <td className={`py-2 text-sm font-medium text-right ${
+                        theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                      }`}>
+                        {new Intl.NumberFormat('es-CO', {
+                          style: 'currency',
+                          currency: 'COP',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }).format(orden.equipo.modelo.valor_revision)}
+                      </td>
+                    </tr>
+                    <tr className={`border-t-2 ${
+                      theme === 'light' ? 'border-red-300' : 'border-red-700'
+                    }`}>
+                      <td className={`py-3 text-base font-bold ${
+                        theme === 'light' ? 'text-red-900' : 'text-red-200'
+                      }`}>TOTAL A PAGAR</td>
+                      <td className={`py-3 text-xl font-bold text-right ${
+                        theme === 'light' ? 'text-red-700' : 'text-red-400'
+                      }`}>
+                        {new Intl.NumberFormat('es-CO', {
+                          style: 'currency',
+                          currency: 'COP',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }).format(orden.equipo.modelo.valor_revision)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className={`text-xs mt-3 italic ${
+                  theme === 'light' ? 'text-red-700' : 'text-red-400'
+                }`}>
+                  ⚠️ Solo se cobra el valor de revisión porque el cliente rechazó la reparación.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Mensaje y factura de aceptación */}
+      {orden.aprobado_cliente && orden.total > 0 && (
+        <div className={`mb-6 p-6 rounded-lg border ${
+          theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-green-900/20 border-green-800'
+        }`}>
+          <div className="flex items-center gap-2 mb-4">
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className={`text-sm font-medium ${
+              theme === 'light' ? 'text-green-800' : 'text-green-300'
+            }`}>
+              El cliente aceptó la cotización. Equipo reparado.
+            </p>
+          </div>
+          
+          {/* Tabla de Factura - Cliente Aceptó */}
+          <div className={`mt-4 rounded-lg border overflow-hidden ${
+            theme === 'light' ? 'bg-white border-green-300' : 'bg-gray-800 border-green-700'
+          }`}>
+            <div className={`px-4 py-3 font-semibold ${
+              theme === 'light' ? 'bg-green-100 text-green-900' : 'bg-green-900/40 text-green-200'
+            }`}>
+              💵 Factura a Cobrar
+            </div>
+            <div className="p-4">
+              <table className="w-full">
+                <tbody className={`divide-y ${
+                  theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
+                }`}>
+                  <tr>
+                    <td className={`py-2 text-sm ${
+                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                    }`}>Subtotal (Repuestos y Servicios)</td>
+                    <td className={`py-2 text-sm font-medium text-right ${
+                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                    }`}>
+                      {new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                      }).format(orden.subtotal || 0)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className={`py-2 text-sm ${
+                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                    }`}>IVA</td>
+                    <td className={`py-2 text-sm font-medium text-right ${
+                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                    }`}>
+                      {new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                      }).format(orden.iva || 0)}
+                    </td>
+                  </tr>
+                  <tr className={`border-t-2 ${
+                    theme === 'light' ? 'border-green-300' : 'border-green-700'
+                  }`}>
+                    <td className={`py-3 text-base font-bold ${
+                      theme === 'light' ? 'text-green-900' : 'text-green-200'
+                    }`}>TOTAL A PAGAR</td>
+                    <td className={`py-3 text-xl font-bold text-right ${
+                      theme === 'light' ? 'text-green-700' : 'text-green-400'
+                    }`}>
+                      {new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                      }).format(orden.total)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className={`text-xs mt-3 italic ${
+                theme === 'light' ? 'text-green-700' : 'text-green-400'
+              }`}>
+                ✅ El valor de revisión NO se cobra porque el cliente aceptó la reparación.
+              </p>
+            </div>
           </div>
         </div>
       )}

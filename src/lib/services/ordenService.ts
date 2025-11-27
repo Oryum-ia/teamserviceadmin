@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { Orden, OrdenPhase, OrdenStatus } from "@/types/database.types";
+import { crearTimestampColombia } from "@/lib/utils/dateUtils";
 import { notificarOrdenCreada, notificarCambioFase } from "./emailNotificationService";
 import { crearEquipo } from "./equipoService";
 
@@ -67,7 +68,7 @@ Descripción: ${data.descripcion_problema || 'N/A'}
     tipo_orden: data.tipo_orden || 'Reparación',
     prioridad: 'Normal',
     tipo_entrega: 'En sitio',
-    fecha_creacion: new Date().toISOString(),
+    fecha_creacion: crearTimestampColombia(),
     comentarios_recepcion: comentarioRecepcion,
     es_retrabajo: data.es_retrabajo || false,
     valor_revision: 0,
@@ -127,6 +128,24 @@ export async function obtenerTodasLasOrdenes() {
     throw error;
   }
 
+  // Obtener sedes de usuarios por email (responsable)
+  const emailsResponsables = [...new Set(data?.map(o => o.responsable).filter(Boolean) || [])];
+  let sedesPorEmail: Record<string, string> = {};
+  
+  if (emailsResponsables.length > 0) {
+    const { data: usuarios } = await supabase
+      .from("usuarios")
+      .select("email, sede")
+      .in("email", emailsResponsables);
+    
+    if (usuarios) {
+      sedesPorEmail = usuarios.reduce((acc, u) => {
+        if (u.email && u.sede) acc[u.email] = u.sede;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+  }
+
   // Procesar los datos para extraer información del equipo y comentarios
   const processedData = data?.map(orden => {
     // Extraer datos del equipo si existe
@@ -165,7 +184,8 @@ export async function obtenerTodasLasOrdenes() {
       serial,
       numero_orden: orden.codigo,
       estado: mapEstadoToOrdenStatus(orden.estado_actual),
-      fase_actual: mapEstadoToOrdenPhase(orden.estado_actual)
+      fase_actual: mapEstadoToOrdenPhase(orden.estado_actual),
+      sede_creador: orden.responsable ? sedesPorEmail[orden.responsable] || null : null
     };
   });
 
@@ -266,7 +286,7 @@ export async function actualizarDiagnostico(
     .from("ordenes")
     .update({
       comentarios_diagnostico: diagnostico.comentarios || '',
-      ultima_actualizacion: new Date().toISOString()
+      ultima_actualizacion: crearTimestampColombia()
     })
     .eq("id", ordenId)
     .select()
@@ -305,7 +325,7 @@ export async function avanzarACotizacion(
     .from("ordenes")
     .update({
       estado_actual: 'Cotización',
-      ultima_actualizacion: new Date().toISOString()
+      ultima_actualizacion: crearTimestampColombia()
     })
     .eq("id", ordenId)
     .select()
@@ -352,8 +372,8 @@ export async function actualizarCotizacion(
     .update({
       comentarios_cotizacion: cotizacion.comentarios || '',
       total: cotizacion.total || 0,
-      fecha_cotizacion: cotizacion.fecha_cotizacion || new Date().toISOString(),
-      ultima_actualizacion: new Date().toISOString()
+      fecha_cotizacion: cotizacion.fecha_cotizacion || crearTimestampColombia(),
+      ultima_actualizacion: crearTimestampColombia()
     })
     .eq("id", ordenId)
     .select()
@@ -378,7 +398,7 @@ export async function marcarEsperaRepuestos(ordenId: string) {
     .update({
       estado_actual: 'Esperando repuestos',
       fase_actual: 'cotizacion',
-      ultima_actualizacion: new Date().toISOString()
+      ultima_actualizacion: crearTimestampColombia()
     })
     .eq("id", ordenId)
     .select()
@@ -421,8 +441,8 @@ export async function avanzarAReparacion(
     .from("ordenes")
     .update({
       estado_actual: 'Reparación',
-      fecha_inicio_reparacion: new Date().toISOString(),
-      ultima_actualizacion: new Date().toISOString()
+      fecha_inicio_reparacion: crearTimestampColombia(),
+      ultima_actualizacion: crearTimestampColombia()
     })
     .eq("id", ordenId)
     .select()
@@ -453,8 +473,8 @@ export async function finalizarOrden(ordenId: string) {
     .from("ordenes")
     .update({
       estado_actual: 'Finalizada',
-      fecha_finalizacion: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      fecha_finalizacion: crearTimestampColombia(),
+      updated_at: crearTimestampColombia()
     })
     .eq("id", ordenId)
     .select()
@@ -500,7 +520,7 @@ export async function agregarComentarioRetroceso(
   const comentariosActuales = ordenActual.comentarios_retroceso || [];
   const nuevoComentario = {
     ...comentario,
-    fecha: new Date().toISOString()
+    fecha: crearTimestampColombia()
   };
 
   const { data, error } = await supabase
@@ -508,7 +528,7 @@ export async function agregarComentarioRetroceso(
     .update({
       comentarios_retroceso: [...comentariosActuales, nuevoComentario],
       fase_actual: comentario.fase_destino,
-      updated_at: new Date().toISOString()
+      updated_at: crearTimestampColombia()
     })
     .eq("id", ordenId)
     .select()

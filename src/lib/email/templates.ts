@@ -86,8 +86,9 @@ export function templateCambioFase(data: {
   faseActual: string;
   descripcionFase: string;
   trackingUrl: string;
+  productoId?: string;
 }): string {
-  const { clienteNombre, ordenId, faseActual, descripcionFase, trackingUrl } = data;
+  const { clienteNombre, ordenId, faseActual, descripcionFase, trackingUrl, productoId } = data;
 
   // Colores según la fase
   const faseColors: Record<string, string> = {
@@ -130,11 +131,11 @@ export function templateCambioFase(data: {
       <p>Puedes rastrear el estado de tu orden en tiempo real haciendo clic en el siguiente botón:</p>
       
       <div style="text-align: center;">
-        <a href="${trackingUrl}?orden=${ordenId}" class="btn">
+        <a href="${trackingUrl}estado-producto?codigo=${ordenId}" class="btn">
           🔍 Rastrear mi Orden
         </a>
       </div>
-      
+
       <p style="margin-top: 30px; font-size: 14px; color: #666;">
         Si tienes alguna pregunta, no dudes en contactarnos.
       </p>
@@ -143,7 +144,7 @@ export function templateCambioFase(data: {
       <p><strong>Team Service Costa S.A.S.</strong></p>
       <p>Centro Autorizado KÄRCHER</p>
       <p>Montería, Cartagena y Apartadó</p>
-      <p><a href="https://gleeful-mochi-2bc33c.netlify.app/">Visita nuestro sitio web</a></p>
+      <p><a href="https://teamservicecosta-pi.vercel.app/">Visita nuestro sitio web</a></p>
     </div>
   </div>
 </body>
@@ -160,6 +161,7 @@ export function templateConfirmacionOrden(data: {
   fechaCreacion: string;
   trackingUrl: string;
   equipoDescripcion?: string;
+  productoId?: string;
 }): string {
   const { clienteNombre, ordenId, fechaCreacion, trackingUrl, equipoDescripcion } = data;
 
@@ -195,7 +197,7 @@ export function templateConfirmacionOrden(data: {
       </p>
       
       <div style="text-align: center;">
-        <a href="${trackingUrl}?orden=${ordenId}" class="btn">
+        <a href="${trackingUrl}estado-producto?codigo=${ordenId}" class="btn">
           🔍 Rastrear mi Orden
         </a>
       </div>
@@ -212,7 +214,7 @@ export function templateConfirmacionOrden(data: {
       <p><strong>Team Service Costa S.A.S.</strong></p>
       <p>Centro Autorizado KÄRCHER</p>
       <p>📍 Montería, Cartagena y Apartadó</p>
-      <p><a href="https://gleeful-mochi-2bc33c.netlify.app/">Visita nuestro sitio web</a></p>
+      <p><a href="https://teamservicecosta-pi.vercel.app/">Visita nuestro sitio web</a></p>
     </div>
   </div>
 </body>
@@ -277,7 +279,7 @@ export function templateRespuestaPQR(data: {
       </p>
       
       <div style="text-align: center; margin-top: 30px;">
-        <a href="https://gleeful-mochi-2bc33c.netlify.app/" class="btn">
+        <a href="https://teamservicecosta-pi.vercel.app/" class="btn">
           🌐 Visitar Nuestro Sitio Web
         </a>
       </div>
@@ -291,7 +293,7 @@ export function templateRespuestaPQR(data: {
       <p>Centro Autorizado KÄRCHER</p>
       <p>📍 Montería, Cartagena y Apartadó</p>
       <p>📞 Contacto: <a href="mailto:fede.saus26@gmail.com">fede.saus26@gmail.com</a></p>
-      <p><a href="https://gleeful-mochi-2bc33c.netlify.app/">Visita nuestro sitio web</a></p>
+      <p><a href="https://teamservicecosta-pi.vercel.app/">Visita nuestro sitio web</a></p>
     </div>
   </div>
 </body>
@@ -308,6 +310,7 @@ export function templateRecordatorioMantenimiento(data: {
   equipoDescripcion: string;
   fechaMantenimiento: string;
   trackingUrl: string;
+  productoId?: string;
 }): string {
   const { clienteNombre, ordenId, equipoDescripcion, fechaMantenimiento, trackingUrl } = data;
 
@@ -352,11 +355,11 @@ export function templateRecordatorioMantenimiento(data: {
       </p>
       
       <div style="text-align: center;">
-        <a href="${trackingUrl}" class="btn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <a href="${trackingUrl}estado-producto?codigo=${ordenId}" class="btn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
           📅 Agendar Mantenimiento
         </a>
       </div>
-      
+
       <div style="margin-top: 30px; padding: 15px; background-color: #d1ecf1; border-left: 4px solid #0dcaf0; border-radius: 4px;">
         <p style="margin: 0; color: #055160;">
           <strong>💡 Tip:</strong> Si tienes alguna pregunta sobre el mantenimiento o necesitas reprogramar la fecha, 
@@ -374,7 +377,7 @@ export function templateRecordatorioMantenimiento(data: {
       <p>📍 Montería, Cartagena y Apartadó</p>
       <p>📞 WhatsApp: <a href="https://wa.me/573000000000">+57 300 000 0000</a></p>
       <p>📧 Email: <a href="mailto:fede.saus26@gmail.com">fede.saus26@gmail.com</a></p>
-      <p><a href="https://gleeful-mochi-2bc33c.netlify.app/">Visita nuestro sitio web</a></p>
+      <p><a href="https://teamservicecosta-pi.vercel.app/">Visita nuestro sitio web</a></p>
     </div>
   </div>
 </body>

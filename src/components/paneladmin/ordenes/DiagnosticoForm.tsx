@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Save, Trash2, Loader2, Upload, X, Download } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { updateOrdenFields } from '@/lib/ordenLocalStorage';
+import { formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
 import { actualizarDiagnostico, avanzarACotizacion } from '@/lib/services/ordenService';
 import { obtenerRepuestosDelModelo, guardarRepuestosDiagnostico, obtenerRepuestosDiagnostico } from '@/lib/services/repuestoService';
 import { subirMultiplesImagenes, eliminarImagenOrden, actualizarFotosDiagnostico, descargarImagen } from '@/lib/services/imagenService';
@@ -14,7 +14,7 @@ import DropZoneImagenes from './DropZoneImagenes';
 interface Repuesto {
   codigo: string;
   descripcion: string;
-  cantidad: number;
+  cantidad: string | number;
   pieza_causante: string;
 }
 
@@ -80,7 +80,7 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
     descripcion_problema: orden.diagnostico?.descripcion_problema || '',
     estado_general: orden.diagnostico?.estado_general || '',
     observaciones: orden.diagnostico?.observaciones || '',
-    comentarios: orden.diagnostico?.comentarios || '',
+    comentarios: orden.comentarios_diagnostico || orden.diagnostico?.comentarios || '',
     notas_internas: orden.diagnostico?.notas_internas?.join('\n') || ''
   });
   
@@ -91,6 +91,8 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
   const [cargandoRepuestos, setCargandoRepuestos] = useState(false);
   const [subiendoFotos, setSubiendoFotos] = useState(false);
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const comentariosTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [guardandoComentarios, setGuardandoComentarios] = React.useState(false);
 
   // Cargar repuestos guardados o del modelo
   useEffect(() => {
@@ -151,6 +153,41 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Guardar comentarios con debounce de 3 segundos
+  const guardarComentariosConDebounce = (comentarios: string) => {
+    if (comentariosTimeoutRef.current) {
+      clearTimeout(comentariosTimeoutRef.current);
+    }
+    
+    comentariosTimeoutRef.current = setTimeout(async () => {
+      try {
+        setGuardandoComentarios(true);
+        const { supabase } = await import('@/lib/supabaseClient');
+        await supabase
+          .from('ordenes')
+          .update({ 
+            comentarios_diagnostico: comentarios,
+            ultima_actualizacion: new Date().toISOString()
+          })
+          .eq('id', orden.id);
+        console.log('✅ Comentarios de diagnóstico guardados automáticamente');
+      } catch (error) {
+        console.error('Error al guardar comentarios:', error);
+      } finally {
+        setGuardandoComentarios(false);
+      }
+    }, 3000);
+  };
+
+  // Limpiar timeout de comentarios al desmontar
+  React.useEffect(() => {
+    return () => {
+      if (comentariosTimeoutRef.current) {
+        clearTimeout(comentariosTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Guardar con debounce optimizado
   const guardarConDebounce = (nuevosRepuestos: Repuesto[]) => {
     // Limpiar timeout anterior
@@ -158,25 +195,30 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
       clearTimeout(saveTimeoutRef.current);
     }
     
-    // Crear nuevo timeout de 5 segundos
-    saveTimeoutRef.current = setTimeout(() => {
-      guardarRepuestosDiagnostico(orden.id, nuevosRepuestos);
-    }, 5000);
+    // Crear nuevo timeout de 2 segundos
+    saveTimeoutRef.current = setTimeout(async () => {
+      await guardarRepuestosDiagnostico(orden.id, nuevosRepuestos);
+      console.log('✅ Repuestos guardados automáticamente');
+    }, 2000);
   };
 
-  // Limpiar timeout al desmontar
+  // Guardar cambios pendientes antes de desmontar
   React.useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        // Guardar inmediatamente antes de desmontar
+        guardarRepuestosDiagnostico(orden.id, repuestos).catch(console.error);
       }
     };
-  }, []);
+  }, [repuestos, orden.id]);
 
-  const agregarRepuesto = () => {
-    const nuevosRepuestos = [...repuestos, { codigo: '', descripcion: '', cantidad: 1, pieza_causante: '' }];
+  const agregarRepuesto = async () => {
+    const nuevosRepuestos = [...repuestos, { codigo: '', descripcion: '', cantidad: '1', pieza_causante: '' }];
     setRepuestos(nuevosRepuestos);
-    guardarConDebounce(nuevosRepuestos);
+    // Guardar inmediatamente al agregar (sin debounce)
+    await guardarRepuestosDiagnostico(orden.id, nuevosRepuestos);
+    console.log('✅ Nuevo repuesto agregado y guardado');
   };
 
   const eliminarRepuesto = async (index: number) => {
@@ -245,9 +287,46 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
   };
 
 
+  // Guardar datos al avanzar de fase (exponer función para que sea llamada desde el botón avanzar)
+  React.useEffect(() => {
+    // Agregar función al objeto orden para que pueda ser llamada desde page.tsx
+    if (orden && typeof window !== 'undefined') {
+      (window as any).guardarDatosDiagnostico = async () => {
+        const { supabase } = await import('@/lib/supabaseClient');
+        
+        const updateData: any = {
+          comentarios_diagnostico: formData.comentarios,
+          ultima_actualizacion: new Date().toISOString()
+        };
+        
+        await supabase
+          .from('ordenes')
+          .update(updateData)
+          .eq('id', orden.id);
+        
+        console.log('✅ Datos de diagnóstico guardados:', updateData);
+        
+        return updateData;
+      };
+    }
+    
+    // Limpiar al desmontar
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).guardarDatosDiagnostico;
+      }
+    };
+  }, [formData.comentarios, orden?.id]);
+
   const handleAvanzarACotizacion = async () => {
     setIsLoading(true);
     try {
+      // IMPORTANTE: Guardar repuestos antes de avanzar
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      await guardarRepuestosDiagnostico(orden.id, repuestos);
+      
       const now = new Date().toISOString();
       
       // Importar supabase
@@ -273,9 +352,6 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
         .eq('id', orden.id);
         
       if (error) throw error;
-      
-      // Actualizar localStorage
-      updateOrdenFields(updateData);
       
       toast.success('Avanzado a fase de cotización');
       onSuccess();
@@ -338,13 +414,7 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
               <p className={`text-sm ${
                 theme === 'light' ? 'text-blue-900' : 'text-blue-200'
               }`}>
-                {fechaInicio ? new Date(fechaInicio).toLocaleString('es-CO', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) : 'No registrada'}
+                {fechaInicio ? formatearFechaColombiaLarga(fechaInicio) : 'No registrada'}
               </p>
             </div>
             <div>
@@ -356,13 +426,7 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
               <p className={`text-sm ${
                 theme === 'light' ? 'text-blue-900' : 'text-blue-200'
               }`}>
-                {fechaFin ? new Date(fechaFin).toLocaleString('es-CO', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) : 'En proceso'}
+                {fechaFin ? formatearFechaColombiaLarga(fechaFin) : 'Pendiente'}
               </p>
             </div>
           </div>
@@ -440,7 +504,7 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
                     }`}>Cantidad</th>
                     <th className={`px-3 py-2 text-left text-xs font-medium ${
                       theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>Pieza causante de la falla</th>
+                    }`}>Justificación</th>
                     {puedeEditar && (
                       <th className={`px-3 py-2 text-center text-xs font-medium ${
                         theme === 'light' ? 'text-gray-700' : 'text-gray-300'
@@ -481,11 +545,10 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
                       </td>
                       <td className="px-3 py-2">
                         <input
-                          type="number"
+                          type="text"
                           value={repuesto.cantidad}
-                          onChange={(e) => actualizarRepuesto(index, 'cantidad', Number(e.target.value))}
+                          onChange={(e) => actualizarRepuesto(index, 'cantidad', e.target.value)}
                           disabled={!puedeEditar}
-                          min="1"
                           className={`w-20 px-2 py-1 border rounded text-sm ${
                             theme === 'light'
                               ? 'border-gray-300 bg-white text-gray-900'
@@ -601,19 +664,33 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
           }`}>
             Comentarios de diagnóstico
           </label>
-          <textarea
-            name="comentarios"
-            value={formData.comentarios}
-            onChange={handleChange}
-            rows={6}
-            placeholder="Describa detalladamente el diagnóstico realizado al equipo..."
-            disabled={!puedeEditar}
-            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-              theme === 'light'
-                ? 'border-gray-300 bg-white text-gray-900'
-                : 'border-gray-600 bg-gray-700 text-gray-100'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          />
+          <div className="relative">
+            <textarea
+              name="comentarios"
+              value={formData.comentarios}
+              onChange={(e) => {
+                handleChange(e);
+                if (puedeEditar) {
+                  guardarComentariosConDebounce(e.target.value);
+                }
+              }}
+              rows={6}
+              placeholder="Describa detalladamente el diagnóstico realizado al equipo..."
+              disabled={!puedeEditar}
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            />
+            {guardandoComentarios && (
+              <span className={`absolute bottom-2 right-2 text-xs ${
+                theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+              }`}>
+                Guardando...
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

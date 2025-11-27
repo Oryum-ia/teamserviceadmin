@@ -51,8 +51,9 @@ export function getMensajeOrdenCreada(data: {
   ordenId: string;
   trackingUrl: string;
   equipoDescripcion?: string;
+  productoId?: string;
 }): string {
-  const { clienteNombre, ordenId, trackingUrl, equipoDescripcion } = data;
+  const { clienteNombre, ordenId, trackingUrl, equipoDescripcion, productoId } = data;
   
   return `🔧 *Team Service Costa*
 
@@ -65,7 +66,7 @@ ${equipoDescripcion ? `🛠️ *Equipo:* ${equipoDescripcion}\n` : ''}
 📍 *Estado Actual:* Recepción
 
 🔍 *Rastrea tu orden aquí:*
-${trackingUrl}?orden=${ordenId}
+${trackingUrl}estado-producto?codigo=${ordenId}
 
 💡 Guarda este mensaje con el ID de tu orden para futuras consultas.
 
@@ -83,6 +84,7 @@ export function getMensajeCambioFase(data: {
   ordenId: string;
   faseActual: string;
   trackingUrl: string;
+  productoId?: string;
 }): string {
   const { clienteNombre, ordenId, faseActual, trackingUrl } = data;
   
@@ -118,7 +120,7 @@ Tu orden *${ordenId}* ha cambiado de estado:
 ${descripcion}
 
 🔍 *Rastrea tu orden aquí:*
-${trackingUrl}?orden=${ordenId}
+${trackingUrl}estado-producto?codigo=${ordenId}
 
 Si tienes alguna pregunta, no dudes en contactarnos.
 
@@ -163,6 +165,7 @@ export function getMensajeAprobacionRequerida(data: {
   clienteNombre: string;
   ordenId: string;
   trackingUrl: string;
+  productoId?: string;
 }): string {
   const { clienteNombre, ordenId, trackingUrl } = data;
   
@@ -175,7 +178,7 @@ Tu orden *${ordenId}* requiere tu aprobación para continuar con la reparación.
 Por favor, revisa la cotización y confirma si deseas proceder.
 
 🔍 *Ver detalles:*
-${trackingUrl}?orden=${ordenId}
+${trackingUrl}estado-producto?codigo=${ordenId}
 
 Respóndenos por este medio o acércate a nuestras instalaciones.
 
@@ -222,6 +225,7 @@ export function getMensajeSeguimiento(data: {
   ordenId: string;
   mensaje: string;
   trackingUrl: string;
+  productoId?: string;
 }): string {
   const { clienteNombre, ordenId, mensaje, trackingUrl } = data;
   
@@ -234,7 +238,7 @@ ${mensaje}
 📋 *Orden:* ${ordenId}
 
 🔍 *Más información:*
-${trackingUrl}?orden=${ordenId}
+${trackingUrl}estado-producto?codigo=${ordenId}
 
 _Team Service Costa S.A.S._
 _Centro Autorizado KÄRCHER_ 🇩🇪`;

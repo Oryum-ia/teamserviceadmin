@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { Upload, ImageIcon } from 'lucide-react';
+import CameraCapture from './CameraCapture';
 
 interface DropZoneImagenesProps {
   onFilesSelected: (files: File[]) => void;
@@ -69,12 +70,23 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
   };
 
   return (
-    <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={handleClick}
-      className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
+    <div className="space-y-4">
+      {/* Botones de cámara */}
+      <div className="flex justify-center">
+        <CameraCapture 
+          onCapture={(file) => onFilesSelected([file])}
+          disabled={disabled || isUploading}
+          mode="both"
+        />
+      </div>
+      
+      {/* Zona de arrastrar y soltar */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={handleClick}
+        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
         isDragging
           ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 scale-[1.02]'
           : isUploading || disabled
@@ -103,7 +115,7 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
             <p className={`text-sm font-medium ${
               theme === 'light' ? 'text-gray-700' : 'text-gray-300'
             }`}>
-              Subiendo imágenes...
+              Subiendo archivos...
             </p>
           </>
         ) : (
@@ -144,6 +156,7 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

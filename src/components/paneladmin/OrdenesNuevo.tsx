@@ -583,11 +583,6 @@ export default function OrdenesNuevo() {
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                       theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                     }`}>
-                      Tipo Equipo
-                    </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
                       Marca
                     </th>
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
@@ -609,6 +604,11 @@ export default function OrdenesNuevo() {
                       theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                     }`}>
                       Responsable
+                    </th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                    }`}>
+                      Sede
                     </th>
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                       theme === 'light' ? 'text-gray-700' : 'text-gray-300'
@@ -653,11 +653,6 @@ export default function OrdenesNuevo() {
                         <td className={`px-4 py-4 whitespace-nowrap ${
                           theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                         }`}>
-                          {orden.tipo_producto || '-'}
-                        </td>
-                        <td className={`px-4 py-4 whitespace-nowrap ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
                           {orden.marca || '-'}
                         </td>
                         <td className={`px-4 py-4 whitespace-nowrap ${
@@ -679,6 +674,11 @@ export default function OrdenesNuevo() {
                           theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                         }`}>
                           {orden.responsable || '-'}
+                        </td>
+                        <td className={`px-4 py-4 whitespace-nowrap ${
+                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                        }`}>
+                          {orden.sede_creador || '-'}
                         </td>
                         <td className={`px-4 py-4 whitespace-nowrap ${
                           theme === 'light' ? 'text-gray-600' : 'text-gray-400'

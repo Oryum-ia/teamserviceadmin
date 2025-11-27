@@ -26,7 +26,6 @@ export async function obtenerTodosLosModelos() {
 export async function crearModelo(data: {
   equipo: string;
   marca_id?: string;
-  marca?: string;  // Mantener por compatibilidad con datos antiguos
   referencia?: string;
   valor_revision?: number;
   cuidado_uso?: string;
@@ -35,7 +34,6 @@ export async function crearModelo(data: {
   const modeloData = {
     equipo: data.equipo,
     marca_id: data.marca_id && data.marca_id.trim() !== '' ? data.marca_id : null,
-    marca: data.marca || null,  // Mantener por compatibilidad
     referencia: data.referencia || null,
     valor_revision: data.valor_revision || 0,
     cuidado_uso: data.cuidado_uso || null
@@ -65,7 +63,6 @@ export async function crearModelo(data: {
 export async function actualizarModelo(id: string, data: Partial<{
   equipo: string;
   marca_id?: string;
-  marca?: string;
   referencia?: string;
   valor_revision?: number;
   cuidado_uso?: string;

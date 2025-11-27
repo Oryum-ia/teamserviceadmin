@@ -71,8 +71,9 @@ export async function enviarCorreoCambioFase(data: {
   clienteNombre: string;
   ordenId: string;
   faseActual: string;
+  productoId?: string;
 }): Promise<boolean> {
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://gleeful-mochi-2bc33c.netlify.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
   const descripcionFase = getDescripcionFase(data.faseActual);
 
   const html = templateCambioFase({
@@ -81,6 +82,7 @@ export async function enviarCorreoCambioFase(data: {
     faseActual: data.faseActual,
     descripcionFase,
     trackingUrl,
+    productoId: data.productoId,
   });
 
   return enviarCorreo(
@@ -99,8 +101,9 @@ export async function enviarCorreoConfirmacionOrden(data: {
   ordenId: string;
   fechaCreacion: string;
   equipoDescripcion?: string;
+  productoId?: string;
 }): Promise<boolean> {
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://gleeful-mochi-2bc33c.netlify.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
 
   const html = templateConfirmacionOrden({
     clienteNombre: data.clienteNombre,
@@ -108,6 +111,7 @@ export async function enviarCorreoConfirmacionOrden(data: {
     fechaCreacion: data.fechaCreacion,
     trackingUrl,
     equipoDescripcion: data.equipoDescripcion,
+    productoId: data.productoId,
   });
 
   return enviarCorreo(
@@ -152,8 +156,9 @@ export async function enviarCorreoRecordatorioMantenimiento(data: {
   ordenId: string;
   equipoDescripcion: string;
   fechaMantenimiento: string;
+  productoId?: string;
 }): Promise<boolean> {
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://gleeful-mochi-2bc33c.netlify.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
 
   const html = templateRecordatorioMantenimiento({
     clienteNombre: data.clienteNombre,
@@ -161,6 +166,7 @@ export async function enviarCorreoRecordatorioMantenimiento(data: {
     equipoDescripcion: data.equipoDescripcion,
     fechaMantenimiento: data.fechaMantenimiento,
     trackingUrl,
+    productoId: data.productoId,
   });
 
   return enviarCorreo(

@@ -66,6 +66,7 @@ export async function notificarCambioFase(
         clienteNombre,
         ordenId: orden.codigo,
         faseActual: nuevaFase,
+        productoId: orden.equipo?.id,
       }),
     });
 
@@ -172,6 +173,7 @@ export async function notificarOrdenCreada(ordenId: string): Promise<boolean> {
         ordenId: orden.codigo,
         fechaCreacion,
         equipoDescripcion,
+        productoId: orden.equipo?.id,
       }),
     });
 

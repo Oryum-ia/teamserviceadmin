@@ -69,7 +69,7 @@ export default function RepuestoModal({ isOpen, onClose, onSuccess, repuestoEdit
         const repuestoActualizado = await actualizarRepuesto(repuestoEditar.id, {
           codigo: formData.codigo || undefined,
           descripcion: formData.descripcion || undefined,
-          cantidad: formData.cantidad ? parseInt(formData.cantidad) : 1,
+          cantidad: formData.cantidad || '1',
           causante: formData.causante || undefined,
           escrito: formData.escrito || undefined
         });
@@ -80,7 +80,7 @@ export default function RepuestoModal({ isOpen, onClose, onSuccess, repuestoEdit
         const repuestoCreado = await crearRepuesto({
           codigo: formData.codigo || undefined,
           descripcion: formData.descripcion || undefined,
-          cantidad: formData.cantidad ? parseInt(formData.cantidad) : 1,
+          cantidad: formData.cantidad || '1',
           causante: formData.causante || undefined,
           escrito: formData.escrito || undefined
         });
@@ -164,11 +164,11 @@ export default function RepuestoModal({ isOpen, onClose, onSuccess, repuestoEdit
                 Cantidad
               </label>
               <input
-                type="number"
+                type="text"
                 name="cantidad"
                 value={formData.cantidad}
                 onChange={handleChange}
-                min="1"
+                placeholder="Ej: 1 o 20ml"
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                   theme === 'light'
                     ? 'border-gray-300 bg-white text-gray-900'

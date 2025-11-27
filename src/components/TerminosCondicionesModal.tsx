@@ -218,7 +218,7 @@ export default function TerminosCondicionesModal({
             <ul className="list-none ml-0">
               <li>📧 Email: {process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@teamservicecosta.com'}</li>
               <li>📱 WhatsApp: {process.env.NEXT_PUBLIC_CONTACT_PHONE || '+57 300 123 4567'}</li>
-              <li>🌐 Web: https://gleeful-mochi-2bc33c.netlify.app/</li>
+              <li>🌐 Web: https://teamservicecosta-pi.vercel.app/</li>
             </ul>
 
             <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">

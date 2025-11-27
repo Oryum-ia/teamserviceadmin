@@ -14,8 +14,8 @@ import {
 
 const TRACKING_URL =
   typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_TRACKING_URL || "https://gleeful-mochi-2bc33c.netlify.app/"
-    : "https://gleeful-mochi-2bc33c.netlify.app/";
+    ? process.env.NEXT_PUBLIC_TRACKING_URL || "https://teamservicecosta-pi.vercel.app/"
+    : "https://teamservicecosta-pi.vercel.app/";
 
 /**
  * Notificar orden creada por WhatsApp
@@ -80,6 +80,7 @@ export async function notificarOrdenCreadaWhatsApp(ordenId: string, preOpened?: 
       ordenId: orden.codigo,
       trackingUrl: TRACKING_URL,
       equipoDescripcion,
+      productoId: orden.equipo?.id,
     });
     const url = generateWhatsAppURL(telefono, mensaje);
 
@@ -111,7 +112,9 @@ export async function notificarCambioFaseWhatsApp(
       .select(
         `
         *,
-        cliente:clientes(*)
+        *,
+        cliente:clientes(*),
+        equipo:equipos(id)
       `
       )
       .eq("id", ordenId)
@@ -142,6 +145,7 @@ export async function notificarCambioFaseWhatsApp(
       ordenId: orden.codigo,
       faseActual: nuevaFase,
       trackingUrl: TRACKING_URL,
+      productoId: orden.equipo?.id,
     });
 
     // Abrir WhatsApp
@@ -168,7 +172,9 @@ export async function notificarCotizacionWhatsApp(
       .select(
         `
         *,
-        cliente:clientes(*)
+        *,
+        cliente:clientes(*),
+        equipo:equipos(id)
       `
       )
       .eq("id", ordenId)
@@ -194,7 +200,7 @@ export async function notificarCotizacionWhatsApp(
         : orden.cliente.nombre_contacto || orden.cliente.nombre_comercial || orden.cliente.razon_social || 'Cliente';
 
     // Generar URL de cotización si no se proporciona
-    const urlCotizacion = cotizacionUrl || `${TRACKING_URL}?orden=${orden.codigo}`;
+    const urlCotizacion = cotizacionUrl || `${TRACKING_URL}estado-producto?codigo=${orden.codigo}`;
 
     // Generar mensaje
     const mensaje = getMensajeCotizacion({

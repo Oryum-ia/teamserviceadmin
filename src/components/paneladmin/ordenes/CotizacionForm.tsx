@@ -5,6 +5,7 @@ import { Plus, Save, Trash2, Loader2, MessageCircle } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
+import { formatearFechaColombiaLarga, crearTimestampColombia } from '@/lib/utils/dateUtils';
 import { actualizarCotizacion, marcarEsperaRepuestos } from '@/lib/services/ordenService';
 import { notificarCotizacionWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import { notificarCambioFase } from '@/lib/services/emailNotificationService';
@@ -96,8 +97,7 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
 
   const [formData, setFormData] = useState({
     tipo: orden.cotizacion?.tipo || orden.tipo_orden || 'Reparación',
-    comentarios: orden.cotizacion?.comentarios || '',
-    reemplazar_equipo: orden.cotizacion?.reemplazar_equipo || false,
+    comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
     tecnico_reparacion_id: orden.tecnico_repara || ''
   });
   
@@ -120,17 +120,18 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
     
     setFormData({
       tipo: orden.cotizacion?.tipo || orden.tipo_orden || 'Reparación',
-      comentarios: orden.cotizacion?.comentarios || '',
-      reemplazar_equipo: orden.cotizacion?.reemplazar_equipo || false,
+      comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
       tecnico_reparacion_id: orden.tecnico_repara || ''
     });
-  }, [orden.tipo_orden, orden.tecnico_repara, orden.ultima_actualizacion]);
+  }, [orden.tipo_orden, orden.tecnico_repara, orden.ultima_actualizacion, orden.comentarios_cotizacion]);
 
   // Cargar repuestos
   const [repuestos, setRepuestos] = useState<Repuesto[]>([]);
   const [cargandoRepuestos, setCargandoRepuestos] = useState(false);
   const [repuestosCargados, setRepuestosCargados] = useState(false);
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const comentariosTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [guardandoComentarios, setGuardandoComentarios] = React.useState(false);
   
   // Lista de técnicos (con caché)
   const [tecnicos, setTecnicos] = useState<any[]>(() => {
@@ -206,21 +207,19 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
       return { subtotal: 0, iva: 0, total: 0, valor_revision: 0 };
     }
     
-    // Obtener valor de revisión del modelo
+    // Obtener valor de revisión del modelo (solo se cobra si rechazan)
     const valorRevision = orden.equipo?.modelo?.valor_revision || 0;
     
-    // Calcular subtotal de repuestos
+    // Calcular subtotal de repuestos (SIN incluir revisión)
     const subtotalRepuestos = repuestosArray.reduce((acc, r) => acc + calcularSubtotalRepuesto(r), 0);
     
-    // Subtotal total = repuestos + valor revisión
-    const subtotal = subtotalRepuestos + valorRevision;
-    
-    // IVA solo sobre repuestos (no sobre valor_revision)
+    // IVA solo sobre repuestos
     const iva = repuestosArray.reduce((acc, r) => acc + calcularIvaRepuesto(r), 0);
     
-    const total = subtotal + iva;
+    // Total = repuestos + IVA (SIN revisión)
+    const total = subtotalRepuestos + iva;
     
-    return { subtotal, iva, total, valor_revision: valorRevision };
+    return { subtotal: subtotalRepuestos, iva, total, valor_revision: valorRevision };
   };
 
   // Cargar repuestos: primero de localStorage, luego de cotización, luego de diagnóstico
@@ -381,14 +380,43 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
     }, 5000);
   };
 
-  // Limpiar timeout al desmontar
+  // Limpiar timeouts al desmontar
   React.useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
+      if (comentariosTimeoutRef.current) {
+        clearTimeout(comentariosTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Guardar comentarios con debounce de 3 segundos
+  const guardarComentariosConDebounce = (comentarios: string) => {
+    if (comentariosTimeoutRef.current) {
+      clearTimeout(comentariosTimeoutRef.current);
+    }
+    
+    comentariosTimeoutRef.current = setTimeout(async () => {
+      try {
+        setGuardandoComentarios(true);
+        const { supabase } = await import('@/lib/supabaseClient');
+        await supabase
+          .from('ordenes')
+          .update({ 
+            comentarios_cotizacion: comentarios,
+            ultima_actualizacion: new Date().toISOString()
+          })
+          .eq('id', orden.id);
+        console.log('✅ Comentarios de cotización guardados automáticamente');
+      } catch (error) {
+        console.error('Error al guardar comentarios:', error);
+      } finally {
+        setGuardandoComentarios(false);
+      }
+    }, 3000);
+  };
   
   // Guardar datos al avanzar de fase (exponer función para que sea llamada desde el botón avanzar)
   React.useEffect(() => {
@@ -527,7 +555,6 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
         tipo: formData.tipo,
         usuario_cotizacion: usuarioCotizacion,
         comentarios: formData.comentarios,
-        reemplazar_equipo: formData.reemplazar_equipo,
         repuestos: repuestos,
         fecha_cotizacion: new Date().toISOString(),
         ...calcularTotales()
@@ -624,8 +651,8 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
       toast.success('Estado actualizado a "Esperando aceptación"');
       
       // Enviar notificaciones por email y WhatsApp
-      const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://gleeful-mochi-2bc33c.netlify.app/';
-      const cotizacionUrl = `${trackingUrl}?orden=${orden.codigo}`;
+      const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
+      const cotizacionUrl = `${trackingUrl}estado-producto?codigo=${orden.codigo}`;
       
       try {
         // Email automático con notificación de cotización
@@ -700,10 +727,10 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
 
       {/* Mensaje de aprobación del cliente */}
       {aprobadoCliente && (
-        <div className={`mb-6 p-4 rounded-lg border ${
+        <div className={`mb-6 p-6 rounded-lg border ${
           theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-green-900/20 border-green-800'
         }`}>
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 mb-4">
             <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -717,13 +744,7 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
                 <p className={`text-sm ${
                   theme === 'light' ? 'text-green-700' : 'text-green-400'
                 }`}>
-                  Fecha de aprobación: {new Date(orden.fecha_aprobacion).toLocaleString('es-CO', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                  Fecha de aprobación: {formatearFechaColombiaLarga(orden.fecha_aprobacion)}
                 </p>
               )}
               {estado === 'Esperando aceptación' && (
@@ -735,6 +756,125 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
               )}
             </div>
           </div>
+          
+          {/* Tabla de Factura - Cliente Aceptó */}
+          <div className={`mt-4 rounded-lg border overflow-hidden ${
+            theme === 'light' ? 'bg-white border-green-300' : 'bg-gray-800 border-green-700'
+          }`}>
+            <div className={`px-4 py-3 font-semibold ${
+              theme === 'light' ? 'bg-green-100 text-green-900' : 'bg-green-900/40 text-green-200'
+            }`}>
+              💵 Factura a Cobrar
+            </div>
+            <div className="p-4">
+              <table className="w-full">
+                <tbody className={`divide-y ${
+                  theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
+                }`}>
+                  <tr>
+                    <td className={`py-2 text-sm ${
+                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                    }`}>Subtotal (Repuestos y Servicios)</td>
+                    <td className={`py-2 text-sm font-medium text-right ${
+                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                    }`}>{formatCurrency(totales.subtotal)}</td>
+                  </tr>
+                  <tr>
+                    <td className={`py-2 text-sm ${
+                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                    }`}>IVA</td>
+                    <td className={`py-2 text-sm font-medium text-right ${
+                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                    }`}>{formatCurrency(totales.iva)}</td>
+                  </tr>
+                  <tr className={`border-t-2 ${
+                    theme === 'light' ? 'border-green-300' : 'border-green-700'
+                  }`}>
+                    <td className={`py-3 text-base font-bold ${
+                      theme === 'light' ? 'text-green-900' : 'text-green-200'
+                    }`}>TOTAL A PAGAR</td>
+                    <td className={`py-3 text-xl font-bold text-right ${
+                      theme === 'light' ? 'text-green-700' : 'text-green-400'
+                    }`}>{formatCurrency(totales.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className={`text-xs mt-3 italic ${
+                theme === 'light' ? 'text-green-700' : 'text-green-400'
+              }`}>
+                ✅ El valor de revisión NO se cobra porque el cliente aceptó la reparación.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Mensaje de rechazo del cliente */}
+      {orden.aprobado_cliente === false && estado === 'Entrega' && (
+        <div className={`mb-6 p-6 rounded-lg border ${
+          theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
+        }`}>
+          <div className="flex items-start gap-3 mb-4">
+            <svg className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className={`text-base font-semibold mb-1 ${
+                theme === 'light' ? 'text-red-800' : 'text-red-300'
+              }`}>
+                ❌ Cotización Rechazada por el Cliente
+              </p>
+              <p className={`text-sm ${
+                theme === 'light' ? 'text-red-700' : 'text-red-400'
+              }`}>
+                El equipo será devuelto sin reparación.
+              </p>
+            </div>
+          </div>
+          
+          {/* Tabla de Cobro - Cliente Rechazó */}
+          {totales.valor_revision > 0 && (
+            <div className={`mt-4 rounded-lg border overflow-hidden ${
+              theme === 'light' ? 'bg-white border-red-300' : 'bg-gray-800 border-red-700'
+            }`}>
+              <div className={`px-4 py-3 font-semibold ${
+                theme === 'light' ? 'bg-red-100 text-red-900' : 'bg-red-900/40 text-red-200'
+              }`}>
+                💵 Cobro por Revisión
+              </div>
+              <div className="p-4">
+                <table className="w-full">
+                  <tbody className={`divide-y ${
+                    theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
+                  }`}>
+                    <tr>
+                      <td className={`py-2 text-sm ${
+                        theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>Valor de Revisión Técnica</td>
+                      <td className={`py-2 text-sm font-medium text-right ${
+                        theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                      }`}>{formatCurrency(totales.valor_revision)}</td>
+                    </tr>
+                    <tr className={`border-t-2 ${
+                      theme === 'light' ? 'border-red-300' : 'border-red-700'
+                    }`}>
+                      <td className={`py-3 text-base font-bold ${
+                        theme === 'light' ? 'text-red-900' : 'text-red-200'
+                      }`}>TOTAL A PAGAR</td>
+                      <td className={`py-3 text-xl font-bold text-right ${
+                        theme === 'light' ? 'text-red-700' : 'text-red-400'
+                      }`}>{formatCurrency(totales.valor_revision)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className={`text-xs mt-3 italic ${
+                  theme === 'light' ? 'text-red-700' : 'text-red-400'
+                }`}>
+                  ⚠️ Solo se cobra el valor de revisión porque el cliente rechazó la reparación.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -758,13 +898,7 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
               <p className={`text-sm ${
                 theme === 'light' ? 'text-blue-900' : 'text-blue-200'
               }`}>
-                {orden.fecha_cotizacion ? new Date(orden.fecha_cotizacion).toLocaleString('es-CO', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) : 'No registrada'}
+                {orden.fecha_cotizacion ? formatearFechaColombiaLarga(orden.fecha_cotizacion) : 'No registrada'}
               </p>
             </div>
             <div>
@@ -776,13 +910,7 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
               <p className={`text-sm ${
                 theme === 'light' ? 'text-blue-900' : 'text-blue-200'
               }`}>
-                {orden.fecha_aprobacion ? new Date(orden.fecha_aprobacion).toLocaleString('es-CO', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) : 'En proceso'}
+                {orden.fecha_aprobacion ? formatearFechaColombiaLarga(orden.fecha_aprobacion) : 'Pendiente'}
               </p>
             </div>
           </div>
@@ -832,24 +960,6 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
             </select>
           </div>
 
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="reemplazar_equipo"
-              checked={formData.reemplazar_equipo}
-              onChange={(e) => setFormData({ ...formData, reemplazar_equipo: e.target.checked })}
-            disabled={!puedeEditarCamposCotizacion}
-            className="w-4 h-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-500 disabled:opacity-50"
-            />
-            <label
-              htmlFor="reemplazar_equipo"
-              className={`ml-2 text-sm ${
-                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}
-            >
-              Reemplazar equipo
-            </label>
-          </div>
         </div>
 
         {/* Tabla de Repuestos */}
@@ -1017,26 +1127,11 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
                 theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-700 border-gray-600'
               }`}>
                 <div className="flex items-center justify-end gap-8">
-                  {totales.valor_revision > 0 && (
-                    <div className="text-right">
-                      <p className={`text-xs font-medium ${
-                        theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                      }`}>
-                        Valor Revisión
-                      </p>
-                      <p className={`text-lg font-bold ${
-                        theme === 'light' ? 'text-blue-600' : 'text-blue-400'
-                      }`}>
-                        {formatCurrency(totales.valor_revision)}
-                      </p>
-                    </div>
-                  )}
-                  
                   <div className="text-right">
                     <p className={`text-xs font-medium ${
                       theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                     }`}>
-                      Subtotal
+                      Subtotal Repuestos
                     </p>
                     <p className={`text-lg font-bold ${
                       theme === 'light' ? 'text-gray-900' : 'text-gray-100'
@@ -1062,7 +1157,7 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
                     <p className={`text-xs font-medium ${
                       theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                     }`}>
-                      Total
+                      Total a Cobrar
                     </p>
                     <p className={`text-2xl font-bold ${
                       theme === 'light' ? 'text-yellow-600' : 'text-yellow-400'
@@ -1071,6 +1166,19 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
                     </p>
                   </div>
                 </div>
+                
+                {/* Nota sobre valor de revisión */}
+                {totales.valor_revision > 0 && (
+                  <div className={`mt-3 pt-3 border-t ${
+                    theme === 'light' ? 'border-gray-300' : 'border-gray-600'
+                  }`}>
+                    <p className={`text-xs ${
+                      theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                    }`}>
+                      📌 <strong>Valor de Revisión:</strong> {formatCurrency(totales.valor_revision)} - Solo se cobra si el cliente <strong>rechaza</strong> la cotización.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -1093,19 +1201,33 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
           }`}>
             Comentarios de cotización
           </label>
-          <textarea
-            name="comentarios"
-            value={formData.comentarios}
-            onChange={(e) => setFormData({ ...formData, comentarios: e.target.value })}
-            rows={4}
-            placeholder="Notas adicionales sobre la cotización..."
-            disabled={!puedeEditarCamposCotizacion}
-            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-              theme === 'light'
-                ? 'border-gray-300 bg-white text-gray-900'
-                : 'border-gray-600 bg-gray-700 text-gray-100'
-            } disabled:opacity-50 disabled:text-black`}
-          />
+          <div className="relative">
+            <textarea
+              name="comentarios"
+              value={formData.comentarios}
+              onChange={(e) => {
+                setFormData({ ...formData, comentarios: e.target.value });
+                if (puedeEditarCamposCotizacion) {
+                  guardarComentariosConDebounce(e.target.value);
+                }
+              }}
+              rows={4}
+              placeholder="Notas adicionales sobre la cotización..."
+              disabled={!puedeEditarCamposCotizacion}
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+              } disabled:opacity-50 disabled:text-black`}
+            />
+            {guardandoComentarios && (
+              <span className={`absolute bottom-2 right-2 text-xs ${
+                theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+              }`}>
+                Guardando...
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

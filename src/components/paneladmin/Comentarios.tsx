@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Trash2, Loader2, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { Search, Plus, Loader2, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { obtenerTodosLosComentarios, eliminarComentario } from '@/lib/services/comentarioService';
+import { obtenerTodosLosComentarios } from '@/lib/services/comentarioService';
 import ComentarioModal from './ComentarioModal';
-import ResponsiveTable, { TableColumn, TableAction } from './ResponsiveTable';
+import ResponsiveTable, { TableColumn } from './ResponsiveTable';
 
 interface Usuario {
   id: string;
@@ -87,21 +87,6 @@ export default function Comentarios() {
 
     setFilteredComentarios(resultado);
     setCurrentPage(1); // Reset a primera página al filtrar
-  };
-
-  const handleDelete = async (id: string, orden: string) => {
-    if (!confirm(`¿Está seguro de eliminar el comentario de la orden "${orden}"?`)) {
-      return;
-    }
-
-    try {
-      await eliminarComentario(id);
-      toast.success('Comentario eliminado exitosamente');
-      cargarComentarios();
-    } catch (err) {
-      console.error('Error al eliminar comentario:', err);
-      toast.error('Error al eliminar el comentario');
-    }
   };
 
   // Cálculos de paginación
@@ -191,19 +176,6 @@ export default function Comentarios() {
         </span>
       ),
       hideOnMobile: true,
-    },
-  ];
-
-  // Definición de acciones para cada fila
-  const actions: TableAction<Comentario>[] = [
-    {
-      icon: <Trash2 className="w-4 h-4" />,
-      title: 'Eliminar comentario',
-      className: 'p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20',
-      onClick: (comentario, event) => {
-        event.stopPropagation();
-        handleDelete(comentario.id, comentario.orden?.numero_orden || 'sin orden');
-      },
     },
   ];
 
@@ -310,7 +282,6 @@ export default function Comentarios() {
       <ResponsiveTable
         data={currentItems}
         columns={columns}
-        actions={actions}
         onRowClick={handleRowClick}
         isLoading={isLoading}
         emptyMessage="No se encontraron comentarios"

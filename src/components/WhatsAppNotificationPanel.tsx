@@ -25,6 +25,9 @@ interface Orden {
   estado_actual: string;
   total?: number;
   cliente?: Cliente;
+  equipo?: {
+    id: string;
+  };
 }
 
 interface WhatsAppNotificationPanelProps {
@@ -76,7 +79,7 @@ export default function WhatsAppNotificationPanel({
     );
   }
 
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://gleeful-mochi-2bc33c.netlify.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
 
   // Generar mensajes
   const mensajeCambioFase = getMensajeCambioFase({
@@ -84,12 +87,13 @@ export default function WhatsAppNotificationPanel({
     ordenId: orden.codigo,
     faseActual: orden.estado_actual,
     trackingUrl,
+    productoId: orden.equipo?.id,
   });
 
   const mensajeCotizacion = getMensajeCotizacion({
     clienteNombre,
     ordenId: orden.codigo,
-    cotizacionUrl: cotizacionUrl || `${trackingUrl}?orden=${orden.codigo}`,
+    cotizacionUrl: cotizacionUrl || `${trackingUrl}estado-producto?codigo=${orden.codigo}`,
     total: orden.total,
   });
 
@@ -192,13 +196,14 @@ export function WhatsAppNotificationPanelCompact({
       ? orden.cliente.razon_social || 'Cliente'
       : `${orden.cliente?.nombres || ''} ${orden.cliente?.apellidos || ''}`.trim();
 
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://gleeful-mochi-2bc33c.netlify.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
 
   const mensaje = getMensajeCambioFase({
     clienteNombre,
     ordenId: orden.codigo,
     faseActual: orden.estado_actual,
     trackingUrl,
+    productoId: orden.equipo?.id,
   });
 
   return (

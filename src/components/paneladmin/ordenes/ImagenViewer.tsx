@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
-import { X, ChevronLeft, ChevronRight, Download, Trash2, Upload } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Download, Trash2, Upload, Play } from 'lucide-react';
+import CameraCapture from './CameraCapture';
 
 interface ImagenViewerProps {
   imagenes: string[];
@@ -23,6 +24,11 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  const isVideo = (url: string) => {
+    return url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') || 
+           url.includes('video') || url.match(/\.(mp4|webm|mov|avi|mkv)$/i);
+  };
 
   const abrirLightbox = (index: number) => {
     setCurrentIndex(index);
@@ -185,6 +191,17 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
 
   return (
     <>
+      {/* Botones de cámara para agregar más fotos/videos */}
+      {puedeEditar && onFilesDropped && (
+        <div className="mb-4 flex justify-center">
+          <CameraCapture 
+            onCapture={(file) => onFilesDropped([file])}
+            disabled={isUploading}
+            mode="both"
+          />
+        </div>
+      )}
+      
       {/* Grid de miniaturas con drop zone */}
       <div 
         className={`relative grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 rounded-lg transition-all ${
@@ -231,13 +248,20 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
               }
             }}
           >
-            {url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') || url.includes('video') ? (
-              <video
-                src={url}
-                className="w-full h-full object-cover"
-                muted
-                playsInline
-              />
+            {isVideo(url) ? (
+              <>
+                <video
+                  src={url}
+                  className="w-full h-full object-cover"
+                  muted
+                  playsInline
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-black/70 rounded-full p-3 group-hover:scale-110 transition-transform">
+                    <Play className="w-6 h-6 text-white fill-white" />
+                  </div>
+                </div>
+              </>
             ) : (
               <img
                 src={url}
@@ -338,19 +362,19 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
 
           {/* Imagen o video principal */}
           <div className="max-w-7xl max-h-[85vh] p-4">
-            {imagenes[currentIndex].includes('.mp4') || imagenes[currentIndex].includes('.webm') || imagenes[currentIndex].includes('.mov') || imagenes[currentIndex].includes('video') ? (
+            {isVideo(imagenes[currentIndex]) ? (
               <video
                 src={imagenes[currentIndex]}
                 controls
                 autoPlay
-                className="max-w-full max-h-full object-contain"
+                className="max-w-full max-h-full object-contain rounded-lg"
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <img
                 src={imagenes[currentIndex]}
                 alt={`Foto ${currentIndex + 1}`}
-                className="max-w-full max-h-full object-contain"
+                className="max-w-full max-h-full object-contain rounded-lg"
                 onClick={(e) => e.stopPropagation()}
               />
             )}
@@ -375,19 +399,26 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
                   <button
                     key={index}
                     onClick={() => setCurrentIndex(index)}
-                    className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
                       index === currentIndex
                         ? 'border-yellow-500 scale-110'
                         : 'border-white/30 hover:border-white/60'
                     }`}
                   >
-                    {url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') || url.includes('video') ? (
-                      <video
-                        src={url}
-                        className="w-full h-full object-cover"
-                        muted
-                        playsInline
-                      />
+                    {isVideo(url) ? (
+                      <>
+                        <video
+                          src={url}
+                          className="w-full h-full object-cover"
+                          muted
+                          playsInline
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="bg-black/60 rounded-full p-1">
+                            <Play className="w-3 h-3 text-white fill-white" />
+                          </div>
+                        </div>
+                      </>
                     ) : (
                       <img
                         src={url}

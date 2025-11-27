@@ -73,7 +73,6 @@ export async function crearUsuario(data: {
       .insert({
         id: authData.user.id,
         email: data.email,
-        password: data.password, // Se guarda para referencia
         nombre: data.nombre,
         rol: data.rol,
         sede: data.sede || null,

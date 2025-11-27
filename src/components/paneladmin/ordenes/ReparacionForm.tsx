@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Save, Loader2, Upload, X, Download } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
+import { formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
 import { subirMultiplesImagenes, eliminarImagenOrden, descargarImagen, actualizarFotosReparacion } from '@/lib/services/imagenService';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
@@ -22,53 +23,75 @@ export default function ReparacionForm({ orden, onSuccess }: ReparacionFormProps
   const fechaInicio = orden.fecha_inicio_reparacion || null;
   const fechaFin = orden.fecha_fin_reparacion || null;
 
-  // Usuario automático (usuario actual de la sesión)
-  const [usuarioReparacion, setUsuarioReparacion] = React.useState('');
+  // Usuarios técnicos
+  const [tecnicos, setTecnicos] = useState<any[]>([]);
+  const [selectedTecnicoId, setSelectedTecnicoId] = useState(orden.tecnico_repara || '');
+  const [usuarioReparacionNombre, setUsuarioReparacionNombre] = useState('');
 
   // Fotos de reparación
   const [fotos, setFotos] = useState<string[]>(orden.fotos_reparacion || []);
   const [subiendoFotos, setSubiendoFotos] = useState(false);
+  
+  // Refs y estados para guardado automático de comentarios
+  const comentariosTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [guardandoComentarios, setGuardandoComentarios] = useState(false);
 
-  // Obtener usuario actual de la sesión
+  // Cargar técnicos y usuario actual
   React.useEffect(() => {
-    const obtenerUsuarioActual = async () => {
+    const cargarDatos = async () => {
       try {
         const { supabase } = await import('@/lib/supabaseClient');
+        const { obtenerUsuariosPorRol } = await import('@/lib/services/usuarioService');
 
-        // Primero obtener el usuario autenticado
-        const { data: authData, error: authError } = await supabase.auth.getUser();
+        // Cargar lista de técnicos
+        const listaTecnicos = await obtenerUsuariosPorRol('tecnico');
+        setTecnicos(listaTecnicos || []);
 
-        if (authError || !authData?.user) {
-          console.error('Error al obtener usuario:', authError);
-          setUsuarioReparacion('Usuario no identificado');
-          return;
+        // Si ya hay un técnico asignado, buscar su nombre
+        if (orden.tecnico_repara) {
+          const tecnico = listaTecnicos.find(t => t.id === orden.tecnico_repara);
+          if (tecnico) {
+            setUsuarioReparacionNombre(tecnico.nombre);
+            setSelectedTecnicoId(orden.tecnico_repara);
+          } else {
+            // Si no está en la lista (ej. inactivo), buscarlo individualmente
+            const { data } = await supabase.from('usuarios').select('nombre').eq('id', orden.tecnico_repara).single();
+            setUsuarioReparacionNombre(data?.nombre || 'Desconocido');
+          }
+        } else {
+          // Si no hay técnico asignado, intentar pre-seleccionar al usuario actual si es técnico
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user) {
+            const esTecnico = listaTecnicos.find(t => t.id === authData.user?.id);
+            if (esTecnico) {
+              setSelectedTecnicoId(authData.user.id);
+            }
+          }
         }
-
-        const userId = authData.user.id;
-
-        // Buscar el nombre en la tabla usuarios
-        const { data: userData, error: userError } = await supabase
-          .from('usuarios')
-          .select('nombre, email')
-          .eq('id', userId)
-          .single();
-
-        if (userError) {
-          console.warn('No se encontró usuario en la tabla usuarios, usando email');
-          setUsuarioReparacion(authData.user.email || 'Usuario no identificado');
-          return;
-        }
-
-        const nombreUsuario = userData?.nombre || userData?.email || authData.user.email || 'Usuario no identificado';
-        setUsuarioReparacion(nombreUsuario);
       } catch (error) {
-        console.error('Error en obtenerUsuarioActual:', error);
-        setUsuarioReparacion('Usuario no identificado');
+        console.error('Error al cargar datos:', error);
       }
     };
 
-    obtenerUsuarioActual();
-  }, []);
+    cargarDatos();
+  }, [orden.tecnico_repara]);
+
+  // Exponer función para guardar datos desde el padre
+  React.useEffect(() => {
+    (window as any).guardarDatosReparacion = () => {
+      if (!selectedTecnicoId) {
+        toast.error('Debe seleccionar un técnico responsable de la reparación');
+        return null;
+      }
+      return {
+        tecnico_repara: selectedTecnicoId
+      };
+    };
+
+    return () => {
+      delete (window as any).guardarDatosReparacion;
+    };
+  }, [selectedTecnicoId]);
 
   const [formData, setFormData] = useState({
     comentarios: orden.comentarios_reparacion || ''
@@ -78,6 +101,41 @@ export default function ReparacionForm({ orden, onSuccess }: ReparacionFormProps
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  // Guardar comentarios con debounce de 3 segundos
+  const guardarComentariosConDebounce = (comentarios: string) => {
+    if (comentariosTimeoutRef.current) {
+      clearTimeout(comentariosTimeoutRef.current);
+    }
+    
+    comentariosTimeoutRef.current = setTimeout(async () => {
+      try {
+        setGuardandoComentarios(true);
+        const { supabase } = await import('@/lib/supabaseClient');
+        await supabase
+          .from('ordenes')
+          .update({ 
+            comentarios_reparacion: comentarios,
+            ultima_actualizacion: new Date().toISOString()
+          })
+          .eq('id', orden.id);
+        console.log('✅ Comentarios de reparación guardados automáticamente');
+      } catch (error) {
+        console.error('Error al guardar comentarios:', error);
+      } finally {
+        setGuardandoComentarios(false);
+      }
+    }, 3000);
+  };
+
+  // Limpiar timeout de comentarios al desmontar
+  React.useEffect(() => {
+    return () => {
+      if (comentariosTimeoutRef.current) {
+        clearTimeout(comentariosTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
@@ -181,13 +239,7 @@ export default function ReparacionForm({ orden, onSuccess }: ReparacionFormProps
               <p className={`text-sm ${
                 theme === 'light' ? 'text-blue-900' : 'text-blue-200'
               }`}>
-                {fechaInicio ? new Date(fechaInicio).toLocaleString('es-CO', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) : 'No registrada'}
+                {fechaInicio ? formatearFechaColombiaLarga(fechaInicio) : 'No registrada'}
               </p>
             </div>
             <div>
@@ -199,34 +251,48 @@ export default function ReparacionForm({ orden, onSuccess }: ReparacionFormProps
               <p className={`text-sm ${
                 theme === 'light' ? 'text-blue-900' : 'text-blue-200'
               }`}>
-                {fechaFin ? new Date(fechaFin).toLocaleString('es-CO', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                }) : 'En proceso'}
+                {fechaFin ? formatearFechaColombiaLarga(fechaFin) : 'Pendiente'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Usuario que repara (automático, solo lectura, REQUERIDO) */}
+        {/* Usuario que repara (Select de técnicos) */}
         <div className={`rounded-lg border p-4 ${
           theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-700 border-gray-600'
         }`}>
           <div className="flex items-center justify-between">
-            <div>
+            <div className="w-full">
               <p className={`text-xs font-medium mb-1 ${
                 theme === 'light' ? 'text-gray-600' : 'text-gray-400'
               }`}>
                 Usuario que repara <span className="text-red-500">*</span>
               </p>
-              <p className={`text-sm font-medium ${
-                theme === 'light' ? 'text-gray-900' : 'text-gray-200'
-              }`}>
-                {usuarioReparacion || 'Cargando...'}
-              </p>
+              
+              {puedeEditar ? (
+                <select
+                  value={selectedTecnicoId}
+                  onChange={(e) => setSelectedTecnicoId(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                >
+                  <option value="">Seleccionar técnico...</option>
+                  {tecnicos.map((tecnico) => (
+                    <option key={tecnico.id} value={tecnico.id}>
+                      {tecnico.nombre}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className={`text-sm font-medium ${
+                  theme === 'light' ? 'text-gray-900' : 'text-gray-200'
+                }`}>
+                  {usuarioReparacionNombre || 'No asignado'}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -297,19 +363,33 @@ export default function ReparacionForm({ orden, onSuccess }: ReparacionFormProps
           }`}>
             Comentarios de reparación
           </label>
-          <textarea
-            name="comentarios"
-            value={formData.comentarios}
-            onChange={handleChange}
-            rows={6}
-            placeholder="Comentarios de reparación"
-            disabled={!puedeEditar}
-            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-              theme === 'light'
-                ? 'border-gray-300 bg-white text-gray-900'
-                : 'border-gray-600 bg-gray-700 text-gray-100'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          />
+          <div className="relative">
+            <textarea
+              name="comentarios"
+              value={formData.comentarios}
+              onChange={(e) => {
+                handleChange(e);
+                if (puedeEditar) {
+                  guardarComentariosConDebounce(e.target.value);
+                }
+              }}
+              rows={6}
+              placeholder="Comentarios de reparación"
+              disabled={!puedeEditar}
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            />
+            {guardandoComentarios && (
+              <span className={`absolute bottom-2 right-2 text-xs ${
+                theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+              }`}>
+                Guardando...
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

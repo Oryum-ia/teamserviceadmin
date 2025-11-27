@@ -23,7 +23,7 @@ export async function obtenerTodosLosRepuestos() {
 export async function crearRepuesto(data: {
   codigo?: string;
   descripcion?: string;
-  cantidad?: number;
+  cantidad?: string | number;
   causante?: string;
   escrito?: string;
 }) {
@@ -107,7 +107,7 @@ export async function asignarRepuestosAModelo(modeloId: string, repuestoIds: str
 export async function actualizarRepuesto(id: string, data: Partial<{
   codigo?: string;
   descripcion?: string;
-  cantidad?: number;
+  cantidad?: string | number;
   causante?: string;
   escrito?: string;
 }>) {
@@ -153,7 +153,7 @@ export async function guardarRepuestosDiagnostico(
   repuestos: Array<{
     codigo: string;
     descripcion: string;
-    cantidad: number;
+    cantidad: string | number;
     pieza_causante?: string;
   }>
 ) {
@@ -200,7 +200,7 @@ export async function guardarRepuestosCotizacion(
   repuestos: Array<{
     codigo: string;
     descripcion: string;
-    cantidad: number;
+    cantidad: string | number;
     precio_unitario: number;
     descuento: number;
     iva: number;

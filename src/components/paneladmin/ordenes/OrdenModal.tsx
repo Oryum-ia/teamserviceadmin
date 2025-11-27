@@ -38,7 +38,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
     codigo_qr: '',
     modelo: '',
     serie_pieza: '',
-    tipo: '',
+
     tipo_orden: 'Reparación',
     descripcion_problema: '',
     es_retrabajo: false
@@ -154,7 +154,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
         codigo_qr: '',
         modelo: '',
         serie_pieza: '',
-        tipo: '',
+
         tipo_orden: 'Reparación',
         descripcion_problema: '',
         es_retrabajo: false
@@ -316,26 +316,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
               </div>
             </div>
 
-            {/* Tipo */}
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}>
-                Tipo
-              </label>
-              <input
-                type="text"
-                name="tipo"
-                value={formData.tipo}
-                onChange={handleChange}
-                placeholder="Tipo de equipo"
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
-              />
-            </div>
+
 
             {/* Descripción del problema */}
             <div>
