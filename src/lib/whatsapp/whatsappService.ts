@@ -280,3 +280,63 @@ Si tienes alguna pregunta adicional, no dudes en contactarnos.
 _Team Service Costa S.A.S._
 _Centro Autorizado KÄRCHER_ 🇩🇪`;
 }
+
+/**
+ * Mensaje de producto enviado a bodega
+ */
+export function getMensajeBodega(data: {
+  clienteNombre: string;
+  ordenId: string;
+  fecha: string;
+  trackingUrl: string;
+}): string {
+  const { clienteNombre, ordenId, fecha, trackingUrl } = data;
+  
+  return `📦 *Producto Enviado a Bodega*
+
+Hola ${clienteNombre},
+
+Te informamos que tu equipo de la orden *${ordenId}* ha sido transferido a nuestra bodega.
+
+📅 *Fecha de transferencia:* ${fecha}
+
+El equipo permanecerá en custodia hasta que decidas retirarlo o continuar con el proceso.
+
+🔍 *Rastrea tu orden aquí:*
+${trackingUrl}estado-producto?codigo=${ordenId}
+
+Si tienes alguna pregunta, no dudes en contactarnos.
+
+_Team Service Costa S.A.S._
+_Centro Autorizado KÄRCHER_ 🇩🇪`;
+}
+
+/**
+ * Mensaje de producto chatarrizado
+ */
+export function getMensajeChatarrizado(data: {
+  clienteNombre: string;
+  ordenId: string;
+  fecha: string;
+  trackingUrl: string;
+}): string {
+  const { clienteNombre, ordenId, fecha, trackingUrl } = data;
+  
+  return `🗑️ *Producto Chatarrizado*
+
+Hola ${clienteNombre},
+
+Te informamos que tu equipo de la orden *${ordenId}* ha sido dado de baja (chatarrizado) según lo acordado.
+
+📅 *Fecha de chatarrizado:* ${fecha}
+
+Este proceso es irreversible. El equipo ha sido dispuesto de manera adecuada.
+
+🔍 *Consulta el historial aquí:*
+${trackingUrl}estado-producto?codigo=${ordenId}
+
+Si tienes alguna pregunta, no dudes en contactarnos.
+
+_Team Service Costa S.A.S._
+_Centro Autorizado KÄRCHER_ 🇩🇪`;
+}

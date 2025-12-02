@@ -14,9 +14,10 @@ import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 interface EntregaFormProps {
   orden: any;
   onSuccess: () => void;
+  faseIniciada?: boolean;
 }
 
-export default function EntregaForm({ orden, onSuccess }: EntregaFormProps) {
+export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: EntregaFormProps) {
   const { theme } = useTheme();
   const toast = useToast();
 
@@ -182,7 +183,7 @@ const [formData, setFormData] = useState({
     setFechaFirmaEntrega(orden.fecha_firma_entrega || null);
   }, [orden.firma_entrega, orden.fecha_firma_entrega]);
 
-  const puedeEditar = orden.estado_actual === 'Entrega';
+  const puedeEditar = orden.estado_actual === 'Entrega' && faseIniciada;
 
   return (
     <div className="p-6">
@@ -198,6 +199,18 @@ const [formData, setFormData] = useState({
           Finalice y entregue la orden al cliente
         </p>
       </div>
+
+      {!faseIniciada && orden.estado_actual === 'Entrega' && (
+        <div className={`mb-6 p-4 rounded-lg border ${
+          theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-900/20 border-amber-800'
+        }`}>
+          <p className={`text-sm font-medium ${
+            theme === 'light' ? 'text-amber-800' : 'text-amber-300'
+          }`}>
+            ⚠️ Debe presionar "Iniciar Fase" para comenzar a trabajar en esta entrega.
+          </p>
+        </div>
+      )}
 
       {/* Mensaje de devolución por no aceptación */}
       {!orden.aprobado_cliente && (
@@ -648,6 +661,8 @@ const [formData, setFormData] = useState({
             rows={4}
             placeholder="Comentarios del cliente sobre el servicio..."
             disabled
+            spellCheck={true}
+            lang="es"
             className={`w-full px-4 py-3 border rounded-lg ${
               theme === 'light'
                 ? 'border-gray-300 bg-gray-100 text-gray-600'

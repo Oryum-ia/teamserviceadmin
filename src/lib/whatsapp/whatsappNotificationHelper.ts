@@ -3,6 +3,8 @@ import {
   getMensajeOrdenCreada,
   getMensajeCambioFase,
   getMensajeCotizacion,
+  getMensajeBodega,
+  getMensajeChatarrizado,
   openWhatsApp,
   generateWhatsAppURL,
 } from "./whatsappService";
@@ -263,5 +265,103 @@ export async function obtenerDatosClienteWhatsApp(ordenId: string): Promise<{
   } catch (error) {
     console.error("❌ Error en obtenerDatosClienteWhatsApp:", error);
     return null;
+  }
+}
+
+/**
+ * Notificar envío a bodega por WhatsApp
+ */
+export async function notificarBodegaWhatsApp(
+  ordenId: string,
+  fecha: string
+): Promise<void> {
+  try {
+    const { data: orden, error: ordenError } = await supabase
+      .from("ordenes")
+      .select(
+        `
+        *,
+        cliente:clientes(*)
+      `
+      )
+      .eq("id", ordenId)
+      .single();
+
+    if (ordenError || !orden) {
+      console.error("❌ Error al obtener orden:", ordenError);
+      return;
+    }
+
+    if (!orden.cliente?.telefono && !orden.cliente?.celular) {
+      console.warn("⚠️ Cliente sin teléfono, no se puede enviar notificación");
+      return;
+    }
+
+    const telefono = orden.cliente.celular || orden.cliente.telefono;
+    const clienteNombre =
+      orden.cliente.es_juridica
+        ? orden.cliente.razon_social || orden.cliente.nombre_comercial || 'Cliente'
+        : orden.cliente.nombre_contacto || orden.cliente.nombre_comercial || orden.cliente.razon_social || 'Cliente';
+
+    const mensaje = getMensajeBodega({
+      clienteNombre,
+      ordenId: orden.codigo,
+      fecha,
+      trackingUrl: TRACKING_URL,
+    });
+
+    openWhatsApp(telefono, mensaje);
+    console.log("✅ WhatsApp abierto para notificación de bodega");
+  } catch (error) {
+    console.error("❌ Error en notificarBodegaWhatsApp:", error);
+  }
+}
+
+/**
+ * Notificar chatarrizado por WhatsApp
+ */
+export async function notificarChatarrizadoWhatsApp(
+  ordenId: string,
+  fecha: string
+): Promise<void> {
+  try {
+    const { data: orden, error: ordenError } = await supabase
+      .from("ordenes")
+      .select(
+        `
+        *,
+        cliente:clientes(*)
+      `
+      )
+      .eq("id", ordenId)
+      .single();
+
+    if (ordenError || !orden) {
+      console.error("❌ Error al obtener orden:", ordenError);
+      return;
+    }
+
+    if (!orden.cliente?.telefono && !orden.cliente?.celular) {
+      console.warn("⚠️ Cliente sin teléfono, no se puede enviar notificación");
+      return;
+    }
+
+    const telefono = orden.cliente.celular || orden.cliente.telefono;
+    const clienteNombre =
+      orden.cliente.es_juridica
+        ? orden.cliente.razon_social || orden.cliente.nombre_comercial || 'Cliente'
+        : orden.cliente.nombre_contacto || orden.cliente.nombre_comercial || orden.cliente.razon_social || 'Cliente';
+
+    const mensaje = getMensajeChatarrizado({
+      clienteNombre,
+      ordenId: orden.codigo,
+      fecha,
+      trackingUrl: TRACKING_URL,
+    });
+
+    openWhatsApp(telefono, mensaje);
+    console.log("✅ WhatsApp abierto para notificación de chatarrizado");
+  } catch (error) {
+    console.error("❌ Error en notificarChatarrizadoWhatsApp:", error);
   }
 }

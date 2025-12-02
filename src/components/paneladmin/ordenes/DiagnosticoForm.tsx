@@ -21,9 +21,10 @@ interface Repuesto {
 interface DiagnosticoFormProps {
   orden: any;
   onSuccess: () => void;
+  faseIniciada?: boolean;
 }
 
-export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormProps) {
+export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true }: DiagnosticoFormProps) {
   const { theme } = useTheme();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -33,48 +34,51 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
   const fechaFin = orden.fecha_fin_diagnostico || null;
   
   // Usuario automático (usuario actual de la sesión)
-  const [usuarioDiagnostico, setUsuarioDiagnostico] = React.useState('');
+  const [tecnicos, setTecnicos] = useState<any[]>([]);
+  const [selectedTecnicoId, setSelectedTecnicoId] = useState(orden.tecnico_diagnostico || '');
+  const [usuarioDiagnosticoNombre, setUsuarioDiagnosticoNombre] = useState('');
   
   // Obtener usuario actual de la sesión
   React.useEffect(() => {
-    const obtenerUsuarioActual = async () => {
+    const cargarDatos = async () => {
       try {
         const { supabase } = await import('@/lib/supabaseClient');
-        
-        // Primero obtener el usuario autenticado
-        const { data: authData, error: authError } = await supabase.auth.getUser();
-        
-        if (authError || !authData?.user) {
-          console.error('Error al obtener usuario:', authError);
-          setUsuarioDiagnostico('Usuario no identificado');
-          return;
+        const { obtenerUsuariosPorRol } = await import('@/lib/services/usuarioService');
+
+        const listaTecnicos = await obtenerUsuariosPorRol('tecnico');
+        setTecnicos(listaTecnicos || []);
+
+        if (orden.tecnico_diagnostico) {
+          const tecnico = listaTecnicos?.find((t: any) => t.id === orden.tecnico_diagnostico);
+          if (tecnico) {
+            setUsuarioDiagnosticoNombre(tecnico.nombre);
+            setSelectedTecnicoId(orden.tecnico_diagnostico);
+            return;
+          }
+
+          const { data } = await supabase
+            .from('usuarios')
+            .select('nombre')
+            .eq('id', orden.tecnico_diagnostico)
+            .single();
+          setUsuarioDiagnosticoNombre(data?.nombre || 'Desconocido');
+        } else {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user) {
+            const esTecnico = listaTecnicos?.find((t: any) => t.id === authData.user.id);
+            if (esTecnico) {
+              setSelectedTecnicoId(authData.user.id);
+              setUsuarioDiagnosticoNombre(esTecnico.nombre);
+            }
+          }
         }
-        
-        const userId = authData.user.id;
-        
-        // Buscar el nombre en la tabla usuarios
-        const { data: userData, error: userError } = await supabase
-          .from('usuarios')
-          .select('nombre, email')
-          .eq('id', userId)
-          .single();
-        
-        if (userError) {
-          console.warn('No se encontró usuario en la tabla usuarios, usando email');
-          setUsuarioDiagnostico(authData.user.email || 'Usuario no identificado');
-          return;
-        }
-        
-        const nombreUsuario = userData?.nombre || userData?.email || authData.user.email || 'Usuario no identificado';
-        setUsuarioDiagnostico(nombreUsuario);
       } catch (error) {
-        console.error('Error en obtenerUsuarioActual:', error);
-        setUsuarioDiagnostico('Usuario no identificado');
+        console.error('Error al cargar técnicos de diagnóstico:', error);
       }
     };
-    
-    obtenerUsuarioActual();
-  }, []);
+
+    cargarDatos();
+  }, [orden.tecnico_diagnostico]);
   
   const [formData, setFormData] = useState({
     descripcion_problema: orden.diagnostico?.descripcion_problema || '',
@@ -292,10 +296,16 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
     // Agregar función al objeto orden para que pueda ser llamada desde page.tsx
     if (orden && typeof window !== 'undefined') {
       (window as any).guardarDatosDiagnostico = async () => {
+        if (!selectedTecnicoId) {
+          toast.error('Debe seleccionar un técnico responsable del diagnóstico');
+          return null;
+        }
+
         const { supabase } = await import('@/lib/supabaseClient');
         
         const updateData: any = {
           comentarios_diagnostico: formData.comentarios,
+          tecnico_diagnostico: selectedTecnicoId,
           ultima_actualizacion: new Date().toISOString()
         };
         
@@ -316,7 +326,7 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
         delete (window as any).guardarDatosDiagnostico;
       }
     };
-  }, [formData.comentarios, orden?.id]);
+  }, [formData.comentarios, orden?.id, selectedTecnicoId, toast]);
 
   const handleAvanzarACotizacion = async () => {
     setIsLoading(true);
@@ -363,7 +373,7 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
     }
   };
 
-  const puedeEditar = orden.estado_actual === 'Diagnóstico';
+  const puedeEditar = orden.estado_actual === 'Diagnóstico' && faseIniciada;
 
   return (
     <div className="p-6">
@@ -382,7 +392,19 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
         </p>
       </div>
 
-      {!puedeEditar && (
+      {!faseIniciada && orden.estado_actual === 'Diagnóstico' && (
+        <div className={`mb-6 p-4 rounded-lg border ${
+          theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-900/20 border-amber-800'
+        }`}>
+          <p className={`text-sm font-medium ${
+            theme === 'light' ? 'text-amber-800' : 'text-amber-300'
+          }`}>
+            ⚠️ Debe presionar "Iniciar Fase" para comenzar a trabajar en este diagnóstico.
+          </p>
+        </div>
+      )}
+
+      {orden.estado_actual !== 'Diagnóstico' && (
         <div className={`mb-6 p-4 rounded-lg border ${
           theme === 'light' ? 'bg-blue-50 border-blue-200' : 'bg-blue-900/20 border-blue-800'
         }`}>
@@ -437,17 +459,36 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
           theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-700 border-gray-600'
         }`}>
           <div className="flex items-center justify-between">
-            <div>
+            <div className="w-full">
               <p className={`text-xs font-medium mb-1 ${
                 theme === 'light' ? 'text-gray-600' : 'text-gray-400'
               }`}>
-                Técnico responsable del diagnóstico
+                Técnico responsable del diagnóstico <span className="text-red-500">*</span>
               </p>
-              <p className={`text-sm font-medium ${
-                theme === 'light' ? 'text-gray-900' : 'text-gray-200'
-              }`}>
-                {usuarioDiagnostico || 'Cargando...'}
-              </p>
+              {puedeEditar ? (
+                <select
+                  value={selectedTecnicoId}
+                  onChange={(e) => setSelectedTecnicoId(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                >
+                  <option value="">Seleccionar técnico...</option>
+                  {tecnicos.map((tecnico: any) => (
+                    <option key={tecnico.id} value={tecnico.id}>
+                      {tecnico.nombre}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className={`text-sm font-medium ${
+                  theme === 'light' ? 'text-gray-900' : 'text-gray-200'
+                }`}>
+                  {usuarioDiagnosticoNombre || 'No asignado'}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -677,6 +718,8 @@ export default function DiagnosticoForm({ orden, onSuccess }: DiagnosticoFormPro
               rows={6}
               placeholder="Describa detalladamente el diagnóstico realizado al equipo..."
               disabled={!puedeEditar}
+              spellCheck={true}
+              lang="es"
               className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                 theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'

@@ -24,9 +24,10 @@ interface Repuesto {
 interface CotizacionFormProps {
   orden: any;
   onSuccess: () => void;
+  faseIniciada?: boolean;
 }
 
-export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps) {
+export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }: CotizacionFormProps) {
   const { theme } = useTheme();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -312,10 +313,10 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
   }, [orden.id, orden.equipo?.modelo_id, repuestosCargados]);
 
   const estado = orden.estado_actual;
-  const puedeEditarGeneral = estado === 'Cotización' || estado === 'Esperando repuestos' || estado === 'Esperando aceptación';
+  const puedeEditarGeneral = (estado === 'Cotización' || estado === 'Esperando repuestos' || estado === 'Esperando aceptación') && faseIniciada;
   const bloqueadoPorAceptacion = estado === 'Esperando aceptación' || !!aprobadoCliente;
-  const puedeEditarRepuestos = (estado === 'Cotización' || estado === 'Esperando repuestos') && !bloqueadoPorAceptacion;
-  const puedeEditarCamposCotizacion = (estado === 'Cotización' || estado === 'Esperando repuestos') && !aprobadoCliente;
+  const puedeEditarRepuestos = (estado === 'Cotización' || estado === 'Esperando repuestos') && !bloqueadoPorAceptacion && faseIniciada;
+  const puedeEditarCamposCotizacion = (estado === 'Cotización' || estado === 'Esperando repuestos') && !aprobadoCliente && faseIniciada;
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('es-CO', {
@@ -695,7 +696,19 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
         </p>
       </div>
 
-      {!puedeEditarGeneral && (
+      {!faseIniciada && (estado === 'Cotización' || estado === 'Esperando repuestos') && (
+        <div className={`mb-6 p-4 rounded-lg border ${
+          theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-900/20 border-amber-800'
+        }`}>
+          <p className={`text-sm font-medium ${
+            theme === 'light' ? 'text-amber-800' : 'text-amber-300'
+          }`}>
+            ⚠️ Debe presionar "Iniciar Fase" para comenzar a trabajar en esta cotización.
+          </p>
+        </div>
+      )}
+
+      {!puedeEditarGeneral && faseIniciada && (
         <div className={`mb-6 p-4 rounded-lg border ${
           theme === 'light' ? 'bg-blue-50 border-blue-200' : 'bg-blue-900/20 border-blue-800'
         }`}>
@@ -1214,6 +1227,8 @@ export default function CotizacionForm({ orden, onSuccess }: CotizacionFormProps
               rows={4}
               placeholder="Notas adicionales sobre la cotización..."
               disabled={!puedeEditarCamposCotizacion}
+              spellCheck={true}
+              lang="es"
               className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                 theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'

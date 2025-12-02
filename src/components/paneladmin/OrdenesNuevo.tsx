@@ -30,18 +30,24 @@ const getStatusInfo = (status: OrdenStatus) => {
 const getEstadoActualInfo = (estadoActual?: string, fallbackStatus?: OrdenStatus) => {
   if (estadoActual) {
     switch (estadoActual) {
+      case 'Bodega':
+        return { color: 'bg-amber-500', label: 'Bodega' };
+      case 'Chatarrizado':
+        return { color: 'bg-red-600', label: 'Chatarrizado' };
+      case 'Recepción':
+        return { color: 'bg-sky-500', label: 'Recepción' };
       case 'Esperando repuestos':
         return { color: 'bg-orange-500', label: 'Esperando Repuestos' };
       case 'Cotización':
         return { color: 'bg-blue-500', label: 'Cotización' };
+      case 'Esperando aceptación':
+        return { color: 'bg-purple-600', label: 'Esperando Aceptación' };
       case 'Diagnóstico':
         return { color: 'bg-purple-500', label: 'Diagnóstico' };
       case 'Reparación':
         return { color: 'bg-indigo-500', label: 'Reparación' };
       case 'Finalizada':
-        return { color: 'bg-green-500', label: 'Completada' };
-      case 'Esperando aceptación':
-        return { color: 'bg-purple-600', label: 'Esperando Aceptación' };
+        return { color: 'bg-green-500', label: 'Finalizada' };
       default:
         return { color: 'bg-gray-500', label: estadoActual };
     }

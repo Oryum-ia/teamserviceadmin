@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Loader2, Paperclip } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Loader2 } from 'lucide-react';
 import { useTheme } from '../../ThemeProvider';
 import { Cliente } from '@/types/database.types';
 import { crearOrden } from '@/lib/services/ordenService';
@@ -29,8 +29,6 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
   const [modelos, setModelos] = useState<Array<any>>([]);
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [showModeloModal, setShowModeloModal] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState<string>('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -79,38 +77,6 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validar que sea imagen
-    if (!file.type.startsWith('image/')) {
-      toast.error('Por favor selecciona una imagen válida');
-      return;
-    }
-
-    try {
-      // Mostrar nombre del archivo
-      setUploadedFileName(file.name);
-      
-      // TODO: Aquí deberías implementar la lógica para:
-      // 1. Subir la imagen a Supabase Storage
-      // 2. Procesar el QR con una librería como jsQR
-      // 3. Extraer el código y actualizar formData.codigo_qr
-      
-      toast.info('Procesando código QR...');
-      console.log('📷 Imagen seleccionada:', file.name);
-      
-      // Placeholder: Por ahora solo mostramos el nombre del archivo
-      // Cuando implementes el lector de QR, reemplaza esto con el código extraído
-      // setFormData(prev => ({ ...prev, codigo_qr: 'Código_Extraído' }));
-    } catch (err) {
-      console.error('Error al procesar imagen:', err);
-      toast.error('Error al procesar la imagen');
-      setUploadedFileName('');
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -232,50 +198,6 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
                 createButtonText="Crear nuevo cliente"
               />
             )}
-
-            {/* Código QR */}
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}>
-                Escanear código QR
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  name="codigo_qr"
-                  value={uploadedFileName || formData.codigo_qr}
-                  onChange={handleChange}
-                  onClick={() => fileInputRef.current?.click()}
-                  placeholder="Click para subir imagen o escanear QR"
-                  className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 cursor-pointer ${
-                    theme === 'light'
-                      ? 'border-gray-300 bg-white text-gray-900'
-                      : 'border-gray-600 bg-gray-700 text-gray-100'
-                  }`}
-                  readOnly
-                />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded transition-colors pointer-events-none ${
-                    theme === 'light'
-                      ? 'text-gray-500'
-                      : 'text-gray-400'
-                  }`}
-                  title="Subir imagen de código QR"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
 
             {/* Grid de Modelo y Serie/Pieza */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

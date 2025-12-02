@@ -28,6 +28,7 @@ import PQR from '../../components/paneladmin/PQR';
 import Indicadores from '../../components/paneladmin/Indicadores';
 import Desempeno from '../../components/paneladmin/Desempeno';
 import Cupones from '../../components/paneladmin/Cupones';
+import { verificarOrdenesBodegaVencidas } from '@/lib/services/bodegaNotificationService';
 
 interface UserSession {
   email: string;
@@ -89,6 +90,13 @@ function PanelAdminContent() {
       setFiltroFase(sectionFromQuery === 'ordenes' ? faseFromQuery : undefined);
     }
   }, [searchParams]);
+
+  // Verificar órdenes en bodega vencidas al cargar el panel
+  useEffect(() => {
+    if (userSession) {
+      verificarOrdenesBodegaVencidas();
+    }
+  }, [userSession]);
 
   const handleLogout = () => {
     localStorage.removeItem('userSession');
