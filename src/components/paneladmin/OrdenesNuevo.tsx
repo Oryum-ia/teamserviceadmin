@@ -64,6 +64,7 @@ interface ColumnFilters {
   serial: string;
   marca: string;
   modelo: string;
+  sede: string;
   estado: OrdenStatus | 'all';
 }
 
@@ -84,6 +85,7 @@ export default function OrdenesNuevo() {
     serial: '',
     marca: '',
     modelo: '',
+    sede: '',
     estado: 'all'
   });
 
@@ -177,6 +179,13 @@ export default function OrdenesNuevo() {
       );
     }
 
+    // Filtrar por sede
+    if (columnFilters.sede.trim()) {
+      resultado = resultado.filter(orden =>
+        orden.sede_creador?.toLowerCase().includes(columnFilters.sede.toLowerCase())
+      );
+    }
+
     // Filtrar por estado
     if (columnFilters.estado !== 'all') {
       resultado = resultado.filter(orden => orden.estado === columnFilters.estado);
@@ -206,6 +215,7 @@ export default function OrdenesNuevo() {
       serial: '',
       marca: '',
       modelo: '',
+      sede: '',
       estado: 'all'
     });
   };
@@ -213,7 +223,7 @@ export default function OrdenesNuevo() {
   const hasActiveFilters = () => {
     return columnFilters.numeroOrden || columnFilters.cliente || columnFilters.identificacion ||
            columnFilters.equipo || columnFilters.serial || columnFilters.marca ||
-           columnFilters.modelo || columnFilters.estado !== 'all';
+           columnFilters.modelo || columnFilters.sede || columnFilters.estado !== 'all';
   };
 
   // Cálculos de paginación
@@ -325,6 +335,26 @@ export default function OrdenesNuevo() {
                   <X className="w-4 h-4" />
                 </button>
               )}
+            </div>
+
+            {/* Estado */}
+            <div>
+              <select
+                value={columnFilters.estado}
+                onChange={(e) => setColumnFilters({...columnFilters, estado: e.target.value as OrdenStatus | 'all'})}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900'
+                    : 'border-gray-600 bg-gray-700 text-gray-100'
+                }`}
+              >
+                <option value="all">Todos los estados</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="en_proceso">En Proceso</option>
+                <option value="espera_repuestos">Esperando Repuestos</option>
+                <option value="completada">Completada</option>
+                <option value="cancelada">Cancelada</option>
+              </select>
             </div>
 
             {/* Cliente */}
@@ -465,24 +495,27 @@ export default function OrdenesNuevo() {
               )}
             </div>
 
-            {/* Estado */}
-            <div>
-              <select
-                value={columnFilters.estado}
-                onChange={(e) => setColumnFilters({...columnFilters, estado: e.target.value as OrdenStatus | 'all'})}
-                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+            {/* Sede */}
+            <div className="relative">
+              <input
+                type="text"
+                value={columnFilters.sede}
+                onChange={(e) => setColumnFilters({...columnFilters, sede: e.target.value})}
+                placeholder="Sede..."
+                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                   theme === 'light'
                     ? 'border-gray-300 bg-white text-gray-900'
                     : 'border-gray-600 bg-gray-700 text-gray-100'
                 }`}
-              >
-                <option value="all">Todos los estados</option>
-                <option value="pendiente">Pendiente</option>
-                <option value="en_proceso">En Proceso</option>
-                <option value="espera_repuestos">Esperando Repuestos</option>
-                <option value="completada">Completada</option>
-                <option value="cancelada">Cancelada</option>
-              </select>
+              />
+              {columnFilters.sede && (
+                <button
+                  onClick={() => setColumnFilters({...columnFilters, sede: ''})}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
           </div>
@@ -574,6 +607,11 @@ export default function OrdenesNuevo() {
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                       theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                     }`}>
+                      Estado
+                    </th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                    }`}>
                       N° Orden
                     </th>
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
@@ -600,11 +638,6 @@ export default function OrdenesNuevo() {
                       theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                     }`}>
                       Serial
-                    </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
-                      Estado
                     </th>
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
                       theme === 'light' ? 'text-gray-700' : 'text-gray-300'
@@ -637,6 +670,11 @@ export default function OrdenesNuevo() {
                           theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
                         }`}
                       >
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${statusInfo.color}`}>
+                            {statusInfo.label}
+                          </span>
+                        </td>
                         <td className={`px-4 py-4 whitespace-nowrap ${
                           theme === 'light' ? 'text-gray-900' : 'text-white'
                         }`}>
@@ -670,11 +708,6 @@ export default function OrdenesNuevo() {
                           theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                         }`}>
                           {orden.serial || '-'}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${statusInfo.color}`}>
-                            {statusInfo.label}
-                          </span>
                         </td>
                         <td className={`px-4 py-4 whitespace-nowrap ${
                           theme === 'light' ? 'text-gray-600' : 'text-gray-400'

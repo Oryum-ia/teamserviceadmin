@@ -247,6 +247,16 @@ export default function ProductosTienda() {
       hideOnMobile: true,
     },
     {
+      key: 'tiempo_garantia',
+      label: 'Garantía',
+      render: (producto) => (
+        <span className={theme === 'light' ? 'text-gray-600' : 'text-gray-300'}>
+          {producto.tiempo_garantia || '-'}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
       key: 'estado',
       label: 'Estado',
       render: (producto) => (
@@ -309,6 +319,7 @@ export default function ProductosTienda() {
         'Descripción',
         'Precio',
         'Stock',
+        'Tiempo Garantía',
         'SKU',
         'Categoría ID',
         'Marca ID',
@@ -323,6 +334,7 @@ export default function ProductosTienda() {
         `"${(producto.descripcion || '').replace(/"/g, '""')}"`,
         producto.precio || '',
         producto.stock ?? '',
+        producto.tiempo_garantia || '',
         '', // SKU no existe en el tipo ProductoTienda
         producto.categoria_id || '',
         producto.marca_id || '',

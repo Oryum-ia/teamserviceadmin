@@ -110,7 +110,7 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead 
   if (!isOpen || !notification) return null;
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ${
+    <div className={`fixed inset-0 z-50 flex items-start sm:items-center justify-center px-2 sm:px-4 py-4 transition-all duration-300 ${
       isVisible ? 'backdrop-blur-sm bg-black/30' : 'backdrop-blur-none bg-transparent'
     }`}>
       <div 
@@ -122,7 +122,8 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead 
         }}
       >
         <div className={`
-          rounded-2xl border-2 shadow-2xl backdrop-blur-xl p-6
+          rounded-2xl border-2 shadow-2xl backdrop-blur-xl p-4 sm:p-6
+          max-h-[80vh] overflow-y-auto
           ${getNotificationColor(notification.type)}
           ${theme === 'light' ? '' : 'bg-dark-bg-secondary/95 text-white border-lime-400/20'}
         `}>

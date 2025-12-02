@@ -3,7 +3,7 @@ import { Usuario, UserRole } from "@/types/database.types";
 
 /**
  * Crear un nuevo usuario en el sistema
- * NOTA: Esta función requiere permisos de administrador en Supabase
+ * Usa API route con transacción atómica y rollback automático
  */
 export async function crearUsuario(data: {
   email: string;
@@ -11,91 +11,34 @@ export async function crearUsuario(data: {
   nombre: string;
   rol: UserRole;
   sede?: string;
-}) {
-  try {
-    console.log('🔑 Creando cuenta de usuario...', { email: data.email });
+}): Promise<Usuario> {
+  console.log('🔑 Creando cuenta de usuario...', { email: data.email });
 
-    // Guardar la sesión actual del admin
-    const { data: { session: adminSession } } = await supabase.auth.getSession();
-
-    // Crear el nuevo usuario usando signUp
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        emailRedirectTo: undefined, // No enviar email de confirmación
-        data: {
-          nombre: data.nombre,
-          rol: data.rol,
-        }
-      }
-    });
-
-    if (authError) {
-      console.error("❌ Error al crear cuenta:", { message: authError.message });
-
-      if (authError.message?.includes("already registered") || authError.message?.includes("already been registered")) {
-        throw new Error('Este email ya está registrado');
-      }
-
-      throw new Error(authError.message || 'Error desconocido al registrar');
-    }
-
-    if (!authData.user) {
-      throw new Error('No se pudo crear la cuenta');
-    }
-
-    console.log('✅ Cuenta creada exitosamente:', authData.user.id);
-
-    // Cerrar la sesión del nuevo usuario inmediatamente
-    await supabase.auth.signOut();
-
-    // Restaurar la sesión del admin
-    if (adminSession) {
-      await supabase.auth.setSession({
-        access_token: adminSession.access_token,
-        refresh_token: adminSession.refresh_token,
-      });
-      console.log('✅ Sesión de admin restaurada');
-    }
-
-    // Insertar el usuario en la tabla public.usuarios
-    console.log('📝 Insertando usuario en tabla usuarios...', {
-      id: authData.user.id,
-      email: data.email,
-      nombre: data.nombre,
-      rol: data.rol,
-      sede: data.sede || null,
-    });
-
-    const { data: usuarioData, error: dbError } = await supabase
-      .from('usuarios')
-      .insert({
-        id: authData.user.id,
-        email: data.email,
-        nombre: data.nombre,
-        rol: data.rol,
-        sede: data.sede || null,
-        activo: true,
-      })
-      .select()
-      .single();
-
-    if (dbError) {
-      console.error('❌ Error al insertar en tabla usuarios:', dbError);
-      // NOTA: El usuario quedó creado en auth pero no en la tabla usuarios
-      // Se recomienda limpiarlo manualmente desde el dashboard de Supabase
-      console.warn('⚠️ Usuario creado en auth pero no en tabla usuarios. ID:', authData.user.id);
-      throw new Error(`Error al crear usuario en base de datos: ${dbError.message}`);
-    }
-
-    console.log('✅ Usuario insertado en tabla usuarios:', usuarioData);
-
-    return usuarioData as Usuario;
-  } catch (error: any) {
-    console.error("❌ Error al crear usuario:", error);
-    throw error;
+  // Obtener token de sesión actual
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    throw new Error('No hay sesión activa. Inicia sesión para crear usuarios.');
   }
+
+  const response = await fetch('/api/usuarios', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    console.error('❌ Error al crear usuario:', result.error);
+    throw new Error(result.error || 'Error al crear usuario');
+  }
+
+  console.log('✅ Usuario creado exitosamente:', result.usuario);
+  return result.usuario as Usuario;
 }
 /**
  * Obtener todos los usuarios

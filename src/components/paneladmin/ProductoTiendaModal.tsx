@@ -42,6 +42,7 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
     categoria_id: '',
     marca_id: '',
     imagenes: [] as string[],
+    tiempo_garantia: '',
     activo: true
   });
 
@@ -82,6 +83,7 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         categoria_id: producto.categoria_id || '',
         marca_id: producto.marca_id || '',
         imagenes: imagenesArray,
+        tiempo_garantia: producto.tiempo_garantia || '',
         activo: producto.activo ?? true
       });
       setImagePreviews(imagenesArray);
@@ -97,6 +99,7 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         categoria_id: '',
         marca_id: '',
         imagenes: [],
+        tiempo_garantia: '',
         activo: true
       });
       setImagePreviews([]);
@@ -227,6 +230,7 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         marca_id: formData.marca_id || undefined,
         imagenes: formData.imagenes.length > 0 ? formData.imagenes : [],
         especificaciones: especificacionesValidas.length > 0 ? especificacionesValidas : [],
+        tiempo_garantia: formData.tiempo_garantia.trim() || undefined,
         promocion: formData.descuento ? true : false, // Si hay descuento, hay promoción
         activo: formData.activo
       };
@@ -503,6 +507,27 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Tiempo de garantía */}
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                Tiempo de garantía
+              </label>
+              <input
+                type="text"
+                name="tiempo_garantia"
+                value={formData.tiempo_garantia}
+                onChange={handleChange}
+                placeholder="Ej: 1 año, 6 meses"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900'
+                    : 'border-gray-600 bg-gray-700 text-gray-100'
+                }`}
+              />
             </div>
 
             {/* Especificaciones */}

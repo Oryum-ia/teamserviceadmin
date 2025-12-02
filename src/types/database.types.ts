@@ -174,6 +174,7 @@ export interface ProductoTienda {
   marca_id?: string; // Relación con marca
   imagenes?: string[]; // Array de URLs de imágenes
   especificaciones?: Especificacion[]; // Array de especificaciones dinámicas
+  tiempo_garantia?: string; // Tiempo de garantía (ej: "1 año", "6 meses")
   promocion?: boolean;
   activo?: boolean;
   created_at?: string;

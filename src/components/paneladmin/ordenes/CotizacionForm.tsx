@@ -613,6 +613,12 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   const totales = calcularTotales();
 
   const handleEnviarCotizacion = async () => {
+    // Bloquear envío si la fase no ha sido iniciada
+    if (!faseIniciada) {
+      toast.error('Debe iniciar la fase de cotización antes de enviar al cliente');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { supabase } = await import('@/lib/supabaseClient');
@@ -1266,7 +1272,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
             </div>
             <button
               onClick={handleEnviarCotizacion}
-              disabled={isLoading}
+              disabled={isLoading || !faseIniciada}
               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${
                 theme === 'light'
                   ? 'bg-purple-600 hover:bg-purple-700 text-white'

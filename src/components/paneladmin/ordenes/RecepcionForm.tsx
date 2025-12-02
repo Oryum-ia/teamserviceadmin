@@ -6,6 +6,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { Loader2, Info, Plus, Trash2, Upload, FileText, Check, X, AlertCircle } from 'lucide-react';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 import ImagenViewer from './ImagenViewer';
+import DropZoneImagenes from './DropZoneImagenes';
 import { FirmaDisplay } from '@/components/FirmaPad';
 import { crearTimestampColombia, formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
 
@@ -133,6 +134,24 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
     } catch (e) {
       console.error(e);
       toast.error('Error al guardar accesorios');
+    }
+  };
+
+  const handleFilesSelected = async (files: File[]) => {
+    if (files.length === 0) return;
+    setSubiendoFotos(true);
+    try {
+      const { subirMultiplesImagenes, actualizarFotosRecepcion } = await import('@/lib/services/imagenService');
+      const urls = await subirMultiplesImagenes(orden.id, files, 'recepcion');
+      const nuevas = [...fotos, ...urls];
+      setFotos(nuevas);
+      await actualizarFotosRecepcion(orden.id, nuevas);
+      toast.success(`${files.length} foto(s) subida(s)`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al subir fotos');
+    } finally {
+      setSubiendoFotos(false);
     }
   };
 
@@ -279,18 +298,18 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
 
       {/* Accesorios y estado */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3">
           <h3 className={`text-lg font-semibold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
             Accesorios {cargandoAccesorios && <span className="text-sm font-normal ml-2 text-gray-500">(Cargando...)</span>}
           </h3>
           {puedeEditar && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2">
               <input
                 type="text"
                 value={nuevoAccesorio}
                 onChange={(e) => setNuevoAccesorio(e.target.value)}
                 placeholder="Agregar accesorio..."
-                className={`px-3 py-2 border rounded-lg text-sm ${theme === 'light' ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'}`}
+                className={`w-full sm:w-64 px-3 py-2 border rounded-lg text-sm ${theme === 'light' ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'}`}
               />
               <button
                 onClick={() => {
@@ -300,7 +319,7 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
                   setNuevoAccesorio('');
                   guardarAccesorios(items);
                 }}
-                className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium ${theme === 'light' ? 'bg-yellow-500 hover:bg-yellow-600 text-white' : 'bg-yellow-400 hover:bg-yellow-500 text-black'}`}
+                className={`w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium ${theme === 'light' ? 'bg-yellow-500 hover:bg-yellow-600 text-white' : 'bg-yellow-400 hover:bg-yellow-500 text-black'}`}
               >
                 <Plus className="w-4 h-4" /> Agregar
               </button>
@@ -394,22 +413,10 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
                 type="file"
                 accept="image/*,video/*"
                 multiple
-                onChange={async (e) => {
+                onChange={(e) => {
                   const files = Array.from(e.target.files || []);
-                  if (files.length === 0) return;
-                  setSubiendoFotos(true);
-                  try {
-                    const { subirMultiplesImagenes, actualizarFotosRecepcion } = await import('@/lib/services/imagenService');
-                    const urls = await subirMultiplesImagenes(orden.id, files, 'recepcion');
-                    const nuevas = [...fotos, ...urls];
-                    setFotos(nuevas);
-                    await actualizarFotosRecepcion(orden.id, nuevas);
-                    toast.success(`${files.length} foto(s) subida(s)`);
-                  } catch (err) {
-                    console.error(err);
-                    toast.error('Error al subir fotos');
-                  } finally {
-                    setSubiendoFotos(false);
+                  if (files.length > 0) {
+                    void handleFilesSelected(files);
                   }
                   e.currentTarget.value = '';
                 }}
@@ -451,36 +458,16 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
               }
             }}
             puedeEditar={puedeEditar}
-            onFilesDropped={puedeEditar ? async (files) => {
-              if (files.length === 0) return;
-              setSubiendoFotos(true);
-              try {
-                const { subirMultiplesImagenes, actualizarFotosRecepcion } = await import('@/lib/services/imagenService');
-                const urls = await subirMultiplesImagenes(orden.id, files, 'recepcion');
-                const nuevas = [...fotos, ...urls];
-                setFotos(nuevas);
-                await actualizarFotosRecepcion(orden.id, nuevas);
-                toast.success(`${files.length} foto(s) subida(s)`);
-              } catch (err) {
-                console.error(err);
-                toast.error('Error al subir fotos');
-              } finally {
-                setSubiendoFotos(false);
-              }
-            } : undefined}
+            onFilesDropped={puedeEditar ? handleFilesSelected : undefined}
             isUploading={subiendoFotos}
           />
         ) : (
           puedeEditar && (
-            <div className={`p-4 text-center border-2 border-dashed rounded-lg ${
-              theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-700'
-            }`}>
-              <p className={`text-sm ${
-                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-              }`}>
-                No hay fotos aún. Usa "Subir fotos" o arrastra imágenes sobre esta sección.
-              </p>
-            </div>
+            <DropZoneImagenes
+              onFilesSelected={handleFilesSelected}
+              isUploading={subiendoFotos}
+              disabled={!puedeEditar}
+            />
           )
         )}
       </div>

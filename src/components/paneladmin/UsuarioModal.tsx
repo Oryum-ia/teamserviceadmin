@@ -6,7 +6,76 @@ import { useTheme } from '../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { Usuario, UserRole } from '@/types/database.types';
 import { crearUsuario, actualizarUsuario } from '@/lib/services/usuarioService';
-import { cambiarContraseñaUsuario, obtenerUsuarioAutenticado } from '@/lib/services/authService';
+import { cambiarContraseñaUsuario } from '@/lib/services/authService';
+
+// Constantes de validación
+const MIN_PASSWORD_LENGTH = 6;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+interface FormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  nombre: string;
+  rol: UserRole;
+  sede: string;
+  nuevaPassword: string;
+  confirmarNuevaPassword: string;
+}
+
+interface ValidationResult {
+  valid: boolean;
+  error: string | null;
+}
+
+// Validación pura para nuevo usuario
+const validateNewUser = (formData: FormData): ValidationResult => {
+  if (!formData.nombre.trim()) {
+    return { valid: false, error: 'El nombre es requerido' };
+  }
+
+  if (!formData.email.trim()) {
+    return { valid: false, error: 'El email es requerido' };
+  }
+
+  if (!EMAIL_REGEX.test(formData.email)) {
+    return { valid: false, error: 'Por favor ingrese un email válido' };
+  }
+
+  if (!formData.password) {
+    return { valid: false, error: 'La contraseña es requerida' };
+  }
+
+  if (formData.password.length < MIN_PASSWORD_LENGTH) {
+    return { valid: false, error: `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres` };
+  }
+
+  if (formData.password !== formData.confirmPassword) {
+    return { valid: false, error: 'Las contraseñas no coinciden' };
+  }
+
+  return { valid: true, error: null };
+};
+
+// Validación pura para editar usuario
+const validateEditUser = (formData: FormData): ValidationResult => {
+  if (!formData.nombre.trim()) {
+    return { valid: false, error: 'El nombre es requerido' };
+  }
+
+  // Validar nueva contraseña solo si se está intentando cambiar
+  if (formData.nuevaPassword) {
+    if (formData.nuevaPassword.length < MIN_PASSWORD_LENGTH) {
+      return { valid: false, error: `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres` };
+    }
+
+    if (formData.nuevaPassword !== formData.confirmarNuevaPassword) {
+      return { valid: false, error: 'Las contraseñas no coinciden' };
+    }
+  }
+
+  return { valid: true, error: null };
+};
 
 interface UsuarioModalProps {
   isOpen: boolean;
@@ -85,107 +154,53 @@ export default function UsuarioModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
 
+    // Validación síncrona ANTES de cualquier operación async
+    const validation = usuario 
+      ? validateEditUser(formData) 
+      : validateNewUser(formData);
+
+    if (!validation.valid) {
+      setError(validation.error!);
+      return; // Bloquear submit sin hacer peticiones
+    }
+
+    // Solo después de validar, iniciar loading
+    setIsLoading(true);
+
     try {
-      // Validaciones
-      if (!formData.nombre) {
-        setError('El nombre es requerido');
-        setIsLoading(false);
-        return;
-      }
-
-      if (!formData.email) {
-        setError('El email es requerido');
-        setIsLoading(false);
-        return;
-      }
-
-      // Validar formato de email
-      const validEmailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!validEmailRegex.test(formData.email)) {
-        setError('Por favor ingrese un email válido');
-        setIsLoading(false);
-        return;
-      }
-
-      // Si es nuevo usuario, validar password
-      if (!usuario) {
-        if (!formData.password) {
-          setError('La contraseña es requerida');
-          setIsLoading(false);
-          return;
-        }
-
-        if (formData.password.length < 6) {
-          setError('La contraseña debe tener al menos 6 caracteres');
-          setIsLoading(false);
-          return;
-        }
-
-        if (formData.password !== formData.confirmPassword) {
-          setError('Las contraseñas no coinciden');
-          setIsLoading(false);
-          return;
-        }
-      }
-
       if (usuario) {
-        // Actualizar usuario existente (solo nombre, rol, sede)
+        // Actualizar usuario existente
         await actualizarUsuario(usuario.id, {
-          nombre: formData.nombre,
+          nombre: formData.nombre.trim(),
           rol: formData.rol,
-          sede: formData.sede || undefined,
+          sede: formData.sede.trim() || undefined,
         });
 
-        // Si hay nueva contraseña, cambiarla
+        // Cambiar contraseña si se proporcionó
         if (formData.nuevaPassword) {
-          if (formData.nuevaPassword !== formData.confirmarNuevaPassword) {
-            setError('Las contraseñas no coinciden');
-            setIsLoading(false);
-            return;
-          }
-
-          if (formData.nuevaPassword.length < 6) {
-            setError('La contraseña debe tener al menos 6 caracteres');
-            setIsLoading(false);
-            return;
-          }
-
           await cambiarContraseñaUsuario(usuario.id, formData.nuevaPassword);
         }
 
         toast.success('Usuario actualizado exitosamente');
       } else {
-        // Crear nuevo usuario (mostrar payload antes de enviar)
-        const payload = {
-          email: formData.email,
+        // Crear nuevo usuario
+        await crearUsuario({
+          email: formData.email.toLowerCase().trim(),
           password: formData.password,
-          nombre: formData.nombre,
+          nombre: formData.nombre.trim(),
           rol: formData.rol,
-          sede: formData.sede || undefined,
-        };
-        console.log('🧪 Debug - Datos a enviar a crearUsuario/Supabase:', payload);
-        await crearUsuario(payload);
+          sede: formData.sede.trim() || undefined,
+        });
         toast.success('Usuario creado exitosamente');
       }
 
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error al guardar usuario:', err);
-
-      // Manejar errores específicos de Supabase
-      let errorMsg = 'Error al guardar el usuario';
-      if (err.message?.includes('already registered')) {
-        errorMsg = 'Este email ya está registrado';
-      } else if (err.message?.includes('password')) {
-        errorMsg = 'Error con la contraseña. Debe tener al menos 6 caracteres';
-      } else if (err.message) {
-        errorMsg = err.message;
-      }
-      
+      const errorMsg = err instanceof Error ? err.message : 'Error al guardar el usuario';
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
