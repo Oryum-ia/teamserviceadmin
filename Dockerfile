@@ -3,7 +3,6 @@
 # Base image
 FROM node:20-alpine AS base
 WORKDIR /app
-ENV NODE_ENV=production
 
 # Install dependencies (cached layer)
 FROM base AS deps
