@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { getSupabaseAdmin } from '@/lib/supabaseClient';
 
 /**
  * DELETE /api/usuarios/[id]
@@ -12,6 +12,9 @@ export async function DELETE(
   const { id } = await params;
 
   console.log('🗑️ API: Eliminando usuario:', { id });
+
+  // Obtener cliente admin en runtime
+  const supabaseAdmin = getSupabaseAdmin();
 
   try {
     // Verificar que el cliente admin esté disponible

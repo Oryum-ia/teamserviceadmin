@@ -4,11 +4,17 @@
  * Ejecutar desde la consola del navegador o desde Node.js
  */
 
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 const BUCKET_NAME = 'ordenes-imagenes';
 
 export async function verificarYCrearBucket() {
+  const supabase = getSupabase();
+  if (!supabase) {
+    console.error('❌ Cliente Supabase no disponible. Faltan variables de entorno.');
+    return { success: false, error: 'Cliente Supabase no disponible' };
+  }
+
   try {
     console.log('🔍 Verificando bucket:', BUCKET_NAME);
     

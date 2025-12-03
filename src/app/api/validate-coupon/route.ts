@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 export async function POST(request: NextRequest) {
+  // Obtener cliente en runtime
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return NextResponse.json(
+      { error: 'Configuración del servidor incompleta. Faltan variables de entorno.' },
+      { status: 500 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { codigo } = body;

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabase } from "@/lib/supabaseClient";
 
 /**
  * Servicio para procesar notificaciones de mantenimiento
@@ -27,6 +27,17 @@ export async function procesarNotificacionesMantenimiento(): Promise<{
   const detalles: string[] = [];
   let procesadas = 0;
   let errores = 0;
+
+  // Obtener cliente en runtime
+  const supabase = getSupabase();
+  if (!supabase) {
+    return {
+      success: false,
+      procesadas: 0,
+      errores: 1,
+      detalles: ['Error: Cliente Supabase no disponible. Faltan variables de entorno.']
+    };
+  }
 
   try {
     // 1. Ejecutar función que crea notificaciones para mantenimientos de mañana

@@ -3,7 +3,7 @@
  * y crear notificaciones automáticas
  */
 
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 const DIAS_LIMITE_BODEGA = 7; // 1 semana
 
@@ -51,6 +51,9 @@ const calcularDiasEnBodega = (fechaBodega: string): number => {
  * Verifica si ya existe una notificación de bodega vencida para esta orden
  */
 const existeNotificacionBodegaVencida = async (ordenId: string): Promise<boolean> => {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+
   const { data, error } = await supabase
     .from('notificaciones')
     .select('id')
@@ -77,6 +80,12 @@ const crearNotificacionBodegaVencida = async (orden: OrdenEnBodega): Promise<voi
   const equipoDescripcion = orden.equipo?.modelo 
     ? `${orden.equipo.modelo.marca?.nombre || ''} ${orden.equipo.modelo.equipo || ''}`.trim()
     : 'Equipo';
+
+  const supabase = getSupabase();
+  if (!supabase) {
+    console.error('Error: Cliente Supabase no disponible');
+    return;
+  }
 
   const { error } = await supabase
     .from('notificaciones')
@@ -108,6 +117,12 @@ const crearNotificacionBodegaVencida = async (orden: OrdenEnBodega): Promise<voi
  * Esta función debe llamarse periódicamente (ej: al cargar el dashboard)
  */
 export const verificarOrdenesBodegaVencidas = async (): Promise<number> => {
+  const supabase = getSupabase();
+  if (!supabase) {
+    console.error('Error: Cliente Supabase no disponible');
+    return 0;
+  }
+
   try {
     // Obtener todas las órdenes en estado Bodega
     const { data: ordenes, error } = await supabase
@@ -166,6 +181,9 @@ export const verificarOrdenesBodegaVencidas = async (): Promise<number> => {
  * Obtiene el conteo de órdenes en bodega vencidas
  */
 export const contarOrdenesBodegaVencidas = async (): Promise<number> => {
+  const supabase = getSupabase();
+  if (!supabase) return 0;
+
   try {
     const { data: ordenes, error } = await supabase
       .from('ordenes')

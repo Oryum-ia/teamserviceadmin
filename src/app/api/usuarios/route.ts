@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { getSupabaseAdmin } from '@/lib/supabaseClient';
 
 // Constantes de validación
 const MIN_PASSWORD_LENGTH = 6;
@@ -69,6 +69,9 @@ const validateUserData = (data: unknown): { valid: true; payload: CreateUserPayl
  */
 export async function POST(request: NextRequest) {
   console.log('📝 API: Creando nuevo usuario...');
+
+  // Obtener cliente admin en runtime
+  const supabaseAdmin = getSupabaseAdmin();
 
   try {
     // Verificar cliente admin
