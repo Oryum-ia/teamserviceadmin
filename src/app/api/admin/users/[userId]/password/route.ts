@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 
 /**
  * API Route para cambiar contraseña de un usuario
@@ -11,6 +11,15 @@ export async function POST(
   { params }: { params: { userId: string } }
 ) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
+
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Configuración del servidor incompleta. Falta SUPABASE_SERVICE_ROLE_KEY.' },
+        { status: 500 }
+      );
+    }
+
     const { userId } = params;
     const body = await request.json();
     const { password } = body;
