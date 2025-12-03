@@ -12,6 +12,17 @@ RUN npm ci
 
 # Build stage
 FROM base AS builder
+
+# Variables públicas necesarias en tiempo de build para Next.js
+# Dokploy las pasa como build args
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_TRACKING_URL
+
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_TRACKING_URL=$NEXT_PUBLIC_TRACKING_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

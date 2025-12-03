@@ -68,23 +68,44 @@ export const getSupabaseAdmin = () => {
  * Estos son proxies que delegan a getSupabase()/getSupabaseAdmin() en runtime.
  * Si faltan envs, las operaciones fallarán en runtime (no en build time).
  */
-export const supabase = new Proxy({} as NonNullable<ReturnType<typeof getSupabase>>, {
+
+// Cliente lazy que se inicializa solo cuando se usa
+let _supabaseLazy: SupabaseClient | null = null
+let _supabaseAdminLazy: SupabaseClient | null = null
+
+const getSupabaseLazy = (): SupabaseClient => {
+  if (_supabaseLazy) return _supabaseLazy
+  
+  const client = getSupabase()
+  if (!client) {
+    throw new Error('Supabase client not available. Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.')
+  }
+  _supabaseLazy = client
+  return client
+}
+
+const getSupabaseAdminLazy = (): SupabaseClient => {
+  if (_supabaseAdminLazy) return _supabaseAdminLazy
+  
+  const client = getSupabaseAdmin()
+  if (!client) {
+    throw new Error('Supabase Admin client not available. Missing SUPABASE_SERVICE_ROLE_KEY.')
+  }
+  _supabaseAdminLazy = client
+  return client
+}
+
+export const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
-    const client = getSupabase()
-    if (!client) {
-      throw new Error('Supabase client not available. Missing environment variables.')
-    }
+    const client = getSupabaseLazy()
     const value = (client as unknown as Record<string, unknown>)[prop as string]
     return typeof value === 'function' ? value.bind(client) : value
   }
 })
 
-export const supabaseAdmin = new Proxy({} as NonNullable<ReturnType<typeof getSupabaseAdmin>>, {
+export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(_, prop) {
-    const client = getSupabaseAdmin()
-    if (!client) {
-      throw new Error('Supabase Admin client not available. Missing SUPABASE_SERVICE_ROLE_KEY.')
-    }
+    const client = getSupabaseAdminLazy()
     const value = (client as unknown as Record<string, unknown>)[prop as string]
     return typeof value === 'function' ? value.bind(client) : value
   }
