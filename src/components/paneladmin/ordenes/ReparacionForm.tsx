@@ -77,26 +77,46 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
     cargarDatos();
   }, [orden.tecnico_repara]);
 
-  // Exponer función para guardar datos desde el padre
+  const [formData, setFormData] = useState({
+    comentarios: orden.comentarios_reparacion || ''
+  });
+
+  // Guardar datos sin validaciones (solo para botón Guardar)
   React.useEffect(() => {
-    (window as any).guardarDatosReparacion = () => {
-      if (!selectedTecnicoId) {
-        toast.error('Debe seleccionar un técnico responsable de la reparación');
-        return null;
+    (window as any).guardarDatosReparacion = async () => {
+      try {
+        // Cancelar debounce de comentarios pendiente
+        if (comentariosTimeoutRef.current) {
+          clearTimeout(comentariosTimeoutRef.current);
+        }
+        
+        const { supabase } = await import('@/lib/supabaseClient');
+        
+        // Guardar datos básicos (sin validaciones)
+        const updateData = {
+          tecnico_repara: selectedTecnicoId || null,
+          comentarios_reparacion: formData.comentarios || '',
+          ultima_actualizacion: new Date().toISOString()
+        };
+        
+        await supabase
+          .from('ordenes')
+          .update(updateData)
+          .eq('id', orden.id);
+        
+        console.log('✅ Datos de reparación guardados (sin validaciones):', updateData);
+        
+        return updateData;
+      } catch (error) {
+        console.error('Error al guardar datos de reparación:', error);
+        throw error;
       }
-      return {
-        tecnico_repara: selectedTecnicoId
-      };
     };
 
     return () => {
       delete (window as any).guardarDatosReparacion;
     };
-  }, [selectedTecnicoId]);
-
-  const [formData, setFormData] = useState({
-    comentarios: orden.comentarios_reparacion || ''
-  });
+  }, [selectedTecnicoId, formData.comentarios, orden.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const { name, value } = e.target;

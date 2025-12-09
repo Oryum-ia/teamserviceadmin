@@ -6,7 +6,7 @@ import { useTheme } from '../../ThemeProvider';
 import { Cliente } from '@/types/database.types';
 import { crearOrden } from '@/lib/services/ordenService';
 import { obtenerTodosLosClientes } from '@/lib/services/clienteService';
-import { obtenerTodosLosModelos } from '@/lib/services/modeloService';
+import { obtenerTodosLosModelos, actualizarModelo } from '@/lib/services/modeloService';
 import { notificarOrdenCreadaWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import SearchableSelect from './SearchableSelect';
 import ClienteModal from '../ClienteModal';
@@ -41,6 +41,11 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
     descripcion_problema: '',
     es_retrabajo: false
   });
+  
+  // Estado para el valor de revisión del modelo seleccionado
+  const [valorRevision, setValorRevision] = useState(0);
+  const [valorRevisionInput, setValorRevisionInput] = useState('');
+  const [editandoValorRevision, setEditandoValorRevision] = useState(false);
 
   // Cargar clientes y modelos
   useEffect(() => {
@@ -73,6 +78,18 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
       toast.error('Error al cargar modelos');
     }
   };
+  
+  // Efecto para actualizar el valor de revisión cuando cambia el modelo seleccionado
+  useEffect(() => {
+    if (formData.modelo) {
+      const modeloSeleccionado = modelos.find(m => m.id === formData.modelo);
+      if (modeloSeleccionado) {
+        setValorRevision(modeloSeleccionado.valor_revision || 0);
+      }
+    } else {
+      setValorRevision(0);
+    }
+  }, [formData.modelo, modelos]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -100,6 +117,20 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
         whatsappPopup = window.open('about:blank', '_blank');
       } catch (e) {
         // seguir sin popup pre-abierto si el navegador lo impide
+      }
+      
+      // Actualizar el valor de revisión del modelo si cambió
+      if (formData.modelo && valorRevision !== undefined) {
+        const modeloSeleccionado = modelos.find(m => m.id === formData.modelo);
+        if (modeloSeleccionado && modeloSeleccionado.valor_revision !== valorRevision) {
+          try {
+            await actualizarModelo(formData.modelo, { valor_revision: valorRevision });
+            console.log('✅ Valor de revisión actualizado para el modelo');
+          } catch (err) {
+            console.error('⚠️ Error al actualizar valor de revisión:', err);
+            // No bloquear la creación de la orden si falla la actualización
+          }
+        }
       }
 
       const ordenCreada = await crearOrden(formData);
@@ -237,6 +268,48 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
                 />
               </div>
             </div>
+
+            {/* Valor de Revisión */}
+            {formData.modelo && (
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Valor de Revisión
+                </label>
+                <input
+                  type="text"
+                  value={editandoValorRevision ? valorRevisionInput : (valorRevision === 0 ? '' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valorRevision))}
+                  onFocus={() => {
+                    setEditandoValorRevision(true);
+                    setValorRevisionInput(valorRevision === 0 ? '' : valorRevision.toString());
+                  }}
+                  onChange={(e) => {
+                    const inputValue = e.target.value;
+                    // Permitir solo números
+                    const cleaned = inputValue.replace(/[^0-9]/g, '');
+                    setValorRevisionInput(cleaned);
+                  }}
+                  onBlur={() => {
+                    const valor = valorRevisionInput === '' ? 0 : Number(valorRevisionInput);
+                    setValorRevision(valor);
+                    setEditandoValorRevision(false);
+                    setValorRevisionInput('');
+                  }}
+                  placeholder="$0"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                />
+                <p className={`text-xs mt-1 ${
+                  theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                }`}>
+                  Solo se cobra si el cliente rechaza la cotización
+                </p>
+              </div>
+            )}
 
 
 

@@ -24,7 +24,8 @@ import {
   Warehouse,
   Trash2,
   Unlock,
-  Play
+  Play,
+  Save
 } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
@@ -73,6 +74,7 @@ export default function OrdenDetallePage() {
   const [showAccionesMenu, setShowAccionesMenu] = useState(false);
   const [isProcesingAction, setIsProcesingAction] = useState(false);
   const [isIniciandoFase, setIsIniciandoFase] = useState(false);
+  const [isGuardando, setIsGuardando] = useState(false);
 
   // Obtener ID del técnico actual
   const obtenerTecnicoActual = async () => {
@@ -608,6 +610,51 @@ export default function OrdenDetallePage() {
     if (estadosBloqueados.includes(orden.estado_actual)) return false;
     
     return !faseYaIniciada();
+  };
+
+  // Guardar datos de la fase actual
+  const handleGuardarFase = async () => {
+    if (!orden) return;
+    
+    setIsGuardando(true);
+    try {
+      const faseActual = FASES[currentStep].id;
+      
+      // Llamar a la función de guardar correspondiente según la fase
+      switch (faseActual) {
+        case 'diagnostico':
+          if (typeof (window as any).guardarDatosDiagnostico === 'function') {
+            await (window as any).guardarDatosDiagnostico();
+            toast.success('Datos de diagnóstico guardados');
+          }
+          break;
+        case 'cotizacion':
+          if (typeof (window as any).guardarDatosCotizacion === 'function') {
+            await (window as any).guardarDatosCotizacion();
+            toast.success('Datos de cotización guardados');
+          }
+          break;
+        case 'reparacion':
+          if (typeof (window as any).guardarDatosReparacion === 'function') {
+            await (window as any).guardarDatosReparacion();
+            toast.success('Datos de reparación guardados');
+          }
+          break;
+        case 'entrega':
+          if (typeof (window as any).guardarDatosEntrega === 'function') {
+            await (window as any).guardarDatosEntrega();
+            toast.success('Datos de entrega guardados');
+          }
+          break;
+        default:
+          toast.info('No hay datos para guardar en esta fase');
+      }
+    } catch (error) {
+      console.error('Error al guardar datos de la fase:', error);
+      toast.error('Error al guardar los datos');
+    } finally {
+      setIsGuardando(false);
+    }
   };
 
   const puedeAvanzar = () => {
@@ -1307,6 +1354,30 @@ export default function OrdenDetallePage() {
                   )}
                 </button>
               )}
+              {/* Botón Guardar en móvil - solo si la fase ya está iniciada */}
+              {faseYaIniciada() && !puedeIniciarFase() && FASES[currentStep].id !== 'recepcion' && (
+                <button
+                  onClick={handleGuardarFase}
+                  disabled={isGuardando || isAvanzando || isRetrocediendo}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    theme === 'light'
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isGuardando ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Guardar</span>
+                    </>
+                  )}
+                </button>
+              )}
               {/* Botón Avanzar/Finalizar en móvil */}
               {orden?.estado_actual === 'Entrega'
                 ? (
@@ -1375,6 +1446,30 @@ export default function OrdenDetallePage() {
                     <>
                       <span>Iniciar Fase</span>
                       <Play className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              )}
+              {/* Botón Guardar en desktop - solo si la fase ya está iniciada */}
+              {faseYaIniciada() && !puedeIniciarFase() && FASES[currentStep].id !== 'recepcion' && (
+                <button
+                  onClick={handleGuardarFase}
+                  disabled={isGuardando || isAvanzando || isRetrocediendo}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    theme === 'light'
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isGuardando ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Guardar</span>
                     </>
                   )}
                 </button>

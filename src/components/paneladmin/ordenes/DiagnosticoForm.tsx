@@ -291,32 +291,42 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
   };
 
 
-  // Guardar datos al avanzar de fase (exponer función para que sea llamada desde el botón avanzar)
+  // Guardar datos sin validaciones (solo para botón Guardar)
   React.useEffect(() => {
     // Agregar función al objeto orden para que pueda ser llamada desde page.tsx
     if (orden && typeof window !== 'undefined') {
       (window as any).guardarDatosDiagnostico = async () => {
-        if (!selectedTecnicoId) {
-          toast.error('Debe seleccionar un técnico responsable del diagnóstico');
-          return null;
+        try {
+          // Cancelar debounce pendiente
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+          }
+          
+          const { supabase } = await import('@/lib/supabaseClient');
+          
+          // Guardar datos básicos de la orden (sin validaciones)
+          const updateData: any = {
+            comentarios_diagnostico: formData.comentarios || '',
+            tecnico_diagnostico: selectedTecnicoId || null,
+            ultima_actualizacion: new Date().toISOString()
+          };
+          
+          await supabase
+            .from('ordenes')
+            .update(updateData)
+            .eq('id', orden.id);
+          
+          // Guardar repuestos inmediatamente
+          await guardarRepuestosDiagnostico(orden.id, repuestos);
+          
+          console.log('✅ Datos de diagnóstico guardados (sin validaciones):', updateData);
+          console.log('✅ Repuestos guardados:', repuestos.length);
+          
+          return updateData;
+        } catch (error) {
+          console.error('Error al guardar datos de diagnóstico:', error);
+          throw error;
         }
-
-        const { supabase } = await import('@/lib/supabaseClient');
-        
-        const updateData: any = {
-          comentarios_diagnostico: formData.comentarios,
-          tecnico_diagnostico: selectedTecnicoId,
-          ultima_actualizacion: new Date().toISOString()
-        };
-        
-        await supabase
-          .from('ordenes')
-          .update(updateData)
-          .eq('id', orden.id);
-        
-        console.log('✅ Datos de diagnóstico guardados:', updateData);
-        
-        return updateData;
       };
     }
     
@@ -326,7 +336,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
         delete (window as any).guardarDatosDiagnostico;
       }
     };
-  }, [formData.comentarios, orden?.id, selectedTecnicoId, toast]);
+  }, [formData.comentarios, orden?.id, selectedTecnicoId, repuestos]);
 
   const handleAvanzarACotizacion = async () => {
     setIsLoading(true);

@@ -372,6 +372,7 @@ export async function actualizarCotizacion(
     .update({
       comentarios_cotizacion: cotizacion.comentarios || '',
       total: cotizacion.total || 0,
+      precio_envio: cotizacion.precio_envio || 0,
       fecha_cotizacion: cotizacion.fecha_cotizacion || crearTimestampColombia(),
       ultima_actualizacion: crearTimestampColombia()
     })

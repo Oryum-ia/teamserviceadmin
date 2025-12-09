@@ -10,6 +10,18 @@ import { actualizarCotizacion, marcarEsperaRepuestos } from '@/lib/services/orde
 import { notificarCotizacionWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import { notificarCambioFase } from '@/lib/services/emailNotificationService';
 import { obtenerRepuestosDelModelo, obtenerRepuestosDiagnostico, guardarRepuestosCotizacion, obtenerRepuestosCotizacion } from '@/lib/services/repuestoService';
+import { PercentageInput } from '@/components/ui/PercentageInput';
+import {
+  calculateSubtotalAfterDiscount,
+  calculateIvaAmount,
+  calculateItemTotal,
+  calculateFinalTotals,
+  formatCurrency,
+  formatNumberWithCommas,
+  parseCurrency,
+  type PriceItem,
+  type PriceTotals,
+} from '@/lib/utils/pricing.utils';
 
 interface Repuesto {
   codigo: string;
@@ -99,7 +111,8 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   const [formData, setFormData] = useState({
     tipo: orden.cotizacion?.tipo || orden.tipo_orden || 'Reparación',
     comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
-    tecnico_reparacion_id: orden.tecnico_repara || ''
+    tecnico_reparacion_id: orden.tecnico_repara || '',
+    precio_envio: orden.precio_envio || 0
   });
   
   // Datos de aprobación de marca (para garantías)
@@ -116,15 +129,17 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     console.log('🔄 Sincronizando CotizacionForm con orden:', {
       tipo_orden: orden.tipo_orden,
       tecnico_repara: orden.tecnico_repara,
+      precio_envio: orden.precio_envio,
       ultima_actualizacion: orden.ultima_actualizacion
     });
     
     setFormData({
       tipo: orden.cotizacion?.tipo || orden.tipo_orden || 'Reparación',
       comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
-      tecnico_reparacion_id: orden.tecnico_repara || ''
+      tecnico_reparacion_id: orden.tecnico_repara || '',
+      precio_envio: orden.precio_envio || 0
     });
-  }, [orden.tipo_orden, orden.tecnico_repara, orden.ultima_actualizacion, orden.comentarios_cotizacion]);
+  }, [orden.tipo_orden, orden.tecnico_repara, orden.precio_envio, orden.ultima_actualizacion, orden.comentarios_cotizacion]);
 
   // Cargar repuestos
   const [repuestos, setRepuestos] = useState<Repuesto[]>([]);
@@ -133,6 +148,10 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const comentariosTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [guardandoComentarios, setGuardandoComentarios] = React.useState(false);
+  
+  // Estado temporal para el input de precio de envío (mientras se edita)
+  const [precioEnvioInput, setPrecioEnvioInput] = React.useState('');
+  const [editandoPrecioEnvio, setEditandoPrecioEnvio] = React.useState(false);
   
   // Lista de técnicos (con caché)
   const [tecnicos, setTecnicos] = useState<any[]>(() => {
@@ -186,41 +205,29 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     cargarTecnicos();
   }, []);
 
-  // Funciones de cálculo (definidas antes para poder usarlas en useEffect)
-  const calcularSubtotalRepuesto = (repuesto: Repuesto): number => {
-    const subtotal = repuesto.cantidad * repuesto.precio_unitario;
-    const conDescuento = subtotal - (subtotal * repuesto.descuento / 100);
-    return conDescuento;
-  };
+  // ============================================================================
+  // CALCULATION FUNCTIONS - Using enterprise-grade pricing utilities
+  // ============================================================================
 
-  const calcularIvaRepuesto = (repuesto: Repuesto): number => {
-    const subtotal = calcularSubtotalRepuesto(repuesto);
-    return subtotal * repuesto.iva / 100;
-  };
-
-  const calcularTotalRepuesto = (repuesto: Repuesto): number => {
-    return calcularSubtotalRepuesto(repuesto) + calcularIvaRepuesto(repuesto);
-  };
-
-  const calcularTotalesConRepuestos = (repuestosArray: Repuesto[]) => {
+  /**
+   * Calculates totals for all spare parts
+   * Uses pure functions from pricing.utils.ts
+   * @pure - depends only on input parameters
+   */
+  const calcularTotalesConRepuestos = (repuestosArray: Repuesto[]): PriceTotals => {
     // Si es retrabajo, el total es 0
     if (orden.es_retrabajo) {
-      return { subtotal: 0, iva: 0, total: 0, valor_revision: 0 };
+      return { subtotal: 0, iva: 0, total: 0, valor_revision: 0, precio_envio: 0 };
     }
     
     // Obtener valor de revisión del modelo (solo se cobra si rechazan)
     const valorRevision = orden.equipo?.modelo?.valor_revision || 0;
     
-    // Calcular subtotal de repuestos (SIN incluir revisión)
-    const subtotalRepuestos = repuestosArray.reduce((acc, r) => acc + calcularSubtotalRepuesto(r), 0);
+    // Precio de envío
+    const precioEnvio = formData.precio_envio || 0;
     
-    // IVA solo sobre repuestos
-    const iva = repuestosArray.reduce((acc, r) => acc + calcularIvaRepuesto(r), 0);
-    
-    // Total = repuestos + IVA (SIN revisión)
-    const total = subtotalRepuestos + iva;
-    
-    return { subtotal: subtotalRepuestos, iva, total, valor_revision: valorRevision };
+    // Calculate final totals using pure utility functions
+    return calculateFinalTotals(repuestosArray, precioEnvio, valorRevision);
   };
 
   // Cargar repuestos: primero de localStorage, luego de cotización, luego de diagnóstico
@@ -318,50 +325,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   const puedeEditarRepuestos = (estado === 'Cotización' || estado === 'Esperando repuestos') && !bloqueadoPorAceptacion && faseIniciada;
   const puedeEditarCamposCotizacion = (estado === 'Cotización' || estado === 'Esperando repuestos') && !aprobadoCliente && faseIniciada;
 
-  const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
-
-  const parseCurrency = (value: string): number => {
-    // Remover todo excepto números, puntos y guiones
-    const cleaned = value.replace(/[^0-9.-]+/g, '');
-    // Si está vacío, devolver 0
-    if (!cleaned || cleaned === '-' || cleaned === '.') {
-      return 0;
-    }
-    // Convertir a número usando Number() que maneja mejor números grandes
-    const num = Number(cleaned);
-    // Si no es un número finito válido, devolver 0
-    return isFinite(num) ? num : 0;
-  };
-
-  const formatPercent = (value: number): string => {
-    return `%${value.toFixed(2).replace(/\.00$/, '')}`;
-  };
-
-  const parsePercent = (value: string): number => {
-    // Remover todo excepto números, puntos y guiones
-    const cleaned = value.replace(/[^0-9.-]+/g, '');
-    // Si está vacío, devolver 0
-    if (!cleaned || cleaned === '-' || cleaned === '.') {
-      return 0;
-    }
-    // Convertir a número
-    const num = Number(cleaned);
-    // Si no es un número finito válido, devolver 0
-    // No limitar entre 0-100 para permitir cualquier porcentaje
-    return isFinite(num) ? num : 0;
-  };
-
-  const formatNumberWithCommas = (value: number): string => {
-    if (!Number.isFinite(value)) return '';
-    return value.toLocaleString('es-CO');
-  };
+  // Note: formatCurrency, parseCurrency, and formatNumberWithCommas are now imported from pricing.utils.ts
 
   // Guardar con debounce optimizado
   const guardarConDebounce = (nuevosRepuestos: Repuesto[]) => {
@@ -419,33 +383,56 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     }, 3000);
   };
   
-  // Guardar datos al avanzar de fase (exponer función para que sea llamada desde el botón avanzar)
+  // Guardar datos sin validaciones (solo para botón Guardar)
   React.useEffect(() => {
     // Agregar función al objeto orden para que pueda ser llamada desde page.tsx
     if (orden && typeof window !== 'undefined') {
       (window as any).guardarDatosCotizacion = async () => {
-        const { supabase } = await import('@/lib/supabaseClient');
-        
-        const updateData: any = {
-          tipo_orden: formData.tipo,
-          tecnico_repara: formData.tecnico_reparacion_id || null,
-          ultima_actualizacion: new Date().toISOString()
-        };
-        
-        await supabase
-          .from('ordenes')
-          .update(updateData)
-          .eq('id', orden.id);
-        
-        // Actualizar localStorage
-        updateOrdenFields(updateData);
-        
-        console.log('✅ Datos de cotización guardados:', updateData);
-        
-        return updateData;
+        try {
+          // Cancelar cualquier debounce pendiente
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+          }
+          
+          const { supabase } = await import('@/lib/supabaseClient');
+          
+          // Guardar datos básicos de la orden (sin validaciones)
+          const updateData: any = {
+            tipo_orden: formData.tipo || 'Reparación',
+            tecnico_repara: formData.tecnico_reparacion_id || null,
+            precio_envio: formData.precio_envio || 0,
+            comentarios_cotizacion: formData.comentarios || '',
+            total: calcularTotalesConRepuestos(repuestos).total,
+            ultima_actualizacion: new Date().toISOString()
+          };
+          
+          await supabase
+            .from('ordenes')
+            .update(updateData)
+            .eq('id', orden.id);
+          
+          // Guardar repuestos inmediatamente
+          const totalesCalculados = calcularTotalesConRepuestos(repuestos);
+          await guardarRepuestosCotizacion(orden.id, repuestos, totalesCalculados);
+          
+          // Actualizar caché de repuestos
+          const cacheKey = `repuestos_cotizacion_${orden.id}`;
+          localStorage.setItem(cacheKey, JSON.stringify(repuestos));
+          
+          // Actualizar localStorage de orden
+          updateOrdenFields(updateData);
+          
+          console.log('✅ Datos de cotización guardados (sin validaciones):', updateData);
+          console.log('✅ Repuestos guardados:', repuestos.length);
+          
+          return updateData;
+        } catch (error) {
+          console.error('Error al guardar datos de cotización:', error);
+          throw error;
+        }
       };
     }
-  }, [formData, aprobacionMarca, orden?.id]);
+  }, [formData, orden?.id, repuestos]);
 
   const agregarRepuesto = () => {
     const nuevosRepuestos = [...repuestos, {
@@ -589,6 +576,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
         total: calcularTotales().total,
         fecha_cotizacion: now,
         tecnico_repara: formData.tecnico_reparacion_id || null,
+        precio_envio: formData.precio_envio || 0,
         ultima_actualizacion: now
       };
       
@@ -806,6 +794,16 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                       theme === 'light' ? 'text-gray-900' : 'text-gray-100'
                     }`}>{formatCurrency(totales.iva)}</td>
                   </tr>
+                  {totales.precio_envio > 0 && (
+                    <tr>
+                      <td className={`py-2 text-sm ${
+                        theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>Precio de Envío</td>
+                      <td className={`py-2 text-sm font-medium text-right ${
+                        theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                      }`}>{formatCurrency(totales.precio_envio)}</td>
+                    </tr>
+                  )}
                   <tr className={`border-t-2 ${
                     theme === 'light' ? 'border-green-300' : 'border-green-700'
                   }`}>
@@ -1089,42 +1087,28 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <input
-                          type="text"
-                          value={repuesto.descuento === 0 ? '' : `${formatNumberWithCommas(repuesto.descuento)}%`}
-                          onChange={(e) => {
-                            const valor = parsePercent(e.target.value);
-                            actualizarRepuesto(index, 'descuento', valor);
-                          }}
+                        <PercentageInput
+                          value={repuesto.descuento}
+                          onChange={(valor) => actualizarRepuesto(index, 'descuento', valor)}
                           disabled={!puedeEditarRepuestos}
-                          className={`w-24 px-2 py-1 border rounded text-sm text-center ${
-                            theme === 'light'
-                              ? 'border-gray-300 bg-white text-gray-900'
-                              : 'border-gray-600 bg-gray-700 text-gray-100'
-                          } disabled:opacity-50`}
+                          theme={theme}
+                          className="w-24"
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <input
-                          type="text"
-                          value={repuesto.iva === 0 ? '' : `${formatNumberWithCommas(repuesto.iva)}%`}
-                          onChange={(e) => {
-                            const valor = parsePercent(e.target.value);
-                            actualizarRepuesto(index, 'iva', valor);
-                          }}
+                        <PercentageInput
+                          value={repuesto.iva}
+                          onChange={(valor) => actualizarRepuesto(index, 'iva', valor)}
                           disabled={!puedeEditarRepuestos}
-                          className={`w-24 px-2 py-1 border rounded text-sm text-center ${
-                            theme === 'light'
-                              ? 'border-gray-300 bg-white text-gray-900'
-                              : 'border-gray-600 bg-gray-700 text-gray-100'
-                          } disabled:opacity-50`}
+                          theme={theme}
+                          className="w-24"
                         />
                       </td>
                       <td className="px-3 py-2 text-right">
                         <span className={`text-sm font-medium ${
                           theme === 'light' ? 'text-gray-900' : 'text-gray-100'
                         }`}>
-                          {formatCurrency(calcularTotalRepuesto(repuesto))}
+                          {formatCurrency(calculateItemTotal(repuesto))}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-center">
@@ -1170,6 +1154,41 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                     }`}>
                       {formatCurrency(totales.iva)}
                     </p>
+                  </div>
+                  
+                  <div className="text-right">
+                    <p className={`text-xs font-medium mb-1 ${
+                      theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                    }`}>
+                      Precio de Envío
+                    </p>
+                    <input
+                      type="text"
+                      value={editandoPrecioEnvio ? precioEnvioInput : (formData.precio_envio === 0 ? '' : formatCurrency(formData.precio_envio))}
+                      onFocus={() => {
+                        setEditandoPrecioEnvio(true);
+                        setPrecioEnvioInput(formData.precio_envio === 0 ? '' : formData.precio_envio.toString());
+                      }}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        // Permitir solo números
+                        const cleaned = inputValue.replace(/[^0-9]/g, '');
+                        setPrecioEnvioInput(cleaned);
+                      }}
+                      onBlur={() => {
+                        const valor = precioEnvioInput === '' ? 0 : Number(precioEnvioInput);
+                        setFormData({ ...formData, precio_envio: valor });
+                        setEditandoPrecioEnvio(false);
+                        setPrecioEnvioInput('');
+                      }}
+                      disabled={!puedeEditarCamposCotizacion}
+                      placeholder="$0"
+                      className={`w-32 px-2 py-1 border rounded text-sm text-right ${
+                        theme === 'light'
+                          ? 'border-gray-300 bg-white text-gray-900'
+                          : 'border-gray-600 bg-gray-700 text-gray-100'
+                      } disabled:opacity-50`}
+                    />
                   </div>
                   
                   <div className="text-right">

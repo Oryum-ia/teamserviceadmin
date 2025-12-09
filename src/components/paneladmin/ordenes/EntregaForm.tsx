@@ -118,6 +118,24 @@ const [formData, setFormData] = useState({
     orden.comentarios_cliente
   ]);
 
+  // Exponer función para guardar datos desde el padre
+  React.useEffect(() => {
+    (window as any).guardarDatosEntrega = async () => {
+      // Los datos de entrega se guardan automáticamente con onBlur en los campos
+      // Esta función solo confirma que todo está guardado
+      console.log('✅ Datos de entrega confirmados (guardado automático)');
+      return {
+        tipo_entrega: formData.tipo_entrega,
+        fecha_entrega: formData.fecha_entrega,
+        fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento
+      };
+    };
+
+    return () => {
+      delete (window as any).guardarDatosEntrega;
+    };
+  }, [formData]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
