@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
 import { useTheme } from '../ThemeProvider';
 import { 
   Search, 
@@ -44,6 +43,7 @@ export default function PQRComponent() {
   const cargarPQRs = async () => {
     try {
       setLoading(true);
+      const { supabase } = await import('@/lib/supabaseClient');
       const { data, error } = await supabase
         .from('pqr')
         .select('*')
@@ -75,6 +75,7 @@ export default function PQRComponent() {
 
   const actualizarEstado = async (id: number, nuevoEstado: EstadoPQR) => {
     try {
+      const { supabase } = await import('@/lib/supabaseClient');
       const { error } = await supabase
         .from('pqr')
         .update({ estado: nuevoEstado })
@@ -93,6 +94,7 @@ export default function PQRComponent() {
 
   const actualizarPrioridad = async (id: number, nuevaPrioridad: PrioridadPQR) => {
     try {
+      const { supabase } = await import('@/lib/supabaseClient');
       const { error } = await supabase
         .from('pqr')
         .update({ prioridad: nuevaPrioridad })
@@ -118,6 +120,7 @@ export default function PQRComponent() {
       const fechaRespuesta = new Date().toISOString();
       
       // Actualizar en la base de datos
+      const { supabase } = await import('@/lib/supabaseClient');
       const { error: dbError } = await supabase
         .from('pqr')
         .update({

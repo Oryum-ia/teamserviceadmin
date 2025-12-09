@@ -27,7 +27,6 @@ export async function crearModelo(data: {
   equipo: string;
   marca_id?: string;
   referencia?: string;
-  valor_revision?: number;
   cuidado_uso?: string;
 }) {
   // Limpiar datos: convertir strings vacíos a null para foreign keys
@@ -35,7 +34,6 @@ export async function crearModelo(data: {
     equipo: data.equipo,
     marca_id: data.marca_id && data.marca_id.trim() !== '' ? data.marca_id : null,
     referencia: data.referencia || null,
-    valor_revision: data.valor_revision || 0,
     cuidado_uso: data.cuidado_uso || null
   };
 
@@ -64,7 +62,6 @@ export async function actualizarModelo(id: string, data: Partial<{
   equipo: string;
   marca_id?: string;
   referencia?: string;
-  valor_revision?: number;
   cuidado_uso?: string;
 }>) {
   const { data: modelo, error } = await supabase

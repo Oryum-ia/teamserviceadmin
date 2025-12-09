@@ -48,7 +48,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
     equipo: '',
     marca_id: '',
     referencia: '',
-    valor_revision: '',
     cuidado_uso: ''
   });
 
@@ -120,7 +119,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           equipo: modeloEditar.equipo || '',
           marca_id: modeloEditar.marca_id || (typeof modeloEditar.marca === 'object' ? modeloEditar.marca?.id : '') || '',
           referencia: modeloEditar.referencia || '',
-          valor_revision: modeloEditar.valor_revision ? modeloEditar.valor_revision.toString() : '',
           cuidado_uso: modeloEditar.cuidado_uso || ''
         });
         // Cargar accesorios y repuestos del modelo
@@ -131,7 +129,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           equipo: '',
           marca_id: '',
           referencia: '',
-          valor_revision: '',
           cuidado_uso: ''
         });
         setAccesoriosSeleccionados([]);
@@ -168,7 +165,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           equipo: formData.equipo,
           marca_id: formData.marca_id || undefined,
           referencia: formData.referencia || undefined,
-          valor_revision: formData.valor_revision ? parseFloat(formData.valor_revision) : undefined,
           cuidado_uso: formData.cuidado_uso || undefined
         });
 
@@ -184,7 +180,6 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
           equipo: formData.equipo,
           marca_id: formData.marca_id || undefined,
           referencia: formData.referencia || undefined,
-          valor_revision: formData.valor_revision ? parseFloat(formData.valor_revision) : undefined,
           cuidado_uso: formData.cuidado_uso || undefined
         });
 
@@ -366,26 +361,7 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
                 tagColor="blue"
               />
 
-              {/* Valor revisión */}
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                }`}>
-                  Valor Revisión
-                </label>
-                <input
-                  type="number"
-                  name="valor_revision"
-                  value={formData.valor_revision}
-                  onChange={handleChange}
-                  placeholder="Ej: 50000"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                    theme === 'light'
-                      ? 'border-gray-300 bg-white text-gray-900'
-                      : 'border-gray-600 bg-gray-700 text-gray-100'
-                  }`}
-                />
-              </div>
+
             </div>
 
             {/* Footer */}

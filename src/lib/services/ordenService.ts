@@ -17,6 +17,7 @@ export async function crearOrden(data: {
   tipo_orden?: string;
   descripcion_problema?: string;
   es_retrabajo?: boolean;
+  valor_revision?: number;
 }) {
   // Generar código de orden único (no usar codigo_qr para evitar duplicados)
   const codigo = `ORD-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
@@ -71,7 +72,7 @@ Descripción: ${data.descripcion_problema || 'N/A'}
     fecha_creacion: crearTimestampColombia(),
     comentarios_recepcion: comentarioRecepcion,
     es_retrabajo: data.es_retrabajo || false,
-    valor_revision: 0,
+    valor_revision: data.valor_revision || 0,
     revision_pagada: false,
     aprobado_cliente: null,
     total: 0

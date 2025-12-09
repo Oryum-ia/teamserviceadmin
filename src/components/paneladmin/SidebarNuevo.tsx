@@ -26,6 +26,7 @@ import {
   Ticket
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
+import { Logo, LogoIcon } from '../Logo';
 
 type SidebarMenuItem = {
   name: string;
@@ -240,11 +241,7 @@ export default function SidebarNuevo({
           <div className={`flex h-16 shrink-0 items-center justify-between px-4 border-b ${
             theme === 'light' ? 'border-gray-200' : 'border-gray-700'
           }`}>
-            <img
-              src="/img/logo.jpg"
-              alt="TeamServiceCosta"
-              className="h-8 w-auto rounded-lg object-contain"
-            />
+            <Logo theme={theme} className="" />
             <button
               type="button"
               className={`transition-colors duration-200 ${
@@ -333,13 +330,8 @@ export default function SidebarNuevo({
         <div className={`flex h-16 shrink-0 items-center justify-between px-4 border-b ${
           theme === 'light' ? 'border-gray-200' : 'border-gray-700'
         }`}>
-          {!isCollapsed && (
-            <img
-              src="/img/logo.jpg"
-              alt="TeamServiceCosta"
-              className="h-8 w-auto rounded-lg object-contain"
-            />
-          )}
+          {!isCollapsed && <Logo theme={theme} className="" />}
+          {isCollapsed && <LogoIcon theme={theme} />}
           <button
             type="button"
             className={`transition-colors duration-200 ${

@@ -245,7 +245,7 @@ const [formData, setFormData] = useState({
           </div>
           
           {/* Tabla de Cobro - Solo Revisión */}
-          {orden.equipo?.modelo?.valor_revision > 0 && (
+          {orden.valor_revision > 0 && (
             <div className={`mt-4 rounded-lg border overflow-hidden ${
               theme === 'light' ? 'bg-white border-red-300' : 'bg-gray-800 border-red-700'
             }`}>
@@ -271,7 +271,7 @@ const [formData, setFormData] = useState({
                           currency: 'COP',
                           minimumFractionDigits: 0,
                           maximumFractionDigits: 0
-                        }).format(orden.equipo.modelo.valor_revision)}
+                        }).format(orden.valor_revision)}
                       </td>
                     </tr>
                     <tr className={`border-t-2 ${
@@ -288,7 +288,7 @@ const [formData, setFormData] = useState({
                           currency: 'COP',
                           minimumFractionDigits: 0,
                           maximumFractionDigits: 0
-                        }).format(orden.equipo.modelo.valor_revision)}
+                        }).format(orden.valor_revision)}
                       </td>
                     </tr>
                   </tbody>

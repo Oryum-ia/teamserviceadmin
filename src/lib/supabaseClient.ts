@@ -73,8 +73,14 @@ export const getSupabaseAdmin = () => {
 let _supabaseLazy: SupabaseClient | null = null
 let _supabaseAdminLazy: SupabaseClient | null = null
 
-const getSupabaseLazy = (): SupabaseClient => {
+const getSupabaseLazy = (): SupabaseClient | null => {
   if (_supabaseLazy) return _supabaseLazy
+  
+  // Durante SSR, si no hay window, retornar null en lugar de lanzar error
+  if (typeof window === 'undefined') {
+    console.warn('⚠️ Supabase client accessed during SSR. Returning null.')
+    return null
+  }
   
   const client = getSupabase()
   if (!client) {
@@ -84,7 +90,7 @@ const getSupabaseLazy = (): SupabaseClient => {
   return client
 }
 
-const getSupabaseAdminLazy = (): SupabaseClient => {
+const getSupabaseAdminLazy = (): SupabaseClient | null => {
   if (_supabaseAdminLazy) return _supabaseAdminLazy
   
   const client = getSupabaseAdmin()
@@ -97,7 +103,17 @@ const getSupabaseAdminLazy = (): SupabaseClient => {
 
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // Durante SSR, retornar una función no-op para evitar errores
+    if (typeof window === 'undefined') {
+      console.warn(`⚠️ Supabase.${String(prop)} called during SSR. Returning no-op.`)
+      return () => Promise.resolve({ data: null, error: new Error('Supabase not available during SSR') })
+    }
+    
     const client = getSupabaseLazy()
+    if (!client) {
+      return () => Promise.resolve({ data: null, error: new Error('Supabase client not initialized') })
+    }
+    
     const value = (client as unknown as Record<string, unknown>)[prop as string]
     return typeof value === 'function' ? value.bind(client) : value
   }
@@ -106,6 +122,10 @@ export const supabase = new Proxy({} as SupabaseClient, {
 export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(_, prop) {
     const client = getSupabaseAdminLazy()
+    if (!client) {
+      return () => Promise.resolve({ data: null, error: new Error('Supabase Admin client not initialized') })
+    }
+    
     const value = (client as unknown as Record<string, unknown>)[prop as string]
     return typeof value === 'function' ? value.bind(client) : value
   }

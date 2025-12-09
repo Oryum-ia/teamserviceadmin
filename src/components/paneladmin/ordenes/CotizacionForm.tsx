@@ -141,6 +141,20 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     });
   }, [orden.tipo_orden, orden.tecnico_repara, orden.precio_envio, orden.ultima_actualizacion, orden.comentarios_cotizacion]);
 
+  // ============================================================================
+  // FORCE FRESH DATA ON ORDER CHANGE (F5 refresh)
+  // ============================================================================
+  
+  /**
+   * Reset repuestosCargados flag when order ID changes
+   * This ensures fresh data is loaded from database on every page refresh
+   */
+  useEffect(() => {
+    console.log('🔄 Orden ID cambió, forzando recarga de repuestos desde BD');
+    setRepuestosCargados(false);
+    setRepuestos([]);
+  }, [orden.id]);
+
   // Cargar repuestos
   const [repuestos, setRepuestos] = useState<Repuesto[]>([]);
   const [cargandoRepuestos, setCargandoRepuestos] = useState(false);
@@ -220,8 +234,8 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       return { subtotal: 0, iva: 0, total: 0, valor_revision: 0, precio_envio: 0 };
     }
     
-    // Obtener valor de revisión del modelo (solo se cobra si rechazan)
-    const valorRevision = orden.equipo?.modelo?.valor_revision || 0;
+    // Obtener valor de revisión de la orden (ya no del modelo)
+    const valorRevision = orden.valor_revision || 0;
     
     // Precio de envío
     const precioEnvio = formData.precio_envio || 0;
@@ -230,37 +244,31 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     return calculateFinalTotals(repuestosArray, precioEnvio, valorRevision);
   };
 
-  // Cargar repuestos: primero de localStorage, luego de cotización, luego de diagnóstico
+  // ============================================================================
+  // LOAD SPARE PARTS - Always from database, no localStorage cache
+  // ============================================================================
+  
+  /**
+   * Loads spare parts from database in priority order:
+   * 1. Saved quotation parts (repuestos_cotizacion table)
+   * 2. Diagnosis parts (repuestos_diagnostico table)
+   * 3. Model default parts (repuestos_modelo table)
+   * 
+   * NO localStorage cache to ensure multi-user synchronization
+   */
   useEffect(() => {
     const cargarRepuestos = async () => {
       if (repuestosCargados) return;
 
-      console.log('🔍 Cargando repuestos para cotización...');
+      console.log('🔍 Cargando repuestos desde BD (sin caché)...');
       setCargandoRepuestos(true);
       
       try {
-        // 0. Intentar cargar desde localStorage primero
-        const cacheKey = `repuestos_cotizacion_${orden.id}`;
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          try {
-            const repuestosCache = JSON.parse(cached);
-            console.log('📦 Repuestos cargados desde localStorage:', repuestosCache.length);
-            setRepuestos(repuestosCache);
-            setRepuestosCargados(true);
-            setCargandoRepuestos(false);
-            return;
-          } catch (e) {
-            console.warn('⚠️ Error parseando caché de repuestos');
-          }
-        }
-        
-        // 1. Intentar cargar repuestos guardados de cotización
+        // 1. Intentar cargar repuestos guardados de cotización (SIEMPRE desde BD)
         const repuestosCotizacion = await obtenerRepuestosCotizacion(orden.id);
         if (repuestosCotizacion && repuestosCotizacion.length > 0) {
           console.log('✅ Repuestos de cotización encontrados:', repuestosCotizacion.length);
           setRepuestos(repuestosCotizacion);
-          localStorage.setItem(cacheKey, JSON.stringify(repuestosCotizacion));
           setRepuestosCargados(true);
           return;
         }
@@ -279,7 +287,6 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
             en_stock: true
           }));
           setRepuestos(repuestosMapeados);
-          localStorage.setItem(cacheKey, JSON.stringify(repuestosMapeados));
           // Guardar inmediatamente en cotización con totales
           const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
           await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
@@ -303,7 +310,6 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
               en_stock: true
             }));
             setRepuestos(repuestosMapeados);
-            localStorage.setItem(cacheKey, JSON.stringify(repuestosMapeados));
             const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
             await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
           }
@@ -327,7 +333,14 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
 
   // Note: formatCurrency, parseCurrency, and formatNumberWithCommas are now imported from pricing.utils.ts
 
-  // Guardar con debounce optimizado
+  // ============================================================================
+  // SAVE WITH DEBOUNCE - No localStorage, only database
+  // ============================================================================
+  
+  /**
+   * Saves spare parts to database with 5-second debounce
+   * NO localStorage to ensure data consistency across users
+   */
   const guardarConDebounce = (nuevosRepuestos: Repuesto[]) => {
     // Limpiar timeout anterior
     if (saveTimeoutRef.current) {
@@ -336,12 +349,9 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     
     // Crear nuevo timeout de 5 segundos
     saveTimeoutRef.current = setTimeout(async () => {
-      // Calcular totales con los nuevos repuestos
       const totalesCalculados = calcularTotalesConRepuestos(nuevosRepuestos);
       await guardarRepuestosCotizacion(orden.id, nuevosRepuestos, totalesCalculados);
-      // Actualizar caché
-      const cacheKey = `repuestos_cotizacion_${orden.id}`;
-      localStorage.setItem(cacheKey, JSON.stringify(nuevosRepuestos));
+      console.log('💾 Repuestos guardados en BD (sin caché local)');
     }, 5000);
   };
 
@@ -411,13 +421,9 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
             .update(updateData)
             .eq('id', orden.id);
           
-          // Guardar repuestos inmediatamente
+          // Guardar repuestos inmediatamente en BD (sin caché)
           const totalesCalculados = calcularTotalesConRepuestos(repuestos);
           await guardarRepuestosCotizacion(orden.id, repuestos, totalesCalculados);
-          
-          // Actualizar caché de repuestos
-          const cacheKey = `repuestos_cotizacion_${orden.id}`;
-          localStorage.setItem(cacheKey, JSON.stringify(repuestos));
           
           // Actualizar localStorage de orden
           updateOrdenFields(updateData);
@@ -451,12 +457,10 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   const eliminarRepuesto = async (index: number) => {
     const nuevosRepuestos = repuestos.filter((_, i) => i !== index);
     setRepuestos(nuevosRepuestos);
-    // Guardar inmediatamente al eliminar
+    // Guardar inmediatamente al eliminar (sin caché)
     const totalesCalculados = calcularTotalesConRepuestos(nuevosRepuestos);
     await guardarRepuestosCotizacion(orden.id, nuevosRepuestos, totalesCalculados);
-    // Actualizar caché
-    const cacheKey = `repuestos_cotizacion_${orden.id}`;
-    localStorage.setItem(cacheKey, JSON.stringify(nuevosRepuestos));
+    console.log('🗑️ Repuesto eliminado y guardado en BD');
   };
 
   const actualizarRepuesto = async (index: number, campo: keyof Repuesto, valor: any) => {
@@ -470,12 +474,10 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
-      // Guardar inmediatamente
+      // Guardar inmediatamente (sin caché)
       const totalesCalculados = calcularTotalesConRepuestos(nuevosRepuestos);
       await guardarRepuestosCotizacion(orden.id, nuevosRepuestos, totalesCalculados);
-      // Actualizar caché
-      const cacheKey = `repuestos_cotizacion_${orden.id}`;
-      localStorage.setItem(cacheKey, JSON.stringify(nuevosRepuestos));
+      console.log('📦 Stock actualizado y guardado en BD');
       // Verificar y actualizar estado
       await verificarYActualizarEstadoStock(nuevosRepuestos);
     } else {

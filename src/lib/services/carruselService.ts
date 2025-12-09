@@ -38,6 +38,24 @@ export async function obtenerTodasLasImagenes() {
 }
 
 /**
+ * Obtener imágenes del carrusel por sección
+ */
+export async function obtenerImagenesPorSeccion(seccion: string) {
+  const { data, error } = await supabase
+    .from("carrusel")
+    .select("*")
+    .eq("seccion", seccion)
+    .order("orden", { ascending: true, nullsFirst: false });
+
+  if (error) {
+    console.error("❌ Error al obtener imágenes del carrusel:", error);
+    throw error;
+  }
+
+  return data as CarruselImagen[];
+}
+
+/**
  * Obtener una imagen por su ID
  */
 export async function obtenerImagenPorId(id: string) {
@@ -116,10 +134,19 @@ export async function toggleActivoImagen(id: string, activo: boolean) {
 /**
  * Subir imagen de carrusel
  */
-export async function subirImagenCarrusel(file: File): Promise<string> {
+export async function subirImagenCarrusel(file: File, seccion: string = 'principal'): Promise<string> {
   const fileExt = file.name.split('.').pop();
   const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-  const filePath = `carrusel/${fileName}`;
+  
+  // Determinar la carpeta según la sección
+  let folder = 'carrusel';
+  if (seccion === 'labor-social') {
+    folder = 'labor-social';
+  } else if (seccion === 'clientes') {
+    folder = 'clientes';
+  }
+  
+  const filePath = `${folder}/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
     .from('imagenes-tienda')
@@ -144,7 +171,17 @@ export async function eliminarImagenDelStorage(imagenUrl: string) {
   try {
     // Extraer el path de la URL
     const urlParts = imagenUrl.split('/');
-    const filePath = urlParts.slice(urlParts.indexOf('carrusel')).join('/');
+    // Buscar la carpeta (carrusel, labor-social o clientes)
+    const folderIndex = urlParts.findIndex(part => 
+      part === 'carrusel' || part === 'labor-social' || part === 'clientes'
+    );
+    
+    if (folderIndex === -1) {
+      console.error("❌ No se pudo determinar la carpeta de la imagen");
+      return false;
+    }
+    
+    const filePath = urlParts.slice(folderIndex).join('/');
 
     const { error } = await supabase.storage
       .from('imagenes-tienda')

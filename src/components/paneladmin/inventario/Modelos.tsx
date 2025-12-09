@@ -224,11 +224,7 @@ export default function Modelos() {
                   }`}>
                     Serial
                   </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    Valor Revisión
-                  </th>
+
                   <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${
                     theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                   }`}>
@@ -269,11 +265,7 @@ export default function Modelos() {
                     }`}>
                       {modelo.serial || '-'}
                     </td>
-                    <td className={`px-6 py-4 ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-                    }`}>
-                      {modelo.valor_revision ? `$${modelo.valor_revision.toLocaleString()}` : '-'}
-                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(ev) => ev.stopPropagation()}>
                       <button
                         onClick={() => handleDelete(modelo.id, modelo.equipo)}
@@ -331,13 +323,6 @@ export default function Modelos() {
                         </div>
                       )}
 
-                      {modelo.valor_revision && (
-                        <div className={`font-medium ${
-                          theme === 'light' ? 'text-gray-900' : 'text-white'
-                        }`}>
-                          ${modelo.valor_revision.toLocaleString()}
-                        </div>
-                      )}
                     </div>
                   </div>
 

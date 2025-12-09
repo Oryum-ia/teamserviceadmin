@@ -202,6 +202,7 @@ export interface CarruselImagen {
   imagen_url: string;
   orden?: number;
   activo?: boolean;
+  seccion?: 'principal' | 'labor-social' | 'clientes' | string; // Secciones del carrusel
   created_at?: string;
   updated_at?: string;
 }

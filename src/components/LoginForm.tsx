@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
-import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
+import { Logo } from "@/components/Logo";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -112,17 +112,8 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-md mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-200 dark:border-gray-700">
       {/* Logo */}
-      <div className="flex justify-center mb-3">
-        <div className="text-center relative w-full" style={{ height: '50px' }}>
-          <Image
-            src="/img/logo.jpg"
-            alt="TeamService Logo"
-            fill
-            className="object-contain"
-            priority
-            sizes="(max-width: 768px) 100vw, 200px"
-          />
-        </div>
+      <div className="flex justify-center mb-6">
+        <Logo theme="light" className="scale-125" />
       </div>
 
       {/* Título */}

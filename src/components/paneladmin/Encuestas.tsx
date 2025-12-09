@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
 import { useTheme } from '../ThemeProvider';
 import { 
   FileText, 
@@ -36,6 +35,7 @@ export default function Encuestas() {
   const cargarEncuestas = async () => {
     try {
       setLoading(true);
+      const { supabase } = await import('@/lib/supabaseClient');
       const { data, error } = await supabase
         .from('encuestas')
         .select('*')
@@ -46,8 +46,8 @@ export default function Encuestas() {
       setEncuestas(data || []);
       
       // Extraer sedes únicas
-      const sedesUnicas = [...new Set(data?.map(e => e.sede) || [])];
-      setSedes(sedesUnicas);
+      const sedesUnicas = [...new Set((data || []).map((e: any) => e.sede))];
+      setSedes(sedesUnicas as string[]);
     } catch (error) {
       console.error('Error cargando encuestas:', error);
     } finally {
