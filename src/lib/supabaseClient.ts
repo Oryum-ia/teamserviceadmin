@@ -103,15 +103,34 @@ const getSupabaseAdminLazy = (): SupabaseClient | null => {
 
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
-    // Durante SSR, retornar una función no-op para evitar errores
+    // Durante SSR, retornar un objeto proxy recursivo para propiedades anidadas
     if (typeof window === 'undefined') {
-      console.warn(`⚠️ Supabase.${String(prop)} called during SSR. Returning no-op.`)
-      return () => Promise.resolve({ data: null, error: new Error('Supabase not available during SSR') })
+      console.warn(`⚠️ Supabase.${String(prop)} accessed during SSR.`)
+      
+      // Para propiedades como 'auth', 'from', etc., retornar un proxy recursivo
+      return new Proxy({}, {
+        get(_, nestedProp) {
+          console.warn(`⚠️ Supabase.${String(prop)}.${String(nestedProp)} called during SSR.`)
+          // Retornar una función que devuelve un error manejable
+          return () => Promise.resolve({ 
+            data: null, 
+            error: new Error(`Supabase.${String(prop)}.${String(nestedProp)} not available during SSR`) 
+          })
+        }
+      })
     }
     
     const client = getSupabaseLazy()
     if (!client) {
-      return () => Promise.resolve({ data: null, error: new Error('Supabase client not initialized') })
+      // Retornar proxy recursivo también cuando el cliente no está inicializado
+      return new Proxy({}, {
+        get(_, nestedProp) {
+          return () => Promise.resolve({ 
+            data: null, 
+            error: new Error(`Supabase client not initialized`) 
+          })
+        }
+      })
     }
     
     const value = (client as unknown as Record<string, unknown>)[prop as string]
@@ -123,7 +142,14 @@ export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(_, prop) {
     const client = getSupabaseAdminLazy()
     if (!client) {
-      return () => Promise.resolve({ data: null, error: new Error('Supabase Admin client not initialized') })
+      return new Proxy({}, {
+        get(_, nestedProp) {
+          return () => Promise.resolve({ 
+            data: null, 
+            error: new Error(`Supabase Admin client not initialized`) 
+          })
+        }
+      })
     }
     
     const value = (client as unknown as Record<string, unknown>)[prop as string]
