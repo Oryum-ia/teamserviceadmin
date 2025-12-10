@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { X, ChevronLeft, ChevronRight, Download, Trash2, Upload, Play } from 'lucide-react';
-import CameraCapture from './CameraCapture';
+import EnterpriseMediaCapture from './EnterpriseMediaCapture';
 
 interface ImagenViewerProps {
   imagenes: string[];
@@ -191,13 +191,17 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
 
   return (
     <>
-      {/* Botones de cámara para agregar más fotos/videos */}
+      {/* Botones de cámara para agregar más fotos/videos - SOLO EN MÓVIL */}
       {puedeEditar && onFilesDropped && (
-        <div className="mb-4 flex justify-center">
-          <CameraCapture 
+        <div className="mb-4 flex justify-center md:hidden">
+          <EnterpriseMediaCapture 
             onCapture={(file) => onFilesDropped([file])}
+            onError={(error) => console.error('Media capture error:', error)}
             disabled={isUploading}
             mode="both"
+            autoCompress={true}
+            maxSizeMB={10}
+            showCompressionInfo={true}
           />
         </div>
       )}

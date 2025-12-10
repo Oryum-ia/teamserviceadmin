@@ -71,8 +71,8 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
 
   return (
     <div className="space-y-4">
-      {/* Botones de cámara enterprise */}
-      <div className="flex justify-center">
+      {/* Botones de cámara enterprise - SOLO EN MÓVIL */}
+      <div className="flex justify-center md:hidden">
         <EnterpriseMediaCapture 
           onCapture={(file) => onFilesSelected([file])}
           onError={(error) => console.error('Media capture error:', error)}

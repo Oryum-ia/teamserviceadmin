@@ -3,12 +3,13 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { Loader2, Info, Plus, Trash2, Upload, FileText, Check, X, AlertCircle } from 'lucide-react';
+import { Loader2, Info, Plus, Trash2, Upload, FileText, Check, X, AlertCircle, MessageCircle } from 'lucide-react';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
 import { FirmaDisplay } from '@/components/FirmaPad';
 import { crearTimestampColombia, formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
+import { notificarOrdenCreadaWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 
 interface RecepcionFormProps {
   orden: any;
@@ -213,17 +214,41 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h2 className={`text-2xl font-bold mb-2 ${
-          theme === 'light' ? 'text-gray-900' : 'text-white'
-        }`}>
-          Recepción de Orden
-        </h2>
-        <p className={`text-sm ${
-          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-        }`}>
-          Información registrada al momento de crear la orden
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h2 className={`text-2xl font-bold mb-2 ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            Recepción de Orden
+          </h2>
+          <p className={`text-sm ${
+            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+          }`}>
+            Información registrada al momento de crear la orden
+          </p>
+        </div>
+        
+        {/* Botón WhatsApp */}
+        <button
+          onClick={async () => {
+            try {
+              await notificarOrdenCreadaWhatsApp(orden.id);
+              toast.success('Abriendo WhatsApp...');
+            } catch (error) {
+              console.error('Error al abrir WhatsApp:', error);
+              toast.error('Error al abrir WhatsApp');
+            }
+          }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            theme === 'light'
+              ? 'bg-green-500 hover:bg-green-600 text-white'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+          }`}
+          title="Reenviar mensaje de WhatsApp"
+        >
+          <MessageCircle className="w-4 h-4" />
+          <span className="hidden sm:inline">WhatsApp</span>
+        </button>
       </div>
 
       {/* Información del equipo */}
