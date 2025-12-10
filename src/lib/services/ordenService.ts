@@ -7,6 +7,45 @@ import { crearEquipo } from "./equipoService";
 /**
  * Crear una nueva orden
  */
+/**
+ * Obtener el siguiente número de secuencia para códigos de orden
+ */
+async function obtenerSiguienteNumeroOrden(): Promise<number> {
+  // Obtener el último código de orden que sigue el patrón ORD-{número}
+  const { data, error } = await supabase
+    .from('ordenes')
+    .select('codigo')
+    .like('codigo', 'ORD-%')
+    .order('fecha_creacion', { ascending: false })
+    .limit(100); // Obtener las últimas 100 para encontrar el número más alto
+
+  if (error) {
+    console.error('Error al obtener última orden:', error);
+    // Si hay error, empezar desde 1
+    return 1;
+  }
+
+  if (!data || data.length === 0) {
+    // Si no hay órdenes, empezar desde 1
+    return 1;
+  }
+
+  // Extraer todos los números de los códigos ORD-{número}
+  const numeros = data
+    .map(orden => {
+      const match = orden.codigo.match(/^ORD-(\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
+    })
+    .filter(num => num > 0);
+
+  if (numeros.length === 0) {
+    return 1;
+  }
+
+  // Retornar el número más alto + 1
+  return Math.max(...numeros) + 1;
+}
+
 export async function crearOrden(data: {
   cliente_id: string;
   equipo_id?: string;
@@ -19,8 +58,9 @@ export async function crearOrden(data: {
   es_retrabajo?: boolean;
   valor_revision?: number;
 }) {
-  // Generar código de orden único (no usar codigo_qr para evitar duplicados)
-  const codigo = `ORD-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+  // Generar código de orden secuencial (ORD-1, ORD-2, etc.)
+  const numeroOrden = await obtenerSiguienteNumeroOrden();
+  const codigo = `ORD-${numeroOrden}`;
 
   // Determinar responsable (usuario actual)
   let responsable = 'Desconocido';

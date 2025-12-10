@@ -68,11 +68,13 @@ const guardarNotaConTimeout = async (
   const timeoutId = setTimeout(() => controller.abort(), OPERATION_TIMEOUT_MS);
 
   try {
+    console.log('💾 Guardando nota para orden:', ordenId);
+    
     const { error } = await supabase
       .from('ordenes')
       .update({
         nota_orden: nota,
-        ultima_actualizacion: crearTimestampColombia()
+        updated_at: crearTimestampColombia()
       })
       .eq('id', ordenId)
       .abortSignal(controller.signal);
@@ -80,6 +82,8 @@ const guardarNotaConTimeout = async (
     clearTimeout(timeoutId);
 
     if (error) {
+      console.error('❌ Error al guardar nota:', error);
+      
       // Mensajes de error específicos según el tipo
       if (error.code === 'PGRST116') {
         return { ok: false, error: 'No se encontró la orden especificada' };
@@ -90,13 +94,18 @@ const guardarNotaConTimeout = async (
       if (error.message.includes('JWT')) {
         return { ok: false, error: 'Sesión expirada. Por favor, inicie sesión nuevamente.' };
       }
+      if (error.message.includes('column') && error.message.includes('does not exist')) {
+        return { ok: false, error: 'Error de configuración de base de datos. Contacte al administrador.' };
+      }
       
-      return { ok: false, error: `Error de base de datos: ${error.message}` };
+      return { ok: false, error: `Error al guardar: ${error.message}` };
     }
 
+    console.log('✅ Nota guardada exitosamente');
     return { ok: true, value: undefined };
   } catch (error: unknown) {
     clearTimeout(timeoutId);
+    console.error('❌ Excepción al guardar nota:', error);
     
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
@@ -127,6 +136,14 @@ export default function NotaModal({
     setErrorValidacion(null);
   }, [notaInicial, isOpen]);
 
+  // Cleanup cuando el modal se cierra
+  useEffect(() => {
+    if (!isOpen) {
+      setIsGuardando(false);
+      setErrorValidacion(null);
+    }
+  }, [isOpen]);
+
   const handleNotaChange = (value: string) => {
     setNota(value);
     setErrorValidacion(null);
@@ -150,6 +167,7 @@ export default function NotaModal({
       if (!sessionResult.ok) {
         toast.error(sessionResult.error);
         setErrorValidacion(sessionResult.error);
+        setIsGuardando(false);
         return;
       }
 
@@ -159,6 +177,7 @@ export default function NotaModal({
       if (!saveResult.ok) {
         toast.error(saveResult.error);
         setErrorValidacion(saveResult.error);
+        setIsGuardando(false);
         return;
       }
 

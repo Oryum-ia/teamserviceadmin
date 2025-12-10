@@ -624,6 +624,11 @@ export default function OrdenDetallePage() {
       
       // Llamar a la función de guardar correspondiente según la fase
       switch (faseActual) {
+        case 'recepcion':
+          // En recepción, los datos (accesorios y fotos) se guardan automáticamente
+          // Solo mostramos un mensaje de confirmación
+          toast.success('Datos de recepción guardados');
+          break;
         case 'diagnostico':
           if (typeof (window as any).guardarDatosDiagnostico === 'function') {
             await (window as any).guardarDatosDiagnostico();
@@ -1356,8 +1361,8 @@ export default function OrdenDetallePage() {
                   )}
                 </button>
               )}
-              {/* Botón Guardar en móvil - solo si la fase ya está iniciada */}
-              {faseYaIniciada() && !puedeIniciarFase() && FASES[currentStep].id !== 'recepcion' && (
+              {/* Botón Guardar en móvil */}
+              {!puedeIniciarFase() && (
                 <button
                   onClick={handleGuardarFase}
                   disabled={isGuardando || isAvanzando || isRetrocediendo}
@@ -1452,8 +1457,8 @@ export default function OrdenDetallePage() {
                   )}
                 </button>
               )}
-              {/* Botón Guardar en desktop - solo si la fase ya está iniciada */}
-              {faseYaIniciada() && !puedeIniciarFase() && FASES[currentStep].id !== 'recepcion' && (
+              {/* Botón Guardar en desktop */}
+              {!puedeIniciarFase() && (
                 <button
                   onClick={handleGuardarFase}
                   disabled={isGuardando || isAvanzando || isRetrocediendo}

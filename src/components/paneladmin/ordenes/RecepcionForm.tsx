@@ -682,7 +682,7 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
       </div>
 
       {/* Note */}
-      <div className={`rounded-lg border p-4 ${
+      <div className={`rounded-lg border p-4 mb-6 ${
         theme === 'light' ? 'bg-yellow-50 border-yellow-200' : 'bg-yellow-900/20 border-yellow-800'
       }`}>
         <p className={`text-sm ${
@@ -691,6 +691,40 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
           <strong>Nota:</strong> En recepción puedes registrar accesorios y evidencias fotográficas. Avanza a diagnóstico cuando termines.
         </p>
       </div>
+
+      {/* Botón Avanzar a Diagnóstico */}
+      {puedeAvanzar && (
+        <div className="flex justify-end">
+          <button
+            onClick={handleAvanzarADiagnostico}
+            disabled={isLoading || !orden.terminos_aceptados || !orden.firma_cliente}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium transition-colors ${
+              theme === 'light'
+                ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            title={
+              !orden.terminos_aceptados 
+                ? 'El cliente debe aceptar los términos y condiciones' 
+                : !orden.firma_cliente 
+                  ? 'Debe haber una firma del cliente' 
+                  : 'Avanzar a la siguiente fase'
+            }
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Avanzando...
+              </>
+            ) : (
+              <>
+                <span>Avanzar a Diagnóstico</span>
+                <Check className="w-5 h-5" />
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
     </div>
   );
