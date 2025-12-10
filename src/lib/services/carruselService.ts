@@ -144,6 +144,8 @@ export async function subirImagenCarrusel(file: File, seccion: string = 'princip
     folder = 'labor-social';
   } else if (seccion === 'clientes') {
     folder = 'clientes';
+  } else if (seccion === 'quienes-somos') {
+    folder = 'quienes-somos';
   }
   
   const filePath = `${folder}/${fileName}`;
@@ -171,9 +173,9 @@ export async function eliminarImagenDelStorage(imagenUrl: string) {
   try {
     // Extraer el path de la URL
     const urlParts = imagenUrl.split('/');
-    // Buscar la carpeta (carrusel, labor-social o clientes)
+    // Buscar la carpeta (carrusel, labor-social, clientes o quienes-somos)
     const folderIndex = urlParts.findIndex(part => 
-      part === 'carrusel' || part === 'labor-social' || part === 'clientes'
+      part === 'carrusel' || part === 'labor-social' || part === 'clientes' || part === 'quienes-somos'
     );
     
     if (folderIndex === -1) {

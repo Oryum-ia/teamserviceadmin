@@ -21,7 +21,8 @@ import ImagenViewer from './ordenes/ImagenViewer';
 const SECCIONES = [
   { id: 'principal', nombre: 'Principal', descripcion: 'Carrusel principal de la landing page' },
   { id: 'labor-social', nombre: 'Labor Social', descripcion: 'Fotos de las ayudas que hace la empresa' },
-  { id: 'clientes', nombre: 'Clientes', descripcion: 'Fotos de nuestros clientes' }
+  { id: 'clientes', nombre: 'Clientes', descripcion: 'Fotos de nuestros clientes' },
+  { id: 'quienes-somos', nombre: 'Quiénes Somos', descripcion: 'Imagen única para la sección Quiénes Somos (solo se permite una imagen)' }
 ] as const;
 
 type SeccionId = typeof SECCIONES[number]['id'];
@@ -171,20 +172,23 @@ export default function Carrusel() {
 
       {/* Botón Nueva Imagen */}
       <div className="mb-4 flex justify-end">
-        <button
-          onClick={() => {
-            setSelectedImagen(null);
-            setIsModalOpen(true);
-          }}
-          className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${
-            theme === 'light'
-              ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-              : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nueva Imagen</span>
-        </button>
+        {/* Solo mostrar botón si no es 'quienes-somos' o si no hay imágenes */}
+        {(seccionActiva !== 'quienes-somos' || imagenes.length === 0) && (
+          <button
+            onClick={() => {
+              setSelectedImagen(null);
+              setIsModalOpen(true);
+            }}
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${
+              theme === 'light'
+                ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            <span>{seccionActiva === 'quienes-somos' ? 'Subir Imagen' : 'Nueva Imagen'}</span>
+          </button>
+        )}
       </div>
 
       {/* Loading */}
@@ -194,17 +198,36 @@ export default function Carrusel() {
         </div>
       ) : (
         <>
+          {/* Alerta para sección Quiénes Somos */}
+          {seccionActiva === 'quienes-somos' && imagenes.length > 0 && (
+            <div className={`mb-4 p-4 rounded-lg ${
+              theme === 'light' ? 'bg-amber-50 border border-amber-200' : 'bg-amber-900/20 border border-amber-800'
+            }`}>
+              <p className={`text-sm ${
+                theme === 'light' ? 'text-amber-800' : 'text-amber-300'
+              }`}>
+                ⚠️ Esta sección solo permite una imagen. Para cambiarla, elimina la actual y sube una nueva.
+              </p>
+            </div>
+          )}
+
           {/* Grid de imágenes */}
           {imagenes.length === 0 ? (
             <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
               theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
             }`}>
               <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-                No hay imágenes en esta sección
+                {seccionActiva === 'quienes-somos' 
+                  ? 'No hay imagen cargada. Haz clic en "Subir Imagen" para agregar una.'
+                  : 'No hay imágenes en esta sección'}
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className={`grid gap-6 ${
+              seccionActiva === 'quienes-somos' 
+                ? 'grid-cols-1 max-w-2xl mx-auto' 
+                : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+            }`}>
               {imagenes.map((imagen, index) => (
                 <div
                   key={imagen.id}
@@ -272,38 +295,43 @@ export default function Carrusel() {
                         />
                       </button>
 
-                      {/* Botones de orden */}
+                      {/* Botones de orden y eliminar */}
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => handleMoveUp(index)}
-                          disabled={index === 0}
-                          className={`p-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                            theme === 'light'
-                              ? 'hover:bg-gray-100 text-gray-600'
-                              : 'hover:bg-gray-700 text-gray-400'
-                          }`}
-                          title="Mover arriba"
-                        >
-                          <ArrowUp className="w-4 h-4" />
-                        </button>
-                        
-                        <button
-                          onClick={() => handleMoveDown(index)}
-                          disabled={index === imagenes.length - 1}
-                          className={`p-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                            theme === 'light'
-                              ? 'hover:bg-gray-100 text-gray-600'
-                              : 'hover:bg-gray-700 text-gray-400'
-                          }`}
-                          title="Mover abajo"
-                        >
-                          <ArrowDown className="w-4 h-4" />
-                        </button>
+                        {/* Solo mostrar botones de orden si NO es 'quienes-somos' */}
+                        {seccionActiva !== 'quienes-somos' && (
+                          <>
+                            <button
+                              onClick={() => handleMoveUp(index)}
+                              disabled={index === 0}
+                              className={`p-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                theme === 'light'
+                                  ? 'hover:bg-gray-100 text-gray-600'
+                                  : 'hover:bg-gray-700 text-gray-400'
+                              }`}
+                              title="Mover arriba"
+                            >
+                              <ArrowUp className="w-4 h-4" />
+                            </button>
+                            
+                            <button
+                              onClick={() => handleMoveDown(index)}
+                              disabled={index === imagenes.length - 1}
+                              className={`p-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                theme === 'light'
+                                  ? 'hover:bg-gray-100 text-gray-600'
+                                  : 'hover:bg-gray-700 text-gray-400'
+                              }`}
+                              title="Mover abajo"
+                            >
+                              <ArrowDown className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
 
                         <button
                           onClick={() => handleDelete(imagen.id, imagen.titulo || '')}
                           className="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          title="Eliminar"
+                          title={seccionActiva === 'quienes-somos' ? 'Eliminar para cambiar' : 'Eliminar'}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

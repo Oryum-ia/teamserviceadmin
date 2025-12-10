@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { Upload, ImageIcon } from 'lucide-react';
-import CameraCapture from './CameraCapture';
+import EnterpriseMediaCapture from './EnterpriseMediaCapture';
 
 interface DropZoneImagenesProps {
   onFilesSelected: (files: File[]) => void;
@@ -71,12 +71,16 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
 
   return (
     <div className="space-y-4">
-      {/* Botones de cámara */}
+      {/* Botones de cámara enterprise */}
       <div className="flex justify-center">
-        <CameraCapture 
+        <EnterpriseMediaCapture 
           onCapture={(file) => onFilesSelected([file])}
+          onError={(error) => console.error('Media capture error:', error)}
           disabled={disabled || isUploading}
           mode="both"
+          autoCompress={true}
+          maxSizeMB={10}
+          showCompressionInfo={true}
         />
       </div>
       

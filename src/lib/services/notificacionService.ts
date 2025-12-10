@@ -1,0 +1,217 @@
+/**
+ * Servicio de Notificaciones
+ * Maneja la creación, lectura y actualización de notificaciones del sistema
+ */
+
+export interface Notificacion {
+  id: string;
+  usuario_id: string;
+  orden_id: number | null;
+  tipo: 'diagnostico_completado' | 'reparacion_completada' | 'orden_asignada' | 'comentario_nuevo' | 'otro';
+  titulo: string;
+  mensaje: string;
+  leida: boolean;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Obtener notificaciones del usuario actual
+ */
+export async function obtenerNotificacionesUsuario(
+  limite: number = 50,
+  soloNoLeidas: boolean = false
+): Promise<Notificacion[]> {
+  const { supabase } = await import('@/lib/supabaseClient');
+  
+  let query = supabase
+    .from('notificaciones')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limite);
+  
+  if (soloNoLeidas) {
+    query = query.eq('leida', false);
+  }
+  
+  const { data, error } = await query;
+  
+  if (error) {
+    console.error('Error al obtener notificaciones:', error);
+    throw error;
+  }
+  
+  return data || [];
+}
+
+/**
+ * Marcar notificación como leída
+ */
+export async function marcarComoLeida(notificacionId: string): Promise<void> {
+  const { supabase } = await import('@/lib/supabaseClient');
+  
+  const { error } = await supabase
+    .from('notificaciones')
+    .update({ 
+      leida: true,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', notificacionId);
+  
+  if (error) {
+    console.error('Error al marcar notificación como leída:', error);
+    throw error;
+  }
+}
+
+/**
+ * Marcar todas las notificaciones como leídas
+ */
+export async function marcarTodasComoLeidas(): Promise<void> {
+  const { supabase } = await import('@/lib/supabaseClient');
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('Usuario no autenticado');
+  }
+  
+  const { error } = await supabase
+    .from('notificaciones')
+    .update({ 
+      leida: true,
+      updated_at: new Date().toISOString()
+    })
+    .eq('usuario_id', user.id)
+    .eq('leida', false);
+  
+  if (error) {
+    console.error('Error al marcar todas las notificaciones como leídas:', error);
+    throw error;
+  }
+}
+
+/**
+ * Contar notificaciones no leídas
+ */
+export async function contarNoLeidas(): Promise<number> {
+  const { supabase } = await import('@/lib/supabaseClient');
+  
+  const { count, error } = await supabase
+    .from('notificaciones')
+    .select('*', { count: 'exact', head: true })
+    .eq('leida', false);
+  
+  if (error) {
+    console.error('Error al contar notificaciones no leídas:', error);
+    return 0;
+  }
+  
+  return count || 0;
+}
+
+/**
+ * Eliminar notificación
+ */
+export async function eliminarNotificacion(notificacionId: string): Promise<void> {
+  const { supabase } = await import('@/lib/supabaseClient');
+  
+  const { error } = await supabase
+    .from('notificaciones')
+    .delete()
+    .eq('id', notificacionId);
+  
+  if (error) {
+    console.error('Error al eliminar notificación:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crear notificación manualmente (para casos especiales)
+ */
+export async function crearNotificacion(
+  usuarioId: string,
+  ordenId: number | null,
+  tipo: Notificacion['tipo'],
+  titulo: string,
+  mensaje: string,
+  metadata: Record<string, any> = {}
+): Promise<Notificacion> {
+  const { supabase } = await import('@/lib/supabaseClient');
+  
+  const { data, error } = await supabase
+    .from('notificaciones')
+    .insert({
+      usuario_id: usuarioId,
+      orden_id: ordenId,
+      tipo,
+      titulo,
+      mensaje,
+      metadata,
+      leida: false
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error al crear notificación:', error);
+    throw error;
+  }
+  
+  return data;
+}
+
+/**
+ * Suscribirse a notificaciones en tiempo real
+ */
+export function suscribirseANotificaciones(
+  usuarioId: string,
+  onNuevaNotificacion: (notificacion: Notificacion) => void,
+  onActualizacion: (notificacion: Notificacion) => void
+) {
+  const setupSubscription = async () => {
+    const { supabase } = await import('@/lib/supabaseClient');
+    
+    const channel = supabase
+      .channel('notificaciones-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notificaciones',
+          filter: `usuario_id=eq.${usuarioId}`
+        },
+        (payload) => {
+          console.log('🔔 Nueva notificación recibida:', payload.new);
+          onNuevaNotificacion(payload.new as Notificacion);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notificaciones',
+          filter: `usuario_id=eq.${usuarioId}`
+        },
+        (payload) => {
+          console.log('🔄 Notificación actualizada:', payload.new);
+          onActualizacion(payload.new as Notificacion);
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Suscrito a notificaciones en tiempo real');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Error en canal de notificaciones');
+        }
+      });
+    
+    return channel;
+  };
+  
+  return setupSubscription();
+}

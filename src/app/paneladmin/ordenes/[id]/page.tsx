@@ -537,20 +537,23 @@ export default function OrdenDetallePage() {
     if (!orden) return true;
     const faseId = mapEstadoAFase(orden.estado_actual);
     
-    // Mapear fase a campo de fecha_inicio
+    // Solo Diagnóstico y Reparación requieren ser iniciadas
+    // Recepción, Cotización y Entrega están siempre disponibles
+    if (faseId !== 'diagnostico' && faseId !== 'reparacion') {
+      return true; // Siempre "iniciada" para otras fases
+    }
+    
+    // Mapear fase a campo de fecha_inicio solo para diagnóstico y reparación
     const camposFechaInicio: Record<string, string> = {
-      'recepcion': 'fecha_creacion', // Recepción siempre está iniciada
       'diagnostico': 'fecha_inicio_diagnostico',
-      'cotizacion': 'fecha_cotizacion',
-      'reparacion': 'fecha_inicio_reparacion',
-      'entrega': 'fecha_entrega'
+      'reparacion': 'fecha_inicio_reparacion'
     };
     
     const campoFecha = camposFechaInicio[faseId];
     return campoFecha ? !!orden[campoFecha] : true;
   };
 
-  // Manejar inicio de fase
+  // Manejar inicio de fase (solo para Diagnóstico y Reparación)
   const handleIniciarFase = async () => {
     if (!orden) return;
     
@@ -560,18 +563,17 @@ export default function OrdenDetallePage() {
       const faseId = mapEstadoAFase(orden.estado_actual);
       const { supabase } = await import('@/lib/supabaseClient');
       
-      // Mapear fase a campo de fecha_inicio
+      // Solo Diagnóstico y Reparación requieren ser iniciadas
       const camposFechaInicio: Record<string, string> = {
         'diagnostico': 'fecha_inicio_diagnostico',
-        'cotizacion': 'fecha_cotizacion',
-        'reparacion': 'fecha_inicio_reparacion',
-        'entrega': 'fecha_entrega'
+        'reparacion': 'fecha_inicio_reparacion'
       };
       
       const campoFecha = camposFechaInicio[faseId];
       
       if (!campoFecha) {
-        toast.error('No se puede iniciar esta fase');
+        toast.error('Esta fase no requiere ser iniciada');
+        setIsIniciandoFase(false);
         return;
       }
       
