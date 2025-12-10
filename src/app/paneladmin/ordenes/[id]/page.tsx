@@ -1064,6 +1064,46 @@ export default function OrdenDetallePage() {
     }
   };
 
+  // Manejar eliminación de orden (solo super-admin)
+  const handleEliminarOrden = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Solo los super-admins pueden eliminar órdenes');
+      return;
+    }
+
+    setIsProcesingAction(true);
+    try {
+      const { supabase } = await import('@/lib/supabaseClient');
+      
+      console.log('🗑️ Eliminando orden:', ordenId);
+      
+      // Eliminar la orden (las relaciones se eliminarán en cascada si están configuradas)
+      const { error } = await supabase
+        .from('ordenes')
+        .delete()
+        .eq('id', ordenId);
+
+      if (error) {
+        console.error('❌ Error al eliminar orden:', error);
+        throw error;
+      }
+
+      console.log('✅ Orden eliminada exitosamente');
+      toast.success('Orden eliminada exitosamente');
+      
+      // Limpiar localStorage
+      localStorage.removeItem('ordenActual');
+      
+      // Redirigir al panel de órdenes
+      router.push('/paneladmin?section=ordenes');
+    } catch (error) {
+      console.error('Error al eliminar orden:', error);
+      toast.error('Error al eliminar la orden. Verifique que no tenga datos relacionados.');
+    } finally {
+      setIsProcesingAction(false);
+    }
+  };
+
   const renderCurrentForm = () => {
     if (!orden) return null;
 
@@ -1275,6 +1315,35 @@ export default function OrdenDetallePage() {
                                   >
                                     <Unlock className="w-4 h-4" />
                                     Liberar producto
+                                  </button>
+                                </>
+                              )}
+
+                              {/* Eliminar orden - SOLO super-admin */}
+                              {isSuperAdmin && (
+                                <>
+                                  <div className={`my-1 border-t ${
+                                    theme === 'light' ? 'border-gray-200' : 'border-gray-700'
+                                  }`} />
+                                  <button
+                                    onClick={() => {
+                                      setShowAccionesMenu(false);
+                                      if (window.confirm(
+                                        `¿Está seguro de eliminar la orden ${orden.codigo}?\n\n` +
+                                        'Esta acción NO se puede deshacer.\n' +
+                                        'Se eliminarán todos los datos asociados a esta orden.'
+                                      )) {
+                                        handleEliminarOrden();
+                                      }
+                                    }}
+                                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
+                                      theme === 'light'
+                                        ? 'hover:bg-red-50 text-red-700'
+                                        : 'hover:bg-red-900/20 text-red-400'
+                                    }`}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Eliminar orden
                                   </button>
                                 </>
                               )}

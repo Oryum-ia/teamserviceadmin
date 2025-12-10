@@ -197,11 +197,11 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
         console.log('🌐 Cargando técnicos desde Supabase');
         const { supabase } = await import('@/lib/supabaseClient');
         
-        // Buscar usuarios con rol 'tecnico'
+        // Buscar usuarios con rol 'tecnico' o 'super-admin'
         const { data, error } = await supabase
           .from('usuarios')
           .select('id, nombre, email')
-          .eq('rol', 'tecnico')
+          .in('rol', ['tecnico', 'super-admin'])
           .order('nombre');
         
         if (!error && data) {

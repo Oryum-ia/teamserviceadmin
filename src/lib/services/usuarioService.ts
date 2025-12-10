@@ -59,8 +59,26 @@ export async function obtenerTodosLosUsuarios() {
 
 /**
  * Obtener usuarios por rol
+ * Si se solicitan técnicos, también incluye super-admins (ya que pueden actuar como técnicos)
  */
 export async function obtenerUsuariosPorRol(rol: UserRole) {
+  // Si se buscan técnicos, incluir también super-admins
+  if (rol === 'tecnico') {
+    const { data, error } = await supabase
+      .from("usuarios")
+      .select("*")
+      .in("rol", ['tecnico', 'super-admin'])
+      .order("nombre");
+
+    if (error) {
+      console.error("❌ Error al obtener usuarios por rol:", error);
+      throw error;
+    }
+
+    return data as Usuario[];
+  }
+
+  // Para otros roles, comportamiento normal
   const { data, error } = await supabase
     .from("usuarios")
     .select("*")
