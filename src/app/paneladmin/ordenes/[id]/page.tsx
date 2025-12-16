@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { notificarCambioFaseWhatsApp, notificarBodegaWhatsApp, notificarChatarrizadoWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
-import { notificarCambioFase } from '@/lib/services/emailNotificationService';
+import { notificarCambioFaseWhatsApp, notificarBodegaWhatsApp, notificarChatarrizadoWhatsApp, notificarCotizacionRechazadaWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
+import { notificarCambioFase, notificarCotizacionRechazada } from '@/lib/services/emailNotificationService';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -311,6 +311,32 @@ export default function OrdenDetallePage() {
               
               // Mostrar notificación al usuario
               toast.success(`Estado actualizado: ${estadoNuevo}`);
+            }
+            
+            // Detectar cuando el cliente rechaza la cotización
+            const aprobadoAnterior = payload.old?.aprobado_cliente;
+            const aprobadoNuevo = payload.new?.aprobado_cliente;
+            
+            if (aprobadoAnterior !== aprobadoNuevo && aprobadoNuevo === false) {
+              console.log('❌ Cliente rechazó la cotización - Enviando notificaciones');
+              toast.warning('El cliente rechazó la cotización');
+              
+              // Enviar notificaciones de rechazo
+              try {
+                // Notificar por email
+                await notificarCotizacionRechazada(ordenId);
+                console.log('✅ Email de rechazo enviado');
+              } catch (emailError) {
+                console.error('⚠️ Error al enviar email de rechazo:', emailError);
+              }
+              
+              try {
+                // Notificar por WhatsApp (abre ventana)
+                await notificarCotizacionRechazadaWhatsApp(ordenId);
+                console.log('✅ WhatsApp de rechazo abierto');
+              } catch (whatsappError) {
+                console.error('⚠️ Error al abrir WhatsApp de rechazo:', whatsappError);
+              }
             }
             
             // Recargar la orden completa con todas las relaciones
