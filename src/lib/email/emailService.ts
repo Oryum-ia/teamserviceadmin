@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { templateCambioFase, templateConfirmacionOrden, templateRespuestaPQR, templateRecordatorioMantenimiento, getDescripcionFase } from './templates';
+import { templateCambioFase, templateConfirmacionOrden, templateRespuestaPQR, templateRecordatorioMantenimiento, templateCotizacionRechazada, getDescripcionFase } from './templates';
 
 /**
  * Servicio de envío de correos electrónicos
@@ -189,4 +189,36 @@ export async function verificarConfiguracionCorreo(): Promise<boolean> {
     console.error('❌ Error en configuración de correo:', error);
     return false;
   }
+}
+
+/**
+ * Enviar correo de cotización rechazada
+ */
+export async function enviarCorreoCotizacionRechazada(data: {
+  clienteEmail: string;
+  clienteNombre: string;
+  ordenId: string;
+  valorRevision: number;
+}): Promise<boolean> {
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
+  
+  // Formatear el valor de revisión a moneda colombiana
+  const valorFormateado = new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0
+  }).format(data.valorRevision);
+
+  const html = templateCotizacionRechazada({
+    clienteNombre: data.clienteNombre,
+    ordenId: data.ordenId,
+    valorRevision: valorFormateado,
+    trackingUrl,
+  });
+
+  return enviarCorreo(
+    data.clienteEmail,
+    `❌ Cotización Rechazada - Orden ${data.ordenId} - Team Service Costa`,
+    html
+  );
 }

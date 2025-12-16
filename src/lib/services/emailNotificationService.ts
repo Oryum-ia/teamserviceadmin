@@ -189,3 +189,70 @@ export async function notificarOrdenCreada(ordenId: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Enviar notificación de cotización rechazada
+ */
+export async function notificarCotizacionRechazada(ordenId: string): Promise<boolean> {
+  try {
+    // Obtener datos de la orden y cliente
+    const { data: orden, error: ordenError } = await supabase
+      .from('ordenes')
+      .select(`
+        *,
+        cliente:clientes(*)
+      `)
+      .eq('id', ordenId)
+      .single();
+
+    if (ordenError || !orden) {
+      console.error('❌ Error al obtener orden:', ordenError);
+      return false;
+    }
+
+    // Validar que el cliente tenga email
+    const clienteEmail = orden.cliente?.correo_electronico || orden.cliente?.email;
+    
+    if (!clienteEmail) {
+      console.warn('⚠️ Cliente sin email, no se puede enviar notificación de cotización rechazada');
+      return false;
+    }
+
+    // Obtener nombre del cliente
+    const clienteNombre =
+      orden.cliente.es_juridica
+        ? orden.cliente.razon_social || orden.cliente.nombre_comercial || 'Cliente'
+        : orden.cliente.nombre_contacto || orden.cliente.nombre_comercial || orden.cliente.razon_social || 'Cliente';
+    
+    // Obtener valor de revisión
+    const valorRevision = orden.valor_revision || 0;
+    
+    console.log('📧 Enviando correo de cotización rechazada a:', clienteEmail, 'para:', clienteNombre);
+
+    // Llamar al endpoint de correos
+    const response = await fetch('/api/email/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tipo: 'cotizacion_rechazada',
+        clienteEmail,
+        clienteNombre,
+        ordenId: orden.codigo,
+        valorRevision,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('❌ Error al enviar correo:', await response.text());
+      return false;
+    }
+
+    console.log('✅ Notificación de cotización rechazada enviada');
+    return true;
+  } catch (error) {
+    console.error('❌ Error en notificarCotizacionRechazada:', error);
+    return false;
+  }
+}

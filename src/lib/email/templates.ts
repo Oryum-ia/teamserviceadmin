@@ -400,3 +400,96 @@ export function getDescripcionFase(fase: string): string {
 
   return descripciones[fase] || 'El estado de tu orden ha sido actualizado.';
 }
+
+/**
+ * Plantilla para notificar cotización rechazada
+ */
+export function templateCotizacionRechazada(data: {
+  clienteNombre: string;
+  ordenId: string;
+  valorRevision: string;
+  trackingUrl: string;
+}): string {
+  const { clienteNombre, ordenId, valorRevision, trackingUrl } = data;
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotización Rechazada - Team Service Costa</title>
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header" style="background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);">
+      <h1>❌ Cotización Rechazada</h1>
+    </div>
+    <div class="content">
+      <p>Hola <strong>${clienteNombre}</strong>,</p>
+      
+      <p>Te informamos que la cotización de tu orden ha sido registrada como <strong>rechazada</strong>.</p>
+      
+      <div class="info-box" style="border-left-color: #dc3545;">
+        <p><strong>ID de Orden:</strong> ${ordenId}</p>
+        <p><strong>Estado:</strong> <span class="status-badge" style="background-color: #dc3545; color: white;">Cotización Rechazada</span></p>
+      </div>
+      
+      <div style="background-color: #fff3cd; padding: 20px; border-left: 4px solid #ffc107; border-radius: 8px; margin: 20px 0;">
+        <h3 style="margin-top: 0; color: #856404;">💰 Costo de Revisión</h3>
+        <p style="font-size: 24px; font-weight: bold; color: #856404; margin: 10px 0;">${valorRevision}</p>
+        <p style="color: #856404; margin-bottom: 0;">
+          Este valor corresponde al diagnóstico técnico realizado a tu equipo.
+        </p>
+      </div>
+      
+      <div style="background-color: #d1ecf1; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="margin-top: 0; color: #0c5460;">📦 Entrega del Equipo</h3>
+        <p style="color: #0c5460;">
+          Tu equipo está disponible para ser recogido en nuestras instalaciones.<br>
+          <strong>Por favor, acércate para realizar el pago del valor de revisión y retirar tu equipo.</strong>
+        </p>
+      </div>
+      
+      <div style="text-align: center;">
+        <a href="${trackingUrl}estado-producto?codigo=${ordenId}" class="btn" style="background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);">
+          🔍 Ver Detalles de la Orden
+        </a>
+      </div>
+      
+      <div style="margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+        <h4 style="margin-top: 0; color: #333;">📍 Nuestras Sedes</h4>
+        <ul style="color: #666; line-height: 1.8; margin-bottom: 0;">
+          <li>Montería</li>
+          <li>Cartagena</li>
+          <li>Apartadó</li>
+        </ul>
+        
+        <h4 style="color: #333;">🕐 Horario de Atención</h4>
+        <p style="color: #666; margin-bottom: 0;">
+          Lunes a Viernes: 8:00 AM - 6:00 PM<br>
+          Sábados: 8:00 AM - 12:00 PM
+        </p>
+      </div>
+      
+      <p style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 4px; font-size: 14px; color: #666;">
+        <strong>💡 Recuerda:</strong> Por favor, trae tu documento de identidad para el retiro del equipo.
+      </p>
+      
+      <p style="margin-top: 20px; font-size: 14px; color: #666;">
+        Si tienes alguna pregunta, no dudes en contactarnos.
+      </p>
+    </div>
+    <div class="footer">
+      <p><strong>Team Service Costa S.A.S.</strong></p>
+      <p>Centro Autorizado KÄRCHER 🇩🇪</p>
+      <p>📍 Montería, Cartagena y Apartadó</p>
+      <p><a href="${trackingUrl}">Visita nuestro sitio web</a></p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+}
+

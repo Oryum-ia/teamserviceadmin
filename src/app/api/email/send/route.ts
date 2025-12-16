@@ -3,7 +3,8 @@ import {
   enviarCorreoCambioFase, 
   enviarCorreoConfirmacionOrden, 
   enviarCorreoRespuestaPQR,
-  enviarCorreoRecordatorioMantenimiento
+  enviarCorreoRecordatorioMantenimiento,
+  enviarCorreoCotizacionRechazada
 } from '@/lib/email/emailService';
 
 /**
@@ -67,6 +68,20 @@ export async function POST(request: NextRequest) {
           );
         }
         resultado = await enviarCorreoRecordatorioMantenimiento(data);
+        break;
+
+      case 'cotizacion_rechazada':
+        // Validar campos requeridos
+        if (!data.clienteEmail || !data.clienteNombre || !data.ordenId) {
+          return NextResponse.json(
+            { error: 'Campos requeridos: clienteEmail, clienteNombre, ordenId' },
+            { status: 400 }
+          );
+        }
+        resultado = await enviarCorreoCotizacionRechazada({
+          ...data,
+          valorRevision: data.valorRevision || 0
+        });
         break;
 
       default:
