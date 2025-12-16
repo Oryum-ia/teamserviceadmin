@@ -77,16 +77,29 @@ export default function OrdenesNuevo() {
   const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({
-    numeroOrden: '',
-    cliente: '',
-    identificacion: '',
-    equipo: '',
-    serial: '',
-    marca: '',
-    modelo: '',
-    sede: '',
-    estado: 'all'
+  // Cargar filtros desde localStorage al iniciar
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilters = localStorage.getItem('ordenes_filtros');
+      if (savedFilters) {
+        try {
+          return JSON.parse(savedFilters);
+        } catch (e) {
+          console.error('Error al cargar filtros guardados:', e);
+        }
+      }
+    }
+    return {
+      numeroOrden: '',
+      cliente: '',
+      identificacion: '',
+      equipo: '',
+      serial: '',
+      marca: '',
+      modelo: '',
+      sede: '',
+      estado: 'all'
+    };
   });
 
   // No abrir filtros automáticamente - solo aplicarlos
@@ -97,6 +110,13 @@ export default function OrdenesNuevo() {
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Guardar filtros en localStorage cuando cambien
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ordenes_filtros', JSON.stringify(columnFilters));
+    }
+  }, [columnFilters]);
 
   // Cargar órdenes al montar el componente
   useEffect(() => {
@@ -207,7 +227,7 @@ export default function OrdenesNuevo() {
   };
 
   const clearAllFilters = () => {
-    setColumnFilters({
+    const defaultFilters = {
       numeroOrden: '',
       cliente: '',
       identificacion: '',
@@ -216,8 +236,13 @@ export default function OrdenesNuevo() {
       marca: '',
       modelo: '',
       sede: '',
-      estado: 'all'
-    });
+      estado: 'all' as const
+    };
+    setColumnFilters(defaultFilters);
+    // Limpiar también el localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ordenes_filtros', JSON.stringify(defaultFilters));
+    }
   };
 
   const hasActiveFilters = () => {

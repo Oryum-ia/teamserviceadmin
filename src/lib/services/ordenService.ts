@@ -57,6 +57,8 @@ export async function crearOrden(data: {
   descripcion_problema?: string;
   es_retrabajo?: boolean;
   valor_revision?: number;
+  sede?: string;
+  precio_envio?: number;
 }) {
   // Generar código de orden secuencial (ORD-1, ORD-2, etc.)
   const numeroOrden = await obtenerSiguienteNumeroOrden();
@@ -115,7 +117,9 @@ Descripción: ${data.descripcion_problema || 'N/A'}
     valor_revision: data.valor_revision || 0,
     revision_pagada: false,
     aprobado_cliente: null,
-    total: 0
+    total: 0,
+    sede: data.sede || null,
+    precio_envio: data.precio_envio || 0
   };
 
   const { data: orden, error } = await supabase

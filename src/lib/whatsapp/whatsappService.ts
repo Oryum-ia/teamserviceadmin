@@ -55,25 +55,24 @@ export function getMensajeOrdenCreada(data: {
 }): string {
   const { clienteNombre, ordenId, trackingUrl, equipoDescripcion, productoId } = data;
   
-  return `🔧 *Team Service Costa*
+  return `🔧 Team Service Costa
 
-Hola ${clienteNombre}, 
+Hola ${clienteNombre},
+tu orden de servicio fue creada exitosamente.
+Aquí tienes toda la información para hacerle seguimiento a tu equipo:
 
-✅ Tu orden de servicio ha sido creada exitosamente.
+🆔 Orden: ${ordenId}
+${equipoDescripcion ? `🛠 Equipo: ${equipoDescripcion}\n` : ''}📍 Estado actual: Recepción
 
-📋 *ID de Orden:* ${ordenId}
-${equipoDescripcion ? `🛠️ *Equipo:* ${equipoDescripcion}\n` : ''}
-📍 *Estado Actual:* Recepción
+📲 Rastrea el progreso en tiempo real:
+${trackingUrl}
 
-🔍 *Rastrea tu orden aquí:*
-${trackingUrl}estado-producto?codigo=${ordenId}
+Guarda este mensaje, ya que tu ID de orden será necesario para futuras consultas.
 
-💡 Guarda este mensaje con el ID de tu orden para futuras consultas.
+Te notificaremos automáticamente cada vez que tu equipo cambie de estado.
 
-Te mantendremos informado de cada cambio en el estado de tu equipo.
-
-_Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+Team Service Costa S.A.S.
+Centro de Servicio Autorizado Kärcher & Distribuidor Makita`;
 }
 
 /**
@@ -89,43 +88,31 @@ export function getMensajeCambioFase(data: {
   const { clienteNombre, ordenId, faseActual, trackingUrl } = data;
   
   const descripciones: Record<string, string> = {
-    'Recepción': '📥 Tu equipo ha sido recibido en nuestras instalaciones.',
-    'Diagnóstico': '🔍 Nuestros técnicos están realizando el diagnóstico de tu equipo.',
-    'Cotización': '💰 Hemos completado el diagnóstico. En breve recibirás la cotización.',
-    'Reparación': '🔧 ¡Tu equipo está siendo reparado por nuestros técnicos!',
-    'Entrega': '✅ ¡Tu equipo está listo! Acércate a nuestras instalaciones para recogerlo.',
-    'Finalizada': '🎉 Orden finalizada. ¡Gracias por confiar en nosotros!',
+    'Recepción': 'Tu equipo ha sido recibido en nuestras instalaciones.',
+    'Diagnóstico': 'Nuestros técnicos están realizando el diagnóstico de tu equipo.',
+    'Cotización': 'Hemos completado el diagnóstico. En breve recibirás la cotización.',
+    'Reparación': '¡Tu equipo está siendo atendido por nuestros técnicos!',
+    'Entrega': '¡Tu equipo está listo! Acércate a nuestras instalaciones para recogerlo.',
+    'Finalizada': 'Orden finalizada. ¡Gracias por confiar en nosotros!',
   };
 
-  const emojiFase: Record<string, string> = {
-    'Recepción': '📥',
-    'Diagnóstico': '🔍',
-    'Cotización': '💰',
-    'Reparación': '🔧',
-    'Entrega': '✅',
-    'Finalizada': '🎉',
-  };
-
-  const emoji = emojiFase[faseActual] || '🔔';
   const descripcion = descripciones[faseActual] || 'El estado de tu orden ha sido actualizado.';
 
-  return `${emoji} *Actualización de Orden*
+  return `🔧 Actualización de Orden – Team Service Costa
 
 Hola ${clienteNombre},
+tu orden ${ordenId} ha cambiado de estado.
 
-Tu orden *${ordenId}* ha cambiado de estado:
-
-📋 *Nueva Fase:* ${faseActual}
-
+🛠 Nueva fase: ${faseActual}
 ${descripcion}
 
-🔍 *Rastrea tu orden aquí:*
+📲 Rastrea el progreso aquí:
 ${trackingUrl}estado-producto?codigo=${ordenId}
 
-Si tienes alguna pregunta, no dudes en contactarnos.
+Si tienes alguna pregunta, estamos disponibles para ayudarte.
 
-_Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+Team Service Costa S.A.S.
+Centro Autorizado Kärcher & Distribuidor Makita`;
 }
 
 /**
@@ -137,25 +124,20 @@ export function getMensajeCotizacion(data: {
   cotizacionUrl: string;
   total?: number;
 }): string {
-  const { clienteNombre, ordenId, cotizacionUrl, total } = data;
+  const { clienteNombre, ordenId, cotizacionUrl } = data;
   
-  return `💰 *Cotización Lista*
+  return `Hola ${clienteNombre},
+hemos finalizado el diagnóstico de tu equipo y la cotización ya está disponible.
 
-Hola ${clienteNombre},
-
-Hemos completado el diagnóstico de tu equipo y la cotización está lista.
-
-📋 *ID de Orden:* ${ordenId}
-${total ? `💵 *Total:* $${total.toLocaleString('es-CO')}\n` : ''}
-📄 *Ver cotización completa:*
+🆔 ID de Orden: ${ordenId}
+📄 Ver cotización y aprobar/rechazar:
 ${cotizacionUrl}
 
-Para continuar con la reparación, necesitamos tu aprobación.
+Por favor ingresa al enlace para revisar la cotización y seleccionar si deseas aprobarla o rechazarla directamente desde la página web.
+Tu decisión actualizará el estado de tu orden automáticamente.
 
-¿Deseas aprobar la cotización? Respóndenos por este medio o acércate a nuestras instalaciones.
-
-_Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+Team Service Costa S.A.S.
+Centro Autorizado Kärcher & Distribuidor Makita`;
 }
 
 /**

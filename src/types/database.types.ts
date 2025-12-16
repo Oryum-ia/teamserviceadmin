@@ -57,6 +57,9 @@ export interface Orden {
   fase_actual: OrdenPhase;
   estado: OrdenStatus;
   responsable?: string;
+  sede?: string;
+  precio_envio?: number;
+
 
   // Datos del producto
   tipo_producto?: string;

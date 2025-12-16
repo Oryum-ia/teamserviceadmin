@@ -7,6 +7,7 @@ import { Cliente } from '@/types/database.types';
 import { crearOrden } from '@/lib/services/ordenService';
 import { obtenerTodosLosClientes } from '@/lib/services/clienteService';
 import { obtenerTodosLosModelos } from '@/lib/services/modeloService';
+import { obtenerTodosLosUsuarios } from '@/lib/services/usuarioService';
 import { notificarOrdenCreadaWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import SearchableSelect from './SearchableSelect';
 import ClienteModal from '../ClienteModal';
@@ -29,10 +30,12 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
   const [modelos, setModelos] = useState<Array<any>>([]);
   const [showClienteModal, setShowClienteModal] = useState(false);
   const [showModeloModal, setShowModeloModal] = useState(false);
+  const [sedes, setSedes] = useState<string[]>([]);
 
   // Form state
   const [formData, setFormData] = useState({
     cliente_id: '',
+    sede: '',
     codigo_qr: '',
     modelo: '',
     serie_pieza: '',
@@ -47,11 +50,17 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
   const [valorRevisionInput, setValorRevisionInput] = useState('');
   const [editandoValorRevision, setEditandoValorRevision] = useState(false);
 
+  // Estado para valor de envío
+  const [valorEnvio, setValorEnvio] = useState(0);
+  const [valorEnvioInput, setValorEnvioInput] = useState('');
+  const [editandoValorEnvio, setEditandoValorEnvio] = useState(false);
+
   // Cargar clientes y modelos
   useEffect(() => {
     if (isOpen) {
       cargarClientes();
       cargarModelos();
+      cargarSedes();
     }
   }, [isOpen]);
 
@@ -78,6 +87,16 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
       toast.error('Error al cargar modelos');
     }
   };
+
+  const cargarSedes = async () => {
+    try {
+      const usuarios = await obtenerTodosLosUsuarios();
+      const uniqueSedes = Array.from(new Set(usuarios.map(u => u.sede).filter(Boolean))) as string[];
+      setSedes(uniqueSedes);
+    } catch (err) {
+      console.error('❌ Error al cargar sedes:', err);
+    }
+  };
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -97,6 +116,12 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
         return;
       }
 
+      if (!formData.sede) {
+        setError('Debe ingresar la sede');
+        setIsLoading(false);
+        return;
+      }
+
       // Validación de tipo_orden opcional
 
       // Pre-abrir WhatsApp para evitar bloqueo del navegador
@@ -110,7 +135,8 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
       // Crear la orden con el valor de revisión
       const ordenCreada = await crearOrden({
         ...formData,
-        valor_revision: valorRevision
+        valor_revision: valorRevision,
+        precio_envio: valorEnvio
       });
       toast.success('Orden creada exitosamente');
       
@@ -129,6 +155,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
         codigo_qr: '',
         modelo: '',
         serie_pieza: '',
+        sede: '',
 
         tipo_orden: 'Reparación',
         descripcion_problema: '',
@@ -208,6 +235,34 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
               />
             )}
 
+            {/* Sede */}
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                Sede *
+              </label>
+              <input
+                list="sedes-list"
+                type="text"
+                name="sede"
+                value={formData.sede}
+                onChange={handleChange}
+                placeholder="Seleccione o escriba la sede"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900'
+                    : 'border-gray-600 bg-gray-700 text-gray-100'
+                }`}
+                required
+              />
+              <datalist id="sedes-list">
+                {sedes.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+            </div>
+
             {/* Grid de Modelo y Serie/Pieza */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SearchableSelect
@@ -247,44 +302,82 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
               </div>
             </div>
 
-            {/* Valor de Revisión */}
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}>
-                Valor de Revisión
-              </label>
-              <input
-                type="text"
-                value={editandoValorRevision ? valorRevisionInput : (valorRevision === 0 ? '' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valorRevision))}
-                onFocus={() => {
-                  setEditandoValorRevision(true);
-                  setValorRevisionInput(valorRevision === 0 ? '' : valorRevision.toString());
-                }}
-                onChange={(e) => {
-                  const inputValue = e.target.value;
-                  // Permitir solo números
-                  const cleaned = inputValue.replace(/[^0-9]/g, '');
-                  setValorRevisionInput(cleaned);
-                }}
-                onBlur={() => {
-                  const valor = valorRevisionInput === '' ? 0 : Number(valorRevisionInput);
-                  setValorRevision(valor);
-                  setEditandoValorRevision(false);
-                  setValorRevisionInput('');
-                }}
-                placeholder="$0"
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
-              />
-              <p className={`text-xs mt-1 ${
-                theme === 'light' ? 'text-gray-500' : 'text-gray-400'
-              }`}>
-                Solo se cobra si el cliente rechaza la cotización
-              </p>
+            {/* Grid de Valor de Revisión y Envío */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Valor de Revisión */}
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Valor de Revisión
+                </label>
+                <input
+                  type="text"
+                  value={editandoValorRevision ? valorRevisionInput : (valorRevision === 0 ? '' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valorRevision))}
+                  onFocus={() => {
+                    setEditandoValorRevision(true);
+                    setValorRevisionInput(valorRevision === 0 ? '' : valorRevision.toString());
+                  }}
+                  onChange={(e) => {
+                    const inputValue = e.target.value;
+                    // Permitir solo números
+                    const cleaned = inputValue.replace(/[^0-9]/g, '');
+                    setValorRevisionInput(cleaned);
+                  }}
+                  onBlur={() => {
+                    const valor = valorRevisionInput === '' ? 0 : Number(valorRevisionInput);
+                    setValorRevision(valor);
+                    setEditandoValorRevision(false);
+                    setValorRevisionInput('');
+                  }}
+                  placeholder="$0"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                />
+                <p className={`text-xs mt-1 ${
+                  theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                }`}>
+                  Solo se cobra si el cliente rechaza la cotización
+                </p>
+              </div>
+
+              {/* Valor de Envío */}
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Valor de Envío
+                </label>
+                <input
+                  type="text"
+                  value={editandoValorEnvio ? valorEnvioInput : (valorEnvio === 0 ? '' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valorEnvio))}
+                  onFocus={() => {
+                    setEditandoValorEnvio(true);
+                    setValorEnvioInput(valorEnvio === 0 ? '' : valorEnvio.toString());
+                  }}
+                  onChange={(e) => {
+                    const inputValue = e.target.value;
+                    // Permitir solo números
+                    const cleaned = inputValue.replace(/[^0-9]/g, '');
+                    setValorEnvioInput(cleaned);
+                  }}
+                  onBlur={() => {
+                    const valor = valorEnvioInput === '' ? 0 : Number(valorEnvioInput);
+                    setValorEnvio(valor);
+                    setEditandoValorEnvio(false);
+                    setValorEnvioInput('');
+                  }}
+                  placeholder="$0"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                />
+              </div>
             </div>
 
 
