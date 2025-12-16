@@ -45,8 +45,9 @@ export const formatFileSize = (bytes: number): string => {
 };
 
 /**
- * Compress video using Canvas API
- * Pure function that returns a Promise
+ * Compress video - Currently returns original file
+ * Note: Full video compression requires FFmpeg.wasm or server-side processing
+ * For now, we validate the file and return it as-is to avoid data loss
  */
 export const compressVideo = async (
   file: File,
@@ -61,92 +62,61 @@ export const compressVideo = async (
 
   const originalSize = file.size;
 
-  // If file is already small enough, return as is
-  if (originalSize <= opts.maxSizeMB * 1024 * 1024) {
-    return {
-      file,
-      originalSize,
-      compressedSize: originalSize,
-      compressionRatio: 0,
-    };
+  // For videos, we simply validate and return the original
+  // True video compression requires FFmpeg.wasm or server-side processing
+  // Converting to image would lose all video data!
+  
+  // Validate video file size
+  const maxVideoSizeMB = opts.maxSizeMB * 3; // Allow videos to be 3x the image limit
+  const maxBytes = maxVideoSizeMB * 1024 * 1024;
+  
+  if (originalSize > maxBytes) {
+    throw new Error(`Video file is too large. Maximum size is ${formatFileSize(maxBytes)}. Please record a shorter video or use a lower resolution.`);
   }
 
+  // Validate that the video can be loaded (basic integrity check)
   try {
-    // Create video element
     const video = document.createElement('video');
     video.preload = 'metadata';
     
     const videoUrl = URL.createObjectURL(file);
     video.src = videoUrl;
 
-    // Wait for video to load
     await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error('Failed to load video'));
-    });
+      const timeout = setTimeout(() => {
+        reject(new Error('Video loading timeout'));
+      }, 10000); // 10 second timeout
 
-    // Calculate new dimensions
-    const { width, height } = calculateDimensions(
-      video.videoWidth,
-      video.videoHeight,
-      opts.maxWidthOrHeight
-    );
-
-    // Create canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) {
-      throw new Error('Failed to get canvas context');
-    }
-
-    // Seek to first frame
-    video.currentTime = 0;
-    await new Promise<void>((resolve) => {
-      video.onseeked = () => resolve();
-    });
-
-    // Draw video frame to canvas
-    ctx.drawImage(video, 0, 0, width, height);
-
-    // Convert to blob
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error('Failed to create blob'))),
-        'image/jpeg',
-        opts.quality
-      );
+      video.onloadedmetadata = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+      video.onerror = () => {
+        clearTimeout(timeout);
+        reject(new Error('Failed to load video. The file may be corrupted or in an unsupported format.'));
+      };
     });
 
     // Clean up
     URL.revokeObjectURL(videoUrl);
+    
+    // Return original file - no compression applied
+    console.log('📹 Video validated successfully:', {
+      name: file.name,
+      size: formatFileSize(originalSize),
+      duration: `${video.duration?.toFixed(1) || 'unknown'}s`,
+      dimensions: `${video.videoWidth}x${video.videoHeight}`,
+    });
 
-    // Create compressed file (thumbnail for now, full compression would need FFmpeg)
-    const compressedFile = new File(
-      [blob],
-      file.name.replace(/\.[^/.]+$/, '.jpg'),
-      { type: 'image/jpeg' }
-    );
-
-    const compressedSize = compressedFile.size;
-
-    return {
-      file: compressedFile,
-      originalSize,
-      compressedSize,
-      compressionRatio: calculateCompressionRatio(originalSize, compressedSize),
-    };
-  } catch (error) {
-    console.error('Video compression failed:', error);
-    // Return original file if compression fails
     return {
       file,
       originalSize,
       compressedSize: originalSize,
-      compressionRatio: 0,
+      compressionRatio: 0, // No compression performed
     };
+  } catch (error) {
+    console.error('Video validation failed:', error);
+    throw error instanceof Error ? error : new Error('Failed to process video file');
   }
 };
 

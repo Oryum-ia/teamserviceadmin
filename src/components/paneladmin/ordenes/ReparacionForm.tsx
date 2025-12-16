@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Save, Loader2, Upload, X, Download } from 'lucide-react';
+import { Save, Loader2, Upload, X, Download, MessageCircle } from 'lucide-react';
+import { notificarCambioFaseWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
@@ -213,19 +214,29 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h2 className={`text-2xl font-bold mb-2 ${
-          theme === 'light' ? 'text-gray-900' : 'text-white'
-        }`}>
-          Reparación
-        </h2>
-        <p className={`text-sm ${
-          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-        }`}>
-          {puedeEditar
-            ? 'Registre el proceso de reparación del equipo'
-            : 'Reparación completada - Solo lectura'}
-        </p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h2 className={`text-2xl font-bold mb-2 ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            Reparación
+          </h2>
+          <p className={`text-sm ${
+            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+          }`}>
+            {puedeEditar
+              ? 'Registre el proceso de reparación del equipo'
+              : 'Reparación completada - Solo lectura'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => notificarCambioFaseWhatsApp(orden.id, 'Reparación')}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors bg-[#25D366] hover:bg-[#128C7E] text-white shadow-sm"
+        >
+          <MessageCircle className="w-5 h-5" />
+          <span>WhatsApp</span>
+        </button>
       </div>
 
       {!faseIniciada && orden.estado_actual === 'Reparación' && (

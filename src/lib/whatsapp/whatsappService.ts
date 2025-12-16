@@ -3,6 +3,33 @@
  * Genera URLs para abrir WhatsApp Web con mensajes predefinidos
  */
 
+// Unicode escape codes para emojis - evita problemas de encoding
+const EMOJI = {
+  WRENCH: '\u{1F527}',        // 🔧
+  HAMMER_WRENCH: '\u{1F6E0}', // 🛠
+  ID: '\u{1F194}',            // 🆔
+  LOCATION: '\u{1F4CD}',      // 📍
+  MOBILE: '\u{1F4F2}',        // 📲
+  PACKAGE: '\u{1F4E6}',       // 📦
+  MEMO: '\u{1F4DD}',          // 📝
+  SPARKLES: '\u{2728}',       // ✨
+  CHECK_MARK: '\u{2705}',     // ✅
+  CROSS_MARK: '\u{274C}',     // ❌
+  CLOCK: '\u{1F551}',         // 🕑
+  CALENDAR: '\u{1F4C5}',      // 📅
+  MAGNIFYING: '\u{1F50D}',    // 🔍
+  MEGAPHONE: '\u{1F4E2}',     // 📢
+  ENVELOPE: '\u{1F4E9}',      // 📩
+  WARNING: '\u{26A0}',        // ⚠️
+  SIREN: '\u{1F6A8}',         // 🚨
+  LIGHT_BULB: '\u{1F4A1}',    // 💡
+  MONEY_BAG: '\u{1F4B0}',     // 💰
+  HOURGLASS: '\u{231B}',      // ⌛
+  WASTEBASKET: '\u{1F5D1}',   // 🗑️
+  DOCUMENT: '\u{1F4C4}',      // 📄
+  GERMANY_FLAG: '\u{1F1E9}\u{1F1EA}', // 🇩🇪
+};
+
 /**
  * Formatear número de teléfono para WhatsApp
  * Elimina caracteres especiales y espacios, y agrega código de país si no lo tiene
@@ -53,18 +80,18 @@ export function getMensajeOrdenCreada(data: {
   equipoDescripcion?: string;
   productoId?: string;
 }): string {
-  const { clienteNombre, ordenId, trackingUrl, equipoDescripcion, productoId } = data;
+  const { clienteNombre, ordenId, trackingUrl, equipoDescripcion } = data;
   
-  return `🔧 Team Service Costa
+  return `${EMOJI.WRENCH} Team Service Costa
 
 Hola ${clienteNombre},
 tu orden de servicio fue creada exitosamente.
 Aquí tienes toda la información para hacerle seguimiento a tu equipo:
 
-🆔 Orden: ${ordenId}
-${equipoDescripcion ? `🛠 Equipo: ${equipoDescripcion}\n` : ''}📍 Estado actual: Recepción
+${EMOJI.ID} Orden: ${ordenId}
+${equipoDescripcion ? `${EMOJI.HAMMER_WRENCH} Equipo: ${equipoDescripcion}\n` : ''}${EMOJI.LOCATION} Estado actual: Recepción
 
-📲 Rastrea el progreso en tiempo real:
+${EMOJI.MOBILE} Rastrea el progreso en tiempo real:
 ${trackingUrl}
 
 Guarda este mensaje, ya que tu ID de orden será necesario para futuras consultas.
@@ -98,15 +125,15 @@ export function getMensajeCambioFase(data: {
 
   const descripcion = descripciones[faseActual] || 'El estado de tu orden ha sido actualizado.';
 
-  return `🔧 Actualización de Orden – Team Service Costa
+  return `${EMOJI.WRENCH} Actualización de Orden – Team Service Costa
 
 Hola ${clienteNombre},
 tu orden ${ordenId} ha cambiado de estado.
 
-🛠 Nueva fase: ${faseActual}
+${EMOJI.HAMMER_WRENCH} Nueva fase: ${faseActual}
 ${descripcion}
 
-📲 Rastrea el progreso aquí:
+${EMOJI.MOBILE} Rastrea el progreso aquí:
 ${trackingUrl}estado-producto?codigo=${ordenId}
 
 Si tienes alguna pregunta, estamos disponibles para ayudarte.
@@ -126,11 +153,11 @@ export function getMensajeCotizacion(data: {
 }): string {
   const { clienteNombre, ordenId, cotizacionUrl } = data;
   
-  return `Hola ${clienteNombre},
+  return `${EMOJI.SPARKLES} Hola ${clienteNombre},
 hemos finalizado el diagnóstico de tu equipo y la cotización ya está disponible.
 
-🆔 ID de Orden: ${ordenId}
-📄 Ver cotización y aprobar/rechazar:
+${EMOJI.ID} ID de Orden: ${ordenId}
+${EMOJI.DOCUMENT} Ver cotización y aprobar/rechazar:
 ${cotizacionUrl}
 
 Por favor ingresa al enlace para revisar la cotización y seleccionar si deseas aprobarla o rechazarla directamente desde la página web.
@@ -151,7 +178,7 @@ export function getMensajeAprobacionRequerida(data: {
 }): string {
   const { clienteNombre, ordenId, trackingUrl } = data;
   
-  return `⏳ *Aprobación Pendiente*
+  return `${EMOJI.HOURGLASS} *Aprobación Pendiente*
 
 Hola ${clienteNombre},
 
@@ -159,13 +186,13 @@ Tu orden *${ordenId}* requiere tu aprobación para continuar con la reparación.
 
 Por favor, revisa la cotización y confirma si deseas proceder.
 
-🔍 *Ver detalles:*
+${EMOJI.MAGNIFYING} *Ver detalles:*
 ${trackingUrl}estado-producto?codigo=${ordenId}
 
 Respóndenos por este medio o acércate a nuestras instalaciones.
 
 _Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+_Centro Autorizado KÄRCHER_ ${EMOJI.GERMANY_FLAG}`;
 }
 
 /**
@@ -178,25 +205,25 @@ export function getMensajeListoEntrega(data: {
 }): string {
   const { clienteNombre, ordenId, direccion } = data;
   
-  return `✅ *¡Tu Equipo está Listo!*
+  return `${EMOJI.CHECK_MARK} *¡Tu Equipo está Listo!*
 
 Hola ${clienteNombre},
 
 ¡Excelentes noticias! Tu equipo ha sido reparado y está listo para ser entregado.
 
-📋 *ID de Orden:* ${ordenId}
+${EMOJI.MEMO} *ID de Orden:* ${ordenId}
 
-📍 *Recógelo en:*
+${EMOJI.LOCATION} *Recógelo en:*
 ${direccion || 'Team Service Costa - Montería, Cartagena o Apartadó'}
 
-🕐 *Horario de atención:*
+${EMOJI.CLOCK} *Horario de atención:*
 Lunes a Viernes: 8:00 AM - 6:00 PM
 Sábados: 8:00 AM - 12:00 PM
 
 Por favor, trae este mensaje y tu documento de identidad.
 
 _Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+_Centro Autorizado KÄRCHER_ ${EMOJI.GERMANY_FLAG}`;
 }
 
 /**
@@ -211,19 +238,19 @@ export function getMensajeSeguimiento(data: {
 }): string {
   const { clienteNombre, ordenId, mensaje, trackingUrl } = data;
   
-  return `📢 *Team Service Costa*
+  return `${EMOJI.MEGAPHONE} *Team Service Costa*
 
 Hola ${clienteNombre},
 
 ${mensaje}
 
-📋 *Orden:* ${ordenId}
+${EMOJI.MEMO} *Orden:* ${ordenId}
 
-🔍 *Más información:*
+${EMOJI.MAGNIFYING} *Más información:*
 ${trackingUrl}estado-producto?codigo=${ordenId}
 
 _Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+_Centro Autorizado KÄRCHER_ ${EMOJI.GERMANY_FLAG}`;
 }
 
 /**
@@ -238,13 +265,13 @@ export function getMensajePQR(data: {
   const { clienteNombre, pqrId, tipoPQR, respuesta } = data;
   
   const emojis: Record<string, string> = {
-    'Petición': '📩',
-    'Queja': '⚠️',
-    'Reclamo': '🚨',
-    'Sugerencia': '💡',
+    'Petición': EMOJI.ENVELOPE,
+    'Queja': EMOJI.WARNING,
+    'Reclamo': EMOJI.SIREN,
+    'Sugerencia': EMOJI.LIGHT_BULB,
   };
 
-  const emoji = emojis[tipoPQR] || '📩';
+  const emoji = emojis[tipoPQR] || EMOJI.ENVELOPE;
   
   return `${emoji} *Respuesta a tu ${tipoPQR}*
 
@@ -252,7 +279,7 @@ Hola ${clienteNombre},
 
 Hemos revisado tu solicitud *${pqrId}* y queremos compartir nuestra respuesta:
 
-📝 *Respuesta:*
+${EMOJI.MEMO} *Respuesta:*
 ${respuesta}
 
 En Team Service Costa, tu satisfacción es nuestra prioridad.
@@ -260,7 +287,7 @@ En Team Service Costa, tu satisfacción es nuestra prioridad.
 Si tienes alguna pregunta adicional, no dudes en contactarnos.
 
 _Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+_Centro Autorizado KÄRCHER_ ${EMOJI.GERMANY_FLAG}`;
 }
 
 /**
@@ -274,23 +301,23 @@ export function getMensajeBodega(data: {
 }): string {
   const { clienteNombre, ordenId, fecha, trackingUrl } = data;
   
-  return `📦 *Producto Enviado a Bodega*
+  return `${EMOJI.PACKAGE} *Producto Enviado a Bodega*
 
 Hola ${clienteNombre},
 
 Te informamos que tu equipo de la orden *${ordenId}* ha sido transferido a nuestra bodega.
 
-📅 *Fecha de transferencia:* ${fecha}
+${EMOJI.CALENDAR} *Fecha de transferencia:* ${fecha}
 
 El equipo permanecerá en custodia hasta que decidas retirarlo o continuar con el proceso.
 
-🔍 *Rastrea tu orden aquí:*
+${EMOJI.MAGNIFYING} *Rastrea tu orden aquí:*
 ${trackingUrl}estado-producto?codigo=${ordenId}
 
 Si tienes alguna pregunta, no dudes en contactarnos.
 
 _Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+_Centro Autorizado KÄRCHER_ ${EMOJI.GERMANY_FLAG}`;
 }
 
 /**
@@ -304,23 +331,23 @@ export function getMensajeChatarrizado(data: {
 }): string {
   const { clienteNombre, ordenId, fecha, trackingUrl } = data;
   
-  return `🗑️ *Producto Chatarrizado*
+  return `${EMOJI.WASTEBASKET} *Producto Chatarrizado*
 
 Hola ${clienteNombre},
 
 Te informamos que tu equipo de la orden *${ordenId}* ha sido dado de baja (chatarrizado) según lo acordado.
 
-📅 *Fecha de chatarrizado:* ${fecha}
+${EMOJI.CALENDAR} *Fecha de chatarrizado:* ${fecha}
 
 Este proceso es irreversible. El equipo ha sido dispuesto de manera adecuada.
 
-🔍 *Consulta el historial aquí:*
+${EMOJI.MAGNIFYING} *Consulta el historial aquí:*
 ${trackingUrl}estado-producto?codigo=${ordenId}
 
 Si tienes alguna pregunta, no dudes en contactarnos.
 
 _Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+_Centro Autorizado KÄRCHER_ ${EMOJI.GERMANY_FLAG}`;
 }
 
 /**
@@ -342,28 +369,28 @@ export function getMensajeCotizacionRechazada(data: {
     minimumFractionDigits: 0
   }).format(valorRevision);
   
-  return `❌ *Cotización Rechazada*
+  return `${EMOJI.CROSS_MARK} *Cotización Rechazada*
 
 Hola ${clienteNombre},
 
 Te informamos que la cotización de tu orden *${ordenId}* ha sido registrada como *rechazada*.
 
-💰 *Costo de Revisión:* ${valorFormateado}
+${EMOJI.MONEY_BAG} *Costo de Revisión:* ${valorFormateado}
 Este valor corresponde al diagnóstico técnico realizado a tu equipo.
 
-📦 *Entrega del equipo:*
+${EMOJI.PACKAGE} *Entrega del equipo:*
 Tu equipo está disponible para ser recogido en nuestras instalaciones.
 Por favor, acércate para realizar el pago del valor de revisión y retirar tu equipo.
 
-🔍 *Consulta tu orden aquí:*
+${EMOJI.MAGNIFYING} *Consulta tu orden aquí:*
 ${trackingUrl}estado-producto?codigo=${ordenId}
 
-📍 *Nuestras sedes:*
+${EMOJI.LOCATION} *Nuestras sedes:*
 • Montería
 • Cartagena  
 • Apartadó
 
-🕐 *Horario de atención:*
+${EMOJI.CLOCK} *Horario de atención:*
 Lunes a Viernes: 8:00 AM - 6:00 PM
 Sábados: 8:00 AM - 12:00 PM
 
@@ -372,6 +399,5 @@ Por favor, trae tu documento de identidad para el retiro.
 Si tienes alguna pregunta, no dudes en contactarnos.
 
 _Team Service Costa S.A.S._
-_Centro Autorizado KÄRCHER_ 🇩🇪`;
+_Centro Autorizado KÄRCHER_ ${EMOJI.GERMANY_FLAG}`;
 }
-

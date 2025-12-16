@@ -365,20 +365,22 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
           )}
 
           {/* Imagen o video principal */}
-          <div className="max-w-7xl max-h-[85vh] p-4">
+          <div className="flex items-center justify-center p-4 max-h-[85vh]">
             {isVideo(imagenes[currentIndex]) ? (
               <video
                 src={imagenes[currentIndex]}
                 controls
                 autoPlay
-                className="max-w-full max-h-full object-contain rounded-lg"
+                className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg"
+                style={{ width: 'auto', height: 'auto' }}
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <img
                 src={imagenes[currentIndex]}
                 alt={`Foto ${currentIndex + 1}`}
-                className="max-w-full max-h-full object-contain rounded-lg"
+                className="max-w-[90vw] max-h-[80vh] rounded-lg shadow-2xl"
+                style={{ width: 'auto', height: 'auto', objectFit: 'contain' }}
                 onClick={(e) => e.stopPropagation()}
               />
             )}

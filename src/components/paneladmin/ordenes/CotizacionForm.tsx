@@ -7,7 +7,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 import { formatearFechaColombiaLarga, crearTimestampColombia } from '@/lib/utils/dateUtils';
 import { actualizarCotizacion, marcarEsperaRepuestos } from '@/lib/services/ordenService';
-import { notificarCotizacionWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
+import { notificarCotizacionWhatsApp, notificarCambioFaseWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import { notificarCambioFase } from '@/lib/services/emailNotificationService';
 import { obtenerRepuestosDelModelo, obtenerRepuestosDiagnostico, guardarRepuestosCotizacion, obtenerRepuestosCotizacion } from '@/lib/services/repuestoService';
 import { PercentageInput } from '@/components/ui/PercentageInput';
@@ -677,19 +677,29 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h2 className={`text-2xl font-bold mb-2 ${
-          theme === 'light' ? 'text-gray-900' : 'text-white'
-        }`}>
-          Cotización
-        </h2>
-        <p className={`text-sm ${
-          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-        }`}>
-          {puedeEditarGeneral 
-            ? 'Complete la cotización para el cliente'
-            : 'Cotización completada - Solo lectura'}
-        </p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h2 className={`text-2xl font-bold mb-2 ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            Cotización
+          </h2>
+          <p className={`text-sm ${
+            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+          }`}>
+            {puedeEditarGeneral 
+              ? 'Complete la cotización para el cliente'
+              : 'Cotización completada - Solo lectura'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => notificarCambioFaseWhatsApp(orden.id, 'Cotización')}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors bg-[#25D366] hover:bg-[#128C7E] text-white shadow-sm"
+        >
+          <MessageCircle className="w-5 h-5" />
+          <span>WhatsApp</span>
+        </button>
       </div>
 
       {!faseIniciada && (estado === 'Cotización' || estado === 'Esperando repuestos') && (
@@ -1311,7 +1321,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                   <span>Enviar cotización</span>
                 </>
               )}
-            </button>
+              </button>
           </div>
         </div>
       )}
