@@ -322,3 +322,56 @@ Si tienes alguna pregunta, no dudes en contactarnos.
 _Team Service Costa S.A.S._
 _Centro Autorizado KÄRCHER_ 🇩🇪`;
 }
+
+/**
+ * Mensaje de cotización rechazada
+ * Se envía cuando el cliente rechaza la cotización
+ */
+export function getMensajeCotizacionRechazada(data: {
+  clienteNombre: string;
+  ordenId: string;
+  valorRevision: number;
+  trackingUrl: string;
+}): string {
+  const { clienteNombre, ordenId, valorRevision, trackingUrl } = data;
+  
+  // Formatear el valor de revisión a moneda colombiana
+  const valorFormateado = new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0
+  }).format(valorRevision);
+  
+  return `❌ *Cotización Rechazada*
+
+Hola ${clienteNombre},
+
+Te informamos que la cotización de tu orden *${ordenId}* ha sido registrada como *rechazada*.
+
+💰 *Costo de Revisión:* ${valorFormateado}
+Este valor corresponde al diagnóstico técnico realizado a tu equipo.
+
+📦 *Entrega del equipo:*
+Tu equipo está disponible para ser recogido en nuestras instalaciones.
+Por favor, acércate para realizar el pago del valor de revisión y retirar tu equipo.
+
+🔍 *Consulta tu orden aquí:*
+${trackingUrl}estado-producto?codigo=${ordenId}
+
+📍 *Nuestras sedes:*
+• Montería
+• Cartagena  
+• Apartadó
+
+🕐 *Horario de atención:*
+Lunes a Viernes: 8:00 AM - 6:00 PM
+Sábados: 8:00 AM - 12:00 PM
+
+Por favor, trae tu documento de identidad para el retiro.
+
+Si tienes alguna pregunta, no dudes en contactarnos.
+
+_Team Service Costa S.A.S._
+_Centro Autorizado KÄRCHER_ 🇩🇪`;
+}
+

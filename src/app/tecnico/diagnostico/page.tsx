@@ -61,15 +61,29 @@ export default function FormularioDiagnostico() {
   ];
 
   useEffect(() => {
-    const session = localStorage.getItem('userSession');
-    if (session) {
-      const parsedSession = JSON.parse(session);
-      if (parsedSession.isAuthenticated && parsedSession.role === 'tecnico') {
-        setUserSession(parsedSession);
+    // SSR protection
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const session = window.localStorage.getItem('userSession');
+      if (session) {
+        try {
+          const parsedSession = JSON.parse(session);
+          if (parsedSession.isAuthenticated && parsedSession.role === 'tecnico') {
+            setUserSession(parsedSession);
+          } else {
+            router.push('/');
+          }
+        } catch (parseError) {
+          console.error('Error parsing session:', parseError);
+          window.localStorage.removeItem('userSession');
+          router.push('/');
+        }
       } else {
         router.push('/');
       }
-    } else {
+    } catch (error) {
+      console.error('Error accessing localStorage:', error);
       router.push('/');
     }
   }, [router]);

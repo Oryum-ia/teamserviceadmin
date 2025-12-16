@@ -1,10 +1,17 @@
 /**
  * Servicio para gestionar el estado de órdenes en localStorage
  * con sincronización en tiempo real con Supabase
+ * 
+ * ⚠️ SSR-Safe: Todas las funciones verifican typeof window antes de acceder a localStorage
  */
 
 const ORDEN_STORAGE_KEY = 'orden_activa';
 const ORDEN_TIMESTAMP_KEY = 'orden_timestamp';
+
+/**
+ * Verificar si estamos en el cliente (browser)
+ */
+const isClient = typeof window !== 'undefined';
 
 export interface OrdenLocalData {
   id: number;
@@ -46,9 +53,11 @@ export interface OrdenLocalData {
  * Guardar orden completa en localStorage
  */
 export const saveOrdenToLocalStorage = (orden: OrdenLocalData): void => {
+  if (!isClient) return;
+  
   try {
-    localStorage.setItem(ORDEN_STORAGE_KEY, JSON.stringify(orden));
-    localStorage.setItem(ORDEN_TIMESTAMP_KEY, new Date().toISOString());
+    window.localStorage.setItem(ORDEN_STORAGE_KEY, JSON.stringify(orden));
+    window.localStorage.setItem(ORDEN_TIMESTAMP_KEY, new Date().toISOString());
     console.log('✅ Orden guardada en localStorage:', orden.numero_orden);
   } catch (error) {
     console.error('❌ Error guardando orden en localStorage:', error);
@@ -59,8 +68,10 @@ export const saveOrdenToLocalStorage = (orden: OrdenLocalData): void => {
  * Obtener orden desde localStorage
  */
 export const getOrdenFromLocalStorage = (): OrdenLocalData | null => {
+  if (!isClient) return null;
+  
   try {
-    const ordenStr = localStorage.getItem(ORDEN_STORAGE_KEY);
+    const ordenStr = window.localStorage.getItem(ORDEN_STORAGE_KEY);
     if (!ordenStr) return null;
     
     const orden = JSON.parse(ordenStr);
@@ -76,6 +87,8 @@ export const getOrdenFromLocalStorage = (): OrdenLocalData | null => {
  * Actualizar campos específicos de la orden en localStorage
  */
 export const updateOrdenFields = (fields: Partial<OrdenLocalData>): void => {
+  if (!isClient) return;
+  
   try {
     const orden = getOrdenFromLocalStorage();
     if (!orden) {
@@ -99,9 +112,11 @@ export const updateOrdenFields = (fields: Partial<OrdenLocalData>): void => {
  * Limpiar orden del localStorage
  */
 export const clearOrdenFromLocalStorage = (): void => {
+  if (!isClient) return;
+  
   try {
-    localStorage.removeItem(ORDEN_STORAGE_KEY);
-    localStorage.removeItem(ORDEN_TIMESTAMP_KEY);
+    window.localStorage.removeItem(ORDEN_STORAGE_KEY);
+    window.localStorage.removeItem(ORDEN_TIMESTAMP_KEY);
     console.log('🗑️ Orden eliminada de localStorage');
   } catch (error) {
     console.error('❌ Error limpiando localStorage:', error);
@@ -112,6 +127,8 @@ export const clearOrdenFromLocalStorage = (): void => {
  * Verificar si la orden en localStorage es la misma que la solicitada
  */
 export const isOrdenInLocalStorage = (ordenId: number): boolean => {
+  if (!isClient) return false;
+  
   const orden = getOrdenFromLocalStorage();
   return orden?.id === ordenId;
 };
@@ -120,5 +137,11 @@ export const isOrdenInLocalStorage = (ordenId: number): boolean => {
  * Obtener timestamp de última actualización
  */
 export const getOrdenTimestamp = (): string | null => {
-  return localStorage.getItem(ORDEN_TIMESTAMP_KEY);
+  if (!isClient) return null;
+  
+  try {
+    return window.localStorage.getItem(ORDEN_TIMESTAMP_KEY);
+  } catch {
+    return null;
+  }
 };

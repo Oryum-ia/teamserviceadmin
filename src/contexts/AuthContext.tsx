@@ -55,15 +55,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Cargar usuario desde localStorage al inicializar
   useEffect(() => {
-    const savedUser = localStorage.getItem('teamservice_user')
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser)
-        setUser({ ...userData, activo: userData.activo ?? true })
-      } catch (error) {
-        console.error('Error parsing saved user:', error)
-        localStorage.removeItem('teamservice_user')
+    // SSR protection
+    if (typeof window === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const savedUser = window.localStorage.getItem('teamservice_user')
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser)
+          setUser({ ...userData, activo: userData.activo ?? true })
+        } catch (error) {
+          console.error('Error parsing saved user:', error)
+          window.localStorage.removeItem('teamservice_user')
+        }
       }
+    } catch (error) {
+      console.error('Error accessing localStorage:', error)
     }
     setLoading(false)
   }, [])
@@ -87,7 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Guardar usuario en localStorage
-    localStorage.setItem('teamservice_user', JSON.stringify(mockUser.user))
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('teamservice_user', JSON.stringify(mockUser.user))
+    }
     setUser(mockUser.user)
     
     // Redireccionar según el rol
@@ -101,7 +113,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = () => {
-    localStorage.removeItem('teamservice_user')
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('teamservice_user')
+    }
     setUser(null)
     router.push('/login')
   }

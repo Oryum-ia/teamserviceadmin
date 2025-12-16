@@ -5,6 +5,7 @@ import {
   getMensajeCotizacion,
   getMensajeBodega,
   getMensajeChatarrizado,
+  getMensajeCotizacionRechazada,
   openWhatsApp,
   generateWhatsAppURL,
 } from "./whatsappService";
@@ -363,5 +364,57 @@ export async function notificarChatarrizadoWhatsApp(
     console.log("✅ WhatsApp abierto para notificación de chatarrizado");
   } catch (error) {
     console.error("❌ Error en notificarChatarrizadoWhatsApp:", error);
+  }
+}
+
+/**
+ * Notificar cotización rechazada por WhatsApp
+ * Informa al cliente que debe pagar el valor de revisión y recoger el equipo
+ */
+export async function notificarCotizacionRechazadaWhatsApp(
+  ordenId: string
+): Promise<void> {
+  try {
+    const { data: orden, error: ordenError } = await supabase
+      .from("ordenes")
+      .select(
+        `
+        *,
+        cliente:clientes(*)
+      `
+      )
+      .eq("id", ordenId)
+      .single();
+
+    if (ordenError || !orden) {
+      console.error("❌ Error al obtener orden:", ordenError);
+      return;
+    }
+
+    if (!orden.cliente?.telefono && !orden.cliente?.celular) {
+      console.warn("⚠️ Cliente sin teléfono, no se puede enviar notificación");
+      return;
+    }
+
+    const telefono = orden.cliente.celular || orden.cliente.telefono;
+    const clienteNombre =
+      orden.cliente.es_juridica
+        ? orden.cliente.razon_social || orden.cliente.nombre_comercial || 'Cliente'
+        : orden.cliente.nombre_contacto || orden.cliente.nombre_comercial || orden.cliente.razon_social || 'Cliente';
+
+    // Obtener el valor de revisión de la orden
+    const valorRevision = orden.valor_revision || 0;
+
+    const mensaje = getMensajeCotizacionRechazada({
+      clienteNombre,
+      ordenId: orden.codigo,
+      valorRevision,
+      trackingUrl: TRACKING_URL,
+    });
+
+    openWhatsApp(telefono, mensaje);
+    console.log("✅ WhatsApp abierto para notificación de cotización rechazada");
+  } catch (error) {
+    console.error("❌ Error en notificarCotizacionRechazadaWhatsApp:", error);
   }
 }

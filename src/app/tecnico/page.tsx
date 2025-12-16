@@ -74,8 +74,10 @@ export default function PanelTecnico() {
 
   // Función para cargar diagnósticos del localStorage
   const cargarDiagnosticos = () => {
+    if (typeof window === 'undefined') return;
+    
     try {
-      const diagnosticosGuardados = localStorage.getItem('diagnosticos-tecnico');
+      const diagnosticosGuardados = window.localStorage.getItem('diagnosticos-tecnico');
       if (diagnosticosGuardados) {
         const diagnosticos = JSON.parse(diagnosticosGuardados);
         setDiagnosticos(diagnosticos);
@@ -100,9 +102,11 @@ export default function PanelTecnico() {
 
   // Función para guardar diagnóstico en localStorage
   const guardarDiagnostico = (diagnostico: DiagnosticoForm) => {
+    if (typeof window === 'undefined') return null;
+    
     try {
       const diagnosticosActuales = JSON.parse(
-        localStorage.getItem('diagnosticos-tecnico') || '[]'
+        window.localStorage.getItem('diagnosticos-tecnico') || '[]'
       );
       
       const nuevoDiagnostico = {
@@ -113,7 +117,7 @@ export default function PanelTecnico() {
       };
       
       const diagnosticosActualizados = [...diagnosticosActuales, nuevoDiagnostico];
-      localStorage.setItem('diagnosticos-tecnico', JSON.stringify(diagnosticosActualizados));
+      window.localStorage.setItem('diagnosticos-tecnico', JSON.stringify(diagnosticosActualizados));
       
       // Actualizar estado
       setDiagnosticos(diagnosticosActualizados);
@@ -127,16 +131,30 @@ export default function PanelTecnico() {
   };
 
   useEffect(() => {
-    const session = localStorage.getItem('userSession');
-    if (session) {
-      const parsedSession = JSON.parse(session);
-      if (parsedSession.isAuthenticated && parsedSession.role === 'tecnico') {
-        setUserSession(parsedSession);
-        cargarDiagnosticos(); // Cargar diagnósticos al iniciar
+    // SSR protection
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const session = window.localStorage.getItem('userSession');
+      if (session) {
+        try {
+          const parsedSession = JSON.parse(session);
+          if (parsedSession.isAuthenticated && parsedSession.role === 'tecnico') {
+            setUserSession(parsedSession);
+            cargarDiagnosticos(); // Cargar diagnósticos al iniciar
+          } else {
+            router.push('/');
+          }
+        } catch (parseError) {
+          console.error('Error parsing session:', parseError);
+          window.localStorage.removeItem('userSession');
+          router.push('/');
+        }
       } else {
         router.push('/');
       }
-    } else {
+    } catch (error) {
+      console.error('Error accessing localStorage:', error);
       router.push('/');
     }
   }, [router]);
@@ -227,7 +245,9 @@ export default function PanelTecnico() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('userSession');
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('userSession');
+    }
     router.push('/');
   };
 

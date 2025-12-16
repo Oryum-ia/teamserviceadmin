@@ -486,10 +486,12 @@ export default function OrdenDetallePage() {
       saveOrdenToLocalStorage(ordenActualizada);
       
       // Limpiar caché de repuestos en localStorage si se retrocede de cotización o diagnóstico
-      if (faseActual === 'cotizacion') {
-        localStorage.removeItem(`repuestos_cotizacion_${ordenId}`);
-      } else if (faseActual === 'diagnostico') {
-        localStorage.removeItem(`repuestos_diagnostico_${ordenId}`);
+      if (typeof window !== 'undefined') {
+        if (faseActual === 'cotizacion') {
+          window.localStorage.removeItem(`repuestos_cotizacion_${ordenId}`);
+        } else if (faseActual === 'diagnostico') {
+          window.localStorage.removeItem(`repuestos_diagnostico_${ordenId}`);
+        }
       }
 
       toast.success(`Fase retrocedida a ${faseAnterior.label}`);
@@ -1092,7 +1094,9 @@ export default function OrdenDetallePage() {
       toast.success('Orden eliminada exitosamente');
       
       // Limpiar localStorage
-      localStorage.removeItem('ordenActual');
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('ordenActual');
+      }
       
       // Redirigir al panel de órdenes
       router.push('/paneladmin?section=ordenes');

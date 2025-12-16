@@ -61,22 +61,36 @@ function PanelAdminContent() {
   };
 
   useEffect(() => {
-    const session = localStorage.getItem('userSession');
-    console.log('🔍 Panel Admin - Verificando sesión:', session);
+    // SSR protection - verificar que estamos en el cliente
+    if (typeof window === 'undefined') return;
 
-    if (session) {
-      const parsedSession = JSON.parse(session);
-      console.log('📦 Sesión parseada:', parsedSession);
+    try {
+      const session = window.localStorage.getItem('userSession');
+      console.log('🔍 Panel Admin - Verificando sesión:', session);
 
-      if (parsedSession.isAuthenticated) {
-        console.log('✅ Sesión válida, cargando panel...');
-        setUserSession(parsedSession);
+      if (session) {
+        try {
+          const parsedSession = JSON.parse(session);
+          console.log('📦 Sesión parseada:', parsedSession);
+
+          if (parsedSession.isAuthenticated) {
+            console.log('✅ Sesión válida, cargando panel...');
+            setUserSession(parsedSession);
+          } else {
+            console.log('❌ Sesión inválida, redirigiendo a login...');
+            router.push('/');
+          }
+        } catch (parseError) {
+          console.error('❌ Error al parsear sesión:', parseError);
+          window.localStorage.removeItem('userSession');
+          router.push('/');
+        }
       } else {
-        console.log('❌ Sesión inválida, redirigiendo a login...');
+        console.log('❌ No hay sesión, redirigiendo a login...');
         router.push('/');
       }
-    } else {
-      console.log('❌ No hay sesión, redirigiendo a login...');
+    } catch (error) {
+      console.error('❌ Error al acceder a localStorage:', error);
       router.push('/');
     }
   }, [router]);
@@ -99,7 +113,9 @@ function PanelAdminContent() {
   }, [userSession]);
 
   const handleLogout = () => {
-    localStorage.removeItem('userSession');
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('userSession');
+    }
     router.push('/');
   };
 
