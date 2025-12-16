@@ -199,10 +199,10 @@ export default function OrdenesNuevo() {
       );
     }
 
-    // Filtrar por sede
+    // Filtrar por sede (usa la sede seleccionada en la orden, no la del usuario)
     if (columnFilters.sede.trim()) {
       resultado = resultado.filter(orden =>
-        orden.sede_creador?.toLowerCase().includes(columnFilters.sede.toLowerCase())
+        orden.sede?.toLowerCase().includes(columnFilters.sede.toLowerCase())
       );
     }
 
@@ -742,7 +742,7 @@ export default function OrdenesNuevo() {
                         <td className={`px-4 py-4 whitespace-nowrap ${
                           theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                         }`}>
-                          {orden.sede_creador || '-'}
+                          {orden.sede || '-'}
                         </td>
                         <td className={`px-4 py-4 whitespace-nowrap ${
                           theme === 'light' ? 'text-gray-600' : 'text-gray-400'
