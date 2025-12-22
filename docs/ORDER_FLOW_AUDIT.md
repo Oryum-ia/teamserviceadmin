@@ -44,36 +44,36 @@ Exit code: 0
 
 ---
 
-## 🟡 Problemas Encontrados (Pendientes)
+## 🟡 Problemas Encontrados (Corregidos en Esta Sesión)
 
-### 1. Función `handleAvanzarACotizacion` Redundante
-- **Archivo:** `DiagnosticoForm.tsx` (líneas 342-385)
-- **Problema:** Esta función hace lo mismo que `handleAvanzarFase` en `page.tsx`
-- **Impacto:** Código duplicado, potencial desincronización
-- **Recomendación:** Eliminar y usar solo la lógica en `page.tsx`
+### 1. ❌ ~~Función `handleAvanzarACotizacion` Redundante~~ ✅ ELIMINADA
+- **Archivo:** `DiagnosticoForm.tsx`
+- **Solución:** Función eliminada (45 líneas menos). El avance se maneja en `page.tsx`.
 
-### 2. Uso de `window` para Comunicación entre Componentes
+### 2. ❌ ~~Tipado Débil~~ ✅ CORREGIDO
+- **Archivo:** `database.types.ts`
+- **Solución:** Creado tipo `Orden` completo con ~180 líneas reflejando la BD real:
+  - `OrdenEstado` - tipo unión para todos los estados
+  - `RepuestoDiagnostico` y `RepuestoCotizacion` - interfaces para repuestos
+  - `Orden` - interface completa con todos los campos
+
+### 3. ❌ ~~URLs de Tracking Mal Formadas~~ ✅ CORREGIDO
+- **Archivos:** `templates.ts`, `TerminosCondicionesModal.tsx`
+- **Problema:** Variables de entorno como texto literal en lugar de interpoladas
+- **Solución:** 
+  - Creada constante `TRACKING_URL` centralizada en templates.ts
+  - Corregidos todos los href con interpolación correcta
+  - URL por defecto actualizada a `https://tscosta.com.co/`
+
+### Pendientes (Mejoras Futuras)
+
+#### 1. Uso de `window` para Comunicación entre Componentes
 - **Archivos:** Todos los formularios
 - **Problema:** Uso de `(window as any).guardarDatos*` para exponer funciones
 - **Impacto:** Anti-pattern que puede causar memory leaks y race conditions
 - **Recomendación:** Usar refs con `useImperativeHandle` o context
 
-### 3. Tipado Débil
-- **Archivos:** Múltiples
-- **Problema:** Uso excesivo de `any` type
-  - `orden: any` en todas las props de formularios
-  - `tecnicos: any[]` en DiagnosticoForm
-  - `updateData: any` en múltiples lugares
-- **Impacto:** Sin type safety, errores potenciales en runtime
-- **Recomendación:** Crear interfaces para `Orden` y usar tipos estrictos
-
-### 4. Debounce No Cancelado al Desmontar
-- **Archivo:** `CotizacionForm.tsx`
-- **Problema:** El timeout de debounce puede ejecutarse después de desmontar
-- **Líneas Afectadas:** 340-402 (guardarComentariosConDebounce)
-- **Recomendación:** Agregar cleanup en useEffect
-
-### 5. Importación Dinámica Innecesaria de Supabase
+#### 2. Importación Dinámica Innecesaria de Supabase
 - **Archivos:** Todos los formularios
 - **Problema:** Se usa `await import('@/lib/supabaseClient')` repetidamente
 - **Impacto:** Overhead innecesario, código más complejo
@@ -170,7 +170,7 @@ Los formularios tienen muchos re-renders. Usar `useMemo` y `useCallback` para op
 - [x] Guardado con debounce
 - [x] Manejo de fotos
 - [x] Selección de técnico
-- [ ] Eliminar handleAvanzarACotizacion redundante
+- [x] Eliminar handleAvanzarACotizacion redundante ✅ ELIMINADA
 - [ ] Tipado estricto
 
 ### CotizacionForm.tsx

@@ -2,6 +2,10 @@
  * Plantillas de correo para notificaciones del sistema
  */
 
+// URL de seguimiento por defecto
+const DEFAULT_TRACKING_URL = 'https://tscosta.com.co/';
+const TRACKING_URL = process.env.NEXT_PUBLIC_TRACKING_URL || DEFAULT_TRACKING_URL;
+
 // Estilos comunes para todas las plantillas
 const baseStyles = `
   body {
@@ -144,7 +148,7 @@ export function templateCambioFase(data: {
       <p><strong>Team Service Costa S.A.S.</strong></p>
       <p>Centro Autorizado KÄRCHER</p>
       <p>Montería, Cartagena y Apartadó</p>
-      <p><a href="process.env.NEXT_PUBLIC_TRACKING_URL">Visita nuestro sitio web</a></p>
+      <p><a href="${TRACKING_URL}">Visita nuestro sitio web</a></p>
     </div>
   </div>
 </body>
@@ -214,7 +218,7 @@ export function templateConfirmacionOrden(data: {
       <p><strong>Team Service Costa S.A.S.</strong></p>
       <p>Centro Autorizado KÄRCHER</p>
       <p>📍 Montería, Cartagena y Apartadó</p>
-      <p><a href=${process.env.NEXT_PUBLIC_TRACKING_URL}>Visita nuestro sitio web</a></p>
+      <p><a href="${TRACKING_URL}">Visita nuestro sitio web</a></p>
     </div>
   </div>
 </body>
@@ -279,7 +283,7 @@ export function templateRespuestaPQR(data: {
       </p>
       
       <div style="text-align: center; margin-top: 30px;">
-        <a href="${process.env.NEXT_PUBLIC_TRACKING_URL}" class="btn">
+        <a href="${TRACKING_URL}" class="btn">
           🌐 Visitar Nuestro Sitio Web
         </a>
       </div>
@@ -293,7 +297,7 @@ export function templateRespuestaPQR(data: {
       <p>Centro Autorizado KÄRCHER</p>
       <p>📍 Montería, Cartagena y Apartadó</p>
       <p>📞 Contacto: <a href="mailto:fede.saus26@gmail.com">fede.saus26@gmail.com</a></p>
-      <p><a href=${process.env.NEXT_PUBLIC_TRACKING_URL}>Visita nuestro sitio web</a></p>
+      <p><a href="${TRACKING_URL}">Visita nuestro sitio web</a></p>
     </div>
   </div>
 </body>
@@ -377,7 +381,7 @@ export function templateRecordatorioMantenimiento(data: {
       <p>📍 Montería, Cartagena y Apartadó</p>
       <p>📞 WhatsApp: <a href="https://wa.me/573000000000">+57 300 000 0000</a></p>
       <p>📧 Email: <a href="mailto:fede.saus26@gmail.com">fede.saus26@gmail.com</a></p>
-      <p><a href=${process.env.NEXT_PUBLIC_TRACKING_URL}>Visita nuestro sitio web</a></p>
+      <p><a href="${TRACKING_URL}">Visita nuestro sitio web</a></p>
     </div>
   </div>
 </body>

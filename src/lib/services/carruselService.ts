@@ -132,10 +132,30 @@ export async function toggleActivoImagen(id: string, activo: boolean) {
 }
 
 /**
- * Subir imagen de carrusel
+ * Detectar si una URL corresponde a un video
+ */
+export const isVideoUrl = (url: string): boolean => {
+  if (!url) return false;
+  const videoExtensions = /\.(mp4|webm|mov|avi|mkv|m4v|ogv)$/i;
+  return videoExtensions.test(url) || url.includes('video/');
+};
+
+/**
+ * Detectar si un archivo es un video
+ */
+export const isVideoFile = (file: File): boolean => {
+  return file.type.startsWith('video/');
+};
+
+/**
+ * Subir imagen o video de carrusel
+ * @param file - Archivo de imagen o video a subir
+ * @param seccion - Sección del carrusel
+ * @returns URL pública del archivo subido
  */
 export async function subirImagenCarrusel(file: File, seccion: string = 'principal'): Promise<string> {
-  const fileExt = file.name.split('.').pop();
+  const fileExt = file.name.split('.').pop()?.toLowerCase();
+  const isVideo = isVideoFile(file);
   const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
   
   // Determinar la carpeta según la sección
@@ -150,12 +170,23 @@ export async function subirImagenCarrusel(file: File, seccion: string = 'princip
   
   const filePath = `${folder}/${fileName}`;
 
+  console.log(`📤 Subiendo ${isVideo ? 'video' : 'imagen'} al carrusel:`, {
+    nombre: file.name,
+    tipo: file.type,
+    tamaño: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+    carpeta: folder
+  });
+
   const { error: uploadError } = await supabase.storage
     .from('imagenes-tienda')
-    .upload(filePath, file);
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type // Asegurar el content-type correcto para videos
+    });
 
   if (uploadError) {
-    console.error("❌ Error al subir imagen:", uploadError);
+    console.error(`❌ Error al subir ${isVideo ? 'video' : 'imagen'}:`, uploadError);
     throw uploadError;
   }
 
@@ -163,6 +194,7 @@ export async function subirImagenCarrusel(file: File, seccion: string = 'princip
     .from('imagenes-tienda')
     .getPublicUrl(filePath);
 
+  console.log(`✅ ${isVideo ? 'Video' : 'Imagen'} subido exitosamente:`, data.publicUrl);
   return data.publicUrl;
 }
 

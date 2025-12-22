@@ -48,48 +48,170 @@ export interface Cliente {
 }
 
 // ============================================
-// ORDEN (Order)
+// ORDEN STATE
+// ============================================
+export type OrdenEstado = 
+  | 'Recepción'
+  | 'Diagnóstico' 
+  | 'Cotización'
+  | 'Esperando repuestos'
+  | 'Esperando aceptación'
+  | 'Reparación'
+  | 'Entrega'
+  | 'Finalizada'
+  | 'Bodega'
+  | 'Chatarrizado';
+
+// ============================================
+// REPUESTO (Spare Part)
+// ============================================
+export interface RepuestoDiagnostico {
+  codigo: string;
+  descripcion: string;
+  cantidad: string | number;
+  pieza_causante?: string;
+}
+
+export interface RepuestoCotizacion {
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  precio_unitario: number;
+  descuento: number;
+  iva: number;
+  en_stock: boolean;
+}
+
+// ============================================
+// ORDEN (Order) - Updated to match DB schema
 // ============================================
 export interface Orden {
   id: string;
+  codigo: string;
+  numero_orden?: string;
   cliente_id: string;
-  numero_orden: string;
-  fase_actual: OrdenPhase;
-  estado: OrdenStatus;
-  responsable?: string;
-  sede?: string;
+  equipo_id?: string;
+  
+  // Estado actual de la orden
+  estado_actual: OrdenEstado;
+  fase_actual?: OrdenPhase; // Legacy field
+  estado?: OrdenStatus; // Legacy field
+  
+  // Tipo de orden
+  tipo_orden?: 'Reparación' | 'Mantenimiento';
+  es_retrabajo?: boolean;
+  
+  // Valores monetarios
+  valor_revision?: number;
   precio_envio?: number;
-
-
-  // Datos del producto
-  tipo_producto?: string;
-  marca?: string;
-  modelo?: string;
-  serial?: string;
-
-  // Diagnóstico
+  subtotal?: number;
+  iva?: number;
+  total?: number;
+  
+  // Aprobación del cliente
+  aprobado_cliente?: boolean | null;
+  envio_cotizacion?: boolean;
+  terminos_aceptados?: boolean;
+  
+  // Firmas
+  firma_cliente?: string;
+  firma_entrega?: string;
+  fecha_firma_cliente?: string;
+  fecha_firma_entrega?: string;
+  fecha_aceptacion_terminos?: string;
+  
+  // Fechas de fases
+  fecha_creacion: string;
+  fecha_fin_recepcion?: string;
+  fecha_inicio_diagnostico?: string;
+  fecha_fin_diagnostico?: string;
+  fecha_cotizacion?: string;
+  fecha_aprobacion?: string;
+  fecha_solicitud_repuestos?: string;
+  fecha_recepcion_repuestos?: string;
+  fecha_inicio_reparacion?: string;
+  fecha_fin_reparacion?: string;
+  fecha_entrega?: string;
+  fecha_proximo_mantenimiento?: string;
+  ultima_actualizacion?: string;
+  
+  // Técnicos asignados
+  tecnico_recepcion?: string;
+  tecnico_diagnostico?: string;
+  tecnico_cotiza?: string;
+  tecnico_repara?: string;
+  tecnico_entrega?: string;
+  
+  // Comentarios por fase
+  comentarios_recepcion?: string;
+  comentarios_diagnostico?: string;
+  comentarios_cotizacion?: string;
+  comentarios_reparacion?: string;
+  
+  // Datos JSON
+  repuestos_diagnostico?: RepuestoDiagnostico[];
+  repuestos_cotizacion?: {
+    repuestos: RepuestoCotizacion[];
+    subtotal?: number;
+    iva?: number;
+    total?: number;
+    valor_revision?: number;
+    ultima_actualizacion?: string;
+  };
+  accesorios?: Array<{
+    nombre: string;
+    estado: 'traido' | 'no_traido' | 'desconocido';
+  }>;
+  
+  // Fotos
+  fotos_recepcion?: string[];
+  fotos_diagnostico?: string[];
+  fotos_reparacion?: string[];
+  fotos_entrega?: string[];
+  
+  // Entrega
+  entrega?: {
+    tipo_entrega?: 'Reparado' | 'Devuelto';
+    calificacion?: number;
+    comentarios_cliente?: string;
+  };
+  calificacion?: number;
+  comentarios_cliente?: string;
+  
+  // Notas
+  nota_orden?: string;
+  
+  // Metadatos
+  sede?: string;
+  responsable?: string;
+  
+  // Relaciones (cargadas con join)
+  cliente?: Cliente;
+  equipo?: {
+    id: string;
+    tipo_equipo?: string;
+    modelo_id?: string;
+    modelo?: {
+      id: string;
+      equipo?: string;
+      cuidado_uso?: string;
+      marca?: {
+        id: string;
+        nombre: string;
+      };
+    };
+  };
+  
+  // Legacy/compatibility
   diagnostico?: {
     descripcion_problema?: string;
     estado_general?: string;
     observaciones?: string;
     notas_internas?: string[];
-    preventivos?: Array<{
-      item: string;
-      descripcion: string;
-      precio: number;
-    }>;
-    tecnico_id?: string;
-    fecha_diagnostico?: string;
+    comentarios?: string;
   };
-
-  // Cotización
   cotizacion?: {
-    repuestos?: Array<{
-      nombre: string;
-      cantidad: number;
-      precio_unitario: number;
-      precio_total: number;
-    }>;
+    repuestos?: RepuestoCotizacion[];
     mano_obra?: number;
     subtotal?: number;
     iva?: number;
@@ -97,22 +219,15 @@ export interface Orden {
     aprobada_por_cliente?: boolean;
     fecha_aprobacion?: string;
     espera_repuestos?: boolean;
-    fecha_espera_repuestos?: string;
   };
-
-  // Reparación
   reparacion?: {
     fecha_inicio?: string;
     fecha_fin?: string;
     tecnico_id?: string;
     descripcion_trabajo?: string;
-    repuestos_usados?: Array<{
-      nombre: string;
-      cantidad: number;
-    }>;
   };
-
-  // Metadata
+  
+  // Comentarios de retroceso
   comentarios_retroceso?: Array<{
     fase_origen: OrdenPhase;
     fase_destino: OrdenPhase;
@@ -121,10 +236,10 @@ export interface Orden {
     fecha: string;
   }>;
 
-  created_at: string;
-  updated_at: string;
-  fecha_finalizacion?: string;
+  created_at?: string;
+  updated_at?: string;
 }
+
 
 // ============================================
 // COMENTARIO (Feedback/Comment)

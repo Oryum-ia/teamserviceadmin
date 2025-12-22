@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Image as ImageIcon, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { Plus, Trash2, Loader2, Image as ImageIcon, ArrowUp, ArrowDown, X, Play } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { CarruselImagen } from '@/types/database.types';
@@ -12,7 +12,9 @@ import {
   crearImagenCarrusel,
   actualizarImagen,
   subirImagenCarrusel,
-  actualizarOrdenImagenes
+  actualizarOrdenImagenes,
+  isVideoUrl,
+  isVideoFile
 } from '@/lib/services/carruselService';
 import DropZoneImagenes from './ordenes/DropZoneImagenes';
 import ImagenViewer from './ordenes/ImagenViewer';
@@ -235,18 +237,44 @@ export default function Carrusel() {
                     theme === 'light' ? 'bg-white' : 'bg-gray-800'
                   }`}
                 >
-                  {/* Imagen */}
+                  {/* Imagen o Video */}
                   <div className="relative h-48 bg-gray-200 dark:bg-gray-700">
                     {imagen.imagen_url ? (
-                      <img
-                        src={imagen.imagen_url}
-                        alt={imagen.titulo || 'Imagen del carrusel'}
-                        className="w-full h-full object-cover cursor-pointer"
-                        onClick={() => {
-                          setSelectedImagen(imagen);
-                          setIsModalOpen(true);
-                        }}
-                      />
+                      isVideoUrl(imagen.imagen_url) ? (
+                        // Renderizar VIDEO
+                        <div 
+                          className="relative w-full h-full cursor-pointer"
+                          onClick={() => {
+                            setSelectedImagen(imagen);
+                            setIsModalOpen(true);
+                          }}
+                        >
+                          <video
+                            src={imagen.imagen_url}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                            preload="metadata"
+                          />
+                          {/* Overlay con ícono de play */}
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors">
+                            <div className="bg-white/90 dark:bg-gray-800/90 rounded-full p-3 shadow-lg">
+                              <Play className="w-8 h-8 text-yellow-500 fill-yellow-500" />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        // Renderizar IMAGEN
+                        <img
+                          src={imagen.imagen_url}
+                          alt={imagen.titulo || 'Imagen del carrusel'}
+                          className="w-full h-full object-cover cursor-pointer"
+                          onClick={() => {
+                            setSelectedImagen(imagen);
+                            setIsModalOpen(true);
+                          }}
+                        />
+                      )
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <ImageIcon className="w-16 h-16 text-gray-400" />
@@ -261,6 +289,15 @@ export default function Carrusel() {
                         #{index + 1}
                       </span>
                     </div>
+                    
+                    {/* Badge de tipo (video) */}
+                    {isVideoUrl(imagen.imagen_url) && (
+                      <div className="absolute top-2 right-2">
+                        <span className="px-2 py-1 rounded-full text-xs font-bold bg-purple-500 text-white">
+                          VIDEO
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Contenido */}
@@ -400,7 +437,7 @@ function CarruselModal({ isOpen, onClose, onSuccess, imagen, ordenActual, seccio
         imagen_url: imagen.imagen_url,
         orden: imagen.orden ?? 0,
         activo: imagen.activo ?? true,
-        seccion: imagen.seccion || seccion
+        seccion: (imagen.seccion as SeccionId) || seccion
       });
       setImagePreview(imagen.imagen_url);
     } else {
@@ -429,21 +466,26 @@ function CarruselModal({ isOpen, onClose, onSuccess, imagen, ordenActual, seccio
   const handleImageUpload = async (files: File[]) => {
     if (files.length === 0) return;
     const file = files[0];
+    const isVideo = isVideoFile(file);
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('La imagen no debe superar los 5MB');
+    // Límite de 50MB para videos, 10MB para imágenes
+    const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    const maxSizeLabel = isVideo ? '50MB' : '10MB';
+
+    if (file.size > maxSize) {
+      toast.error(`El archivo no debe superar los ${maxSizeLabel}`);
       return;
     }
 
     setUploadingImage(true);
     try {
-      const imageUrl = await subirImagenCarrusel(file, seccion);
-      setFormData(prev => ({ ...prev, imagen_url: imageUrl }));
-      setImagePreview(imageUrl);
-      toast.success('Imagen cargada exitosamente');
+      const mediaUrl = await subirImagenCarrusel(file, seccion);
+      setFormData(prev => ({ ...prev, imagen_url: mediaUrl }));
+      setImagePreview(mediaUrl);
+      toast.success(`${isVideo ? 'Video' : 'Imagen'} cargado exitosamente`);
     } catch (err) {
-      console.error('Error al subir imagen:', err);
-      toast.error('Error al subir la imagen');
+      console.error('Error al subir archivo:', err);
+      toast.error(`Error al subir ${isVideo ? 'el video' : 'la imagen'}`);
     } finally {
       setUploadingImage(false);
     }
