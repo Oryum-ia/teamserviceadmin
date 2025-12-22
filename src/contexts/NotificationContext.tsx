@@ -202,6 +202,29 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
+  const markAllAsRead = useCallback(async () => {
+    const unreadNotifications = notifications.filter(n => !n.isRead);
+    if (unreadNotifications.length === 0) return;
+
+    try {
+      const unreadIds = unreadNotifications.map(n => n.id);
+      
+      const { error } = await supabase
+        .from('notificaciones')
+        .update({ leida: true })
+        .in('id', unreadIds);
+
+      if (error) throw error;
+
+      // Actualizar en el estado local
+      setNotifications((prev) =>
+        prev.map((notification) => ({ ...notification, isRead: true }))
+      );
+    } catch (error) {
+      console.error('Error al marcar todas las notificaciones como leídas:', error);
+    }
+  }, [notifications]);
+
   const clearAllNotifications = useCallback(() => {
     setNotifications([]);
   }, []);
@@ -215,6 +238,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     addNotification,
     removeNotification,
     markAsRead,
+    markAllAsRead,
     clearAllNotifications,
     getUnreadCount,
   };

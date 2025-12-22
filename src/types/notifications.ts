@@ -91,6 +91,7 @@ export interface NotificationContextType {
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => void;
   removeNotification: (id: string) => void;
   markAsRead: (id: string) => void;
+  markAllAsRead: () => Promise<void>;
   clearAllNotifications: () => void;
   getUnreadCount: () => number;
 }

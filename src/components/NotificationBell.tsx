@@ -1,18 +1,19 @@
 "use client";
 
 import { useState } from 'react';
-import { Bell, BellRing } from 'lucide-react';
+import { Bell, BellRing, CheckCheck, ChevronUp, ChevronDown } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { NotificationModal } from './NotificationModal';
 import { Notification } from '../types/notifications';
 import { useTheme } from './ThemeProvider';
 
 export function NotificationBell() {
-  const { notifications, getUnreadCount, markAsRead } = useNotifications();
+  const { notifications, getUnreadCount, markAsRead, markAllAsRead } = useNotifications();
   const { theme } = useTheme();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
 
   const unreadCount = getUnreadCount();
   const hasUnread = unreadCount > 0;
@@ -82,30 +83,49 @@ export function NotificationBell() {
               ? 'bg-white border-gray-200'
               : 'bg-dark-bg-secondary border-lime-400/30'
           }`}>
-            <div className={`p-4 border-b ${
+            <div className={`p-4 border-b flex items-center justify-between ${
               theme === 'light'
                 ? 'border-gray-200'
                 : 'border-dark-bg-tertiary'
             }`}>
-              <h3 className={`text-lg font-semibold ${
-                theme === 'light'
-                  ? 'text-gray-900'
-                  : 'text-white'
-              }`}>
-                Notificaciones
-              </h3>
-              {hasUnread && (
-                <p className={`text-sm ${
+              <div>
+                <h3 className={`text-lg font-semibold ${
                   theme === 'light'
-                    ? 'text-gray-600'
-                    : 'text-gray-400'
+                    ? 'text-gray-900'
+                    : 'text-white'
                 }`}>
-                  {unreadCount} sin leer
-                </p>
+                  Notificaciones
+                </h3>
+                {hasUnread && (
+                  <p className={`text-sm ${
+                    theme === 'light'
+                      ? 'text-gray-600'
+                      : 'text-gray-400'
+                  }`}>
+                    {unreadCount} sin leer
+                  </p>
+                )}
+              </div>
+              {hasUnread && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markAllAsRead();
+                  }}
+                  title="Marcar todas como leídas"
+                  className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium ${
+                    theme === 'light'
+                      ? 'bg-mint-100 text-mint-700 hover:bg-mint-200'
+                      : 'bg-lime-400/10 text-lime-400 hover:bg-lime-400/20'
+                  }`}
+                >
+                  <CheckCheck className="h-4 w-4" />
+                  <span className="hidden sm:inline">Marcar leídas</span>
+                </button>
               )}
             </div>
 
-            <div className="max-h-80 overflow-y-auto">
+            <div className={`${showAllNotifications ? 'max-h-[60vh]' : 'max-h-80'} overflow-y-auto`}>
               {notifications.length === 0 ? (
                 <div className={`p-6 text-center ${
                   theme === 'light'
@@ -121,7 +141,7 @@ export function NotificationBell() {
                     ? 'divide-gray-200'
                     : 'divide-dark-bg-tertiary'
                 }`}>
-                  {notifications.slice(0, 5).map((notification) => (
+                  {(showAllNotifications ? notifications : notifications.slice(0, 5)).map((notification) => (
                     <button
                       key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
@@ -173,17 +193,33 @@ export function NotificationBell() {
               )}
               
               {notifications.length > 5 && (
-                <div className={`p-4 border-t text-center ${
+                <div className={`p-3 border-t text-center ${
                   theme === 'light'
-                    ? 'border-gray-200'
-                    : 'border-gray-700'
+                    ? 'border-gray-200 bg-gray-50'
+                    : 'border-gray-700 bg-dark-bg-tertiary/30'
                 }`}>
-                  <button className={`text-sm ${
-                    theme === 'light'
-                      ? 'text-mint-600 hover:text-mint-800'
-                      : 'text-lime-400 hover:text-lime-300'
-                  }`}>
-                    Ver todas las notificaciones
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAllNotifications(!showAllNotifications);
+                    }}
+                    className={`text-sm flex items-center justify-center gap-1.5 mx-auto font-medium ${
+                      theme === 'light'
+                        ? 'text-mint-600 hover:text-mint-800'
+                        : 'text-lime-400 hover:text-lime-300'
+                    }`}
+                  >
+                    {showAllNotifications ? (
+                      <>
+                        <ChevronUp className="h-4 w-4" />
+                        Mostrar menos
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4" />
+                        Ver todas ({notifications.length})
+                      </>
+                    )}
                   </button>
                 </div>
               )}
