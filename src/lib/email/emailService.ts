@@ -73,7 +73,7 @@ export async function enviarCorreoCambioFase(data: {
   faseActual: string;
   productoId?: string;
 }): Promise<boolean> {
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://tscosta.com.co/';
   const descripcionFase = getDescripcionFase(data.faseActual);
 
   const html = templateCambioFase({
@@ -103,7 +103,7 @@ export async function enviarCorreoConfirmacionOrden(data: {
   equipoDescripcion?: string;
   productoId?: string;
 }): Promise<boolean> {
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://tscosta.com.co/';
 
   const html = templateConfirmacionOrden({
     clienteNombre: data.clienteNombre,
@@ -158,7 +158,7 @@ export async function enviarCorreoRecordatorioMantenimiento(data: {
   fechaMantenimiento: string;
   productoId?: string;
 }): Promise<boolean> {
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://tscosta.com.co/';
 
   const html = templateRecordatorioMantenimiento({
     clienteNombre: data.clienteNombre,
@@ -200,7 +200,7 @@ export async function enviarCorreoCotizacionRechazada(data: {
   ordenId: string;
   valorRevision: number;
 }): Promise<boolean> {
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://tscosta.com.co/';
   
   // Formatear el valor de revisión a moneda colombiana
   const valorFormateado = new Intl.NumberFormat('es-CO', {

@@ -14,31 +14,54 @@ const ORDEN_TIMESTAMP_KEY = 'orden_timestamp';
 const isClient = typeof window !== 'undefined';
 
 export interface OrdenLocalData {
-  id: number;
+  id: number | string;
   // Datos básicos de la orden
   numero_orden: string;
-  cliente_id: number;
+  codigo?: string;
+  cliente_id: number | string;
   equipo: string;
   marca: string;
   modelo: string;
   serie: string;
   fase_actual: string;
   estado: string;
+  estado_actual?: string;
   
   // Datos de cotización
   tipo_orden?: string | null;
-  tecnico_repara?: number | null;
+  tecnico_repara?: number | string | null;
+  tecnico_cotiza?: number | string | null;
   aprobacion_marca?: any;
+  envio_cotizacion?: boolean;
+  aprobado_cliente?: boolean | null;
+  repuestos_cotizacion?: any;
+  precio_envio?: number;
+  total?: number;
   
   // Datos de diagnóstico
   diagnostico?: string | null;
-  tecnico_diagnostico?: number | null;
+  tecnico_diagnostico?: number | string | null;
   fecha_diagnostico?: string | null;
+  repuestos_diagnostico?: any;
+  comentarios_diagnostico?: string | null;
+  comentarios_cotizacion?: string | null;
+  comentarios_reparacion?: string | null;
   
   // Datos de reparación
   trabajos_realizados?: string | null;
   repuestos_utilizados?: any;
   fecha_reparacion?: string | null;
+  
+  // Fechas de fases
+  fecha_inicio_diagnostico?: string | null;
+  fecha_fin_diagnostico?: string | null;
+  fecha_cotizacion?: string | null;
+  fecha_aprobacion?: string | null;
+  fecha_inicio_reparacion?: string | null;
+  fecha_fin_reparacion?: string | null;
+  fecha_entrega?: string | null;
+  fecha_solicitud_repuestos?: string | null;
+  fecha_recepcion_repuestos?: string | null;
   
   // Metadatos
   ultima_actualizacion: string;
@@ -47,6 +70,9 @@ export interface OrdenLocalData {
   // Relaciones
   cliente?: any;
   tecnico?: any;
+  
+  // Campos adicionales
+  [key: string]: any; // Permitir campos adicionales
 }
 
 /**

@@ -287,9 +287,15 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
             en_stock: true
           }));
           setRepuestos(repuestosMapeados);
-          // Guardar inmediatamente en cotización con totales
-          const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
-          await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
+          // ⚠️ Solo guardar en BD si estamos en fase de cotización
+          // Esto evita sobrescribir datos reales cuando se ve desde otras fases
+          const enFaseCotizacion = orden.estado_actual === 'Cotización' || 
+                                   orden.estado_actual === 'Esperando repuestos' ||
+                                   orden.estado_actual === 'Esperando aceptación';
+          if (enFaseCotizacion) {
+            const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
+            await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
+          }
           setRepuestosCargados(true);
           return;
         }
@@ -310,8 +316,14 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
               en_stock: true
             }));
             setRepuestos(repuestosMapeados);
-            const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
-            await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
+            // ⚠️ Solo guardar en BD si estamos en fase de cotización
+            const enFaseCotizacion = orden.estado_actual === 'Cotización' || 
+                                     orden.estado_actual === 'Esperando repuestos' ||
+                                     orden.estado_actual === 'Esperando aceptación';
+            if (enFaseCotizacion) {
+              const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
+              await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
+            }
           }
         }
       } catch (error) {
@@ -648,7 +660,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       toast.success('Estado actualizado a "Esperando aceptación"');
       
       // Enviar notificaciones por email y WhatsApp
-      const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
+      const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://tscosta.com.co/';
       const cotizacionUrl = `${trackingUrl}estado-producto?codigo=${orden.codigo}`;
       
       try {

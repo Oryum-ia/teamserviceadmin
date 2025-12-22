@@ -176,24 +176,35 @@ export async function guardarRepuestosDiagnostico(
 
 /**
  * Obtener repuestos de diagnóstico de una orden
+ * Returns empty array if not found or error
  */
 export async function obtenerRepuestosDiagnostico(ordenId: string) {
-  const { data, error } = await supabase
-    .from("ordenes")
-    .select("repuestos_diagnostico")
-    .eq("id", ordenId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("ordenes")
+      .select("repuestos_diagnostico")
+      .eq("id", ordenId)
+      .single();
 
-  if (error) {
-    console.error("❌ Error al obtener repuestos de diagnóstico:", error);
-    throw error;
+    if (error) {
+      if (error.code === 'PGRST116') {
+        console.log("ℹ️ Orden no encontrada para repuestos de diagnóstico");
+        return [];
+      }
+      console.error("❌ Error al obtener repuestos de diagnóstico:", error);
+      return [];
+    }
+
+    return data?.repuestos_diagnostico || [];
+  } catch (err) {
+    console.error("❌ Error inesperado al obtener repuestos de diagnóstico:", err);
+    return [];
   }
-
-  return data?.repuestos_diagnostico || [];
 }
 
 /**
  * Guardar repuestos de cotización en una orden
+ * Returns true on success, false on error
  */
 export async function guardarRepuestosCotizacion(
   ordenId: string,
@@ -212,62 +223,78 @@ export async function guardarRepuestosCotizacion(
     total: number;
     valor_revision?: number;
   }
-) {
-  // Construir el objeto a guardar
-  const dataToSave: any = {
-    repuestos: repuestos,
-    ultima_actualizacion: new Date().toISOString()
-  };
-
-  // Si se proporcionan totales, incluirlos en el JSON
-  if (totales) {
-    dataToSave.subtotal = totales.subtotal;
-    dataToSave.iva = totales.iva;
-    dataToSave.total = totales.total;
-    if (totales.valor_revision !== undefined) {
-      dataToSave.valor_revision = totales.valor_revision;
-    }
-  }
-
-  const { error } = await supabase
-    .from("ordenes")
-    .update({
-      repuestos_cotizacion: dataToSave,
+): Promise<boolean> {
+  try {
+    // Construir el objeto a guardar
+    const dataToSave: any = {
+      repuestos: repuestos,
       ultima_actualizacion: new Date().toISOString()
-    })
-    .eq("id", ordenId);
+    };
 
-  if (error) {
-    console.error("❌ Error al guardar repuestos de cotización:", error);
-    throw error;
+    // Si se proporcionan totales, incluirlos en el JSON
+    if (totales) {
+      dataToSave.subtotal = totales.subtotal;
+      dataToSave.iva = totales.iva;
+      dataToSave.total = totales.total;
+      if (totales.valor_revision !== undefined) {
+        dataToSave.valor_revision = totales.valor_revision;
+      }
+    }
+
+    const { error } = await supabase
+      .from("ordenes")
+      .update({
+        repuestos_cotizacion: dataToSave,
+        ultima_actualizacion: new Date().toISOString()
+      })
+      .eq("id", ordenId);
+
+    if (error) {
+      console.error("❌ Error al guardar repuestos de cotización:", error);
+      return false;
+    }
+
+    console.log("✅ Repuestos de cotización guardados con totales:", totales);
+    return true;
+  } catch (err) {
+    console.error("❌ Error inesperado al guardar repuestos de cotización:", err);
+    return false;
   }
-
-  console.log("✅ Repuestos de cotización guardados con totales:", totales);
-  return true;
 }
 
 /**
  * Obtener repuestos de cotización de una orden
+ * Returns empty array if not found or error
  */
 export async function obtenerRepuestosCotizacion(ordenId: string) {
-  const { data, error } = await supabase
-    .from("ordenes")
-    .select("repuestos_cotizacion")
-    .eq("id", ordenId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("ordenes")
+      .select("repuestos_cotizacion")
+      .eq("id", ordenId)
+      .single();
 
-  if (error) {
-    console.error("❌ Error al obtener repuestos de cotización:", error);
-    throw error;
-  }
+    if (error) {
+      // Si es un error de "no encontrado", retornar array vacío
+      if (error.code === 'PGRST116') {
+        console.log("ℹ️ Orden no encontrada para repuestos de cotización");
+        return [];
+      }
+      console.error("❌ Error al obtener repuestos de cotización:", error);
+      return []; // Retornar vacío en lugar de lanzar error
+    }
 
-  const cotizacionData = data?.repuestos_cotizacion;
-  
-  // Si es el nuevo formato (objeto con repuestos y totales)
-  if (cotizacionData && typeof cotizacionData === 'object' && 'repuestos' in cotizacionData) {
-    return cotizacionData.repuestos || [];
+    const cotizacionData = data?.repuestos_cotizacion;
+    
+    // Si es el nuevo formato (objeto con repuestos y totales)
+    if (cotizacionData && typeof cotizacionData === 'object' && 'repuestos' in cotizacionData) {
+      return cotizacionData.repuestos || [];
+    }
+    
+    // Si es el formato antiguo (array directo)
+    return cotizacionData || [];
+  } catch (err) {
+    console.error("❌ Error inesperado al obtener repuestos de cotización:", err);
+    return []; // Retornar vacío para evitar que el componente se rompa
   }
-  
-  // Si es el formato antiguo (array directo)
-  return cotizacionData || [];
 }

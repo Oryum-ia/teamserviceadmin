@@ -79,7 +79,7 @@ export default function WhatsAppNotificationPanel({
     );
   }
 
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://tscosta.com.co/';
 
   // Generar mensajes
   const mensajeCambioFase = getMensajeCambioFase({
@@ -196,7 +196,7 @@ export function WhatsAppNotificationPanelCompact({
       ? orden.cliente.razon_social || 'Cliente'
       : `${orden.cliente?.nombres || ''} ${orden.cliente?.apellidos || ''}`.trim();
 
-  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://teamservicecosta-pi.vercel.app/';
+  const trackingUrl = process.env.NEXT_PUBLIC_TRACKING_URL || 'https://tscosta.com.co/';
 
   const mensaje = getMensajeCambioFase({
     clienteNombre,

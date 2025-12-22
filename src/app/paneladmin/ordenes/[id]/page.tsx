@@ -849,16 +849,31 @@ export default function OrdenDetallePage() {
       toast.success(`Avanzado a fase de ${siguienteFase.label}`);
       
       // Enviar notificaciones por email y WhatsApp
+      // Usar templates específicos si el cliente rechazó la cotización
+      const esRechazoACotizacion = faseActual === 'cotizacion' && orden.aprobado_cliente === false;
+      
       try {
-        // Email automático
-        await notificarCambioFase(ordenId, siguienteFase.label);
+        if (esRechazoACotizacion) {
+          // Notificación específica de cotización rechazada
+          await notificarCotizacionRechazada(ordenId);
+          console.log('✅ Email de cotización rechazada enviado');
+        } else {
+          // Email de cambio de fase normal
+          await notificarCambioFase(ordenId, siguienteFase.label);
+        }
       } catch (emailError) {
         console.error('⚠️ Error al enviar correo:', emailError);
       }
       
       try {
-        // WhatsApp manual (abre ventana)
-        await notificarCambioFaseWhatsApp(ordenId, siguienteFase.label);
+        if (esRechazoACotizacion) {
+          // WhatsApp específico de cotización rechazada
+          await notificarCotizacionRechazadaWhatsApp(ordenId);
+          console.log('✅ WhatsApp de cotización rechazada abierto');
+        } else {
+          // WhatsApp de cambio de fase normal
+          await notificarCambioFaseWhatsApp(ordenId, siguienteFase.label);
+        }
       } catch (whatsappError) {
         console.error('⚠️ Error al abrir WhatsApp:', whatsappError);
       }

@@ -17,8 +17,8 @@ import {
 
 const TRACKING_URL =
   typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_TRACKING_URL || "https://teamservicecosta-pi.vercel.app/"
-    : "https://teamservicecosta-pi.vercel.app/";
+    ? process.env.NEXT_PUBLIC_TRACKING_URL || "https://tscosta.com.co/"
+    : "https://tscosta.com.co/";
 
 /**
  * Notificar orden creada por WhatsApp
