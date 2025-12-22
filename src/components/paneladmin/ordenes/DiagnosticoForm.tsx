@@ -28,7 +28,7 @@ interface DiagnosticoFormProps {
 export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true }: DiagnosticoFormProps) {
   const { theme } = useTheme();
   const toast = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+
   
   // Fechas automáticas (solo lectura)
   const fechaInicio = orden.fecha_inicio_diagnostico || orden.fecha_creacion;
@@ -338,51 +338,6 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       }
     };
   }, [formData.comentarios, orden?.id, selectedTecnicoId, repuestos]);
-
-  const handleAvanzarACotizacion = async () => {
-    setIsLoading(true);
-    try {
-      // IMPORTANTE: Guardar repuestos antes de avanzar
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      await guardarRepuestosDiagnostico(orden.id, repuestos);
-      
-      const now = new Date().toISOString();
-      
-      // Importar supabase
-      const { supabase } = await import('@/lib/supabaseClient');
-      
-      // Obtener usuario actual
-      const { data: authData } = await supabase.auth.getUser();
-      const tecnicoId = authData?.user?.id || null;
-      
-      // Actualizar todo en una sola operación
-      const updateData = {
-        estado_actual: 'Cotización',
-        comentarios_diagnostico: formData.comentarios,
-        fecha_fin_diagnostico: now,
-        tecnico_diagnostico: tecnicoId,
-        fecha_cotizacion: now,
-        ultima_actualizacion: now
-      };
-      
-      const { error } = await supabase
-        .from('ordenes')
-        .update(updateData)
-        .eq('id', orden.id);
-        
-      if (error) throw error;
-      
-      toast.success('Avanzado a fase de cotización');
-      onSuccess();
-    } catch (error) {
-      console.error('Error al avanzar a cotización:', error);
-      toast.error(error instanceof Error ? error.message : 'Error al avanzar a cotización');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const puedeEditar = orden.estado_actual === 'Diagnóstico' && faseIniciada;
 
