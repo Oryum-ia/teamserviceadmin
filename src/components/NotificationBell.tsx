@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from 'react';
-import { Bell, BellRing, CheckCheck, ChevronUp, ChevronDown } from 'lucide-react';
+import { Bell, BellRing, CheckCheck } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { NotificationModal } from './NotificationModal';
+import { NotificationListModal } from './NotificationListModal';
 import { Notification } from '../types/notifications';
 import { useTheme } from './ThemeProvider';
 
@@ -11,9 +12,9 @@ export function NotificationBell() {
   const { notifications, getUnreadCount, markAsRead, markAllAsRead } = useNotifications();
   const { theme } = useTheme();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showAllNotifications, setShowAllNotifications] = useState(false);
 
   const unreadCount = getUnreadCount();
   const hasUnread = unreadCount > 0;
@@ -125,7 +126,7 @@ export function NotificationBell() {
               )}
             </div>
 
-            <div className={`${showAllNotifications ? 'max-h-[60vh]' : 'max-h-80'} overflow-y-auto`}>
+            <div className="max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className={`p-6 text-center ${
                   theme === 'light'
@@ -141,7 +142,7 @@ export function NotificationBell() {
                     ? 'divide-gray-200'
                     : 'divide-dark-bg-tertiary'
                 }`}>
-                  {(showAllNotifications ? notifications : notifications.slice(0, 5)).map((notification) => (
+                  {notifications.slice(0, 5).map((notification) => (
                     <button
                       key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
@@ -193,7 +194,7 @@ export function NotificationBell() {
               )}
               
               {notifications.length > 5 && (
-                <div className={`p-3 border-t text-center ${
+                <div className={`p-3 border-t ${
                   theme === 'light'
                     ? 'border-gray-200 bg-gray-50'
                     : 'border-gray-700 bg-dark-bg-tertiary/30'
@@ -201,25 +202,16 @@ export function NotificationBell() {
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowAllNotifications(!showAllNotifications);
+                      setIsListModalOpen(true);
+                      setShowDropdown(false);
                     }}
-                    className={`text-sm flex items-center justify-center gap-1.5 mx-auto font-medium ${
+                    className={`w-full py-2 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                       theme === 'light'
-                        ? 'text-mint-600 hover:text-mint-800'
-                        : 'text-lime-400 hover:text-lime-300'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                        : 'bg-lime-400 text-black hover:bg-lime-500'
                     }`}
                   >
-                    {showAllNotifications ? (
-                      <>
-                        <ChevronUp className="h-4 w-4" />
-                        Mostrar menos
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="h-4 w-4" />
-                        Ver todas ({notifications.length})
-                      </>
-                    )}
+                    Ver todas las notificaciones ({notifications.length})
                   </button>
                 </div>
               )}
@@ -242,6 +234,20 @@ export function NotificationBell() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onMarkAsRead={markAsRead}
+      />
+
+      {/* Notification List Modal */}
+      <NotificationListModal
+        isOpen={isListModalOpen}
+        onClose={() => setIsListModalOpen(false)}
+        notifications={notifications}
+        onNotificationClick={(notification) => {
+          setSelectedNotification(notification);
+          setIsModalOpen(true);
+          setIsListModalOpen(false);
+        }}
+        onMarkAllAsRead={markAllAsRead}
+        unreadCount={unreadCount}
       />
     </>
   );
