@@ -15,6 +15,7 @@ import Usuarios from '../../components/paneladmin/Usuarios';
 import UserProfileDropdown from '../../components/paneladmin/UserProfileDropdown';
 import LogoutConfirmModal from '../../components/paneladmin/LogoutConfirmModal';
 import { NotificationBell } from '../../components/NotificationBell';
+import { StoreNotificationBell } from '../../components/StoreNotificationBell';
 import Marcas from '../../components/paneladmin/inventario/Marcas';
 import Modelos from '../../components/paneladmin/inventario/Modelos';
 import Accesorios from '../../components/paneladmin/inventario/Accesorios';
@@ -177,9 +178,8 @@ function PanelAdminContent() {
   }
 
   return (
-    <div className={`admin-panel flex h-screen ${
-      theme === 'light' ? 'bg-gray-50' : 'bg-gray-900'
-    }`}>
+    <div className={`admin-panel flex h-screen ${theme === 'light' ? 'bg-gray-50' : 'bg-gray-900'
+      }`}>
       <ThemeInitializer />
       <SidebarNuevo
         activeSection={activeSection}
@@ -189,36 +189,33 @@ function PanelAdminContent() {
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
-      
+
       {/* Header */}
-      <header className={`fixed top-0 right-0 h-16 transition-all duration-300 z-10 left-0 ${
-        isCollapsed ? 'lg:left-16' : 'lg:left-64'
-      } ${
-        theme === 'light' 
-          ? 'bg-white border-b border-gray-200 shadow-sm' 
+      <header className={`fixed top-0 right-0 h-16 transition-all duration-300 z-10 left-0 ${isCollapsed ? 'lg:left-16' : 'lg:left-64'
+        } ${theme === 'light'
+          ? 'bg-white border-b border-gray-200 shadow-sm'
           : 'bg-gray-800 border-b border-gray-700 shadow-sm'
-      }`}>
+        }`}>
         <div className="h-full px-6 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             {/* Botón toggle sidebar solo para móvil */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className={`lg:hidden p-2 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${
-                theme === 'light'
-                  ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
-              }`}
+              className={`lg:hidden p-2 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${theme === 'light'
+                ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+                }`}
             >
               <Menu className="h-5 w-5" />
             </button>
-            
-            <h1 className={`text-xl font-semibold hidden lg:block ${
-              theme === 'light' ? 'text-gray-900' : 'text-white'
-            }`}>
+
+            <h1 className={`text-xl font-semibold hidden lg:block ${theme === 'light' ? 'text-gray-900' : 'text-white'
+              }`}>
               Panel de Administración
             </h1>
           </div>
           <div className="flex items-center space-x-3">
+            <StoreNotificationBell />
             <NotificationBell />
             <ThemeToggle />
             <UserProfileDropdown onLogout={handleLogout} />
@@ -227,11 +224,9 @@ function PanelAdminContent() {
       </header>
 
       {/* Main Content */}
-      <main className={`flex-1 overflow-auto pt-16 p-6 transition-all duration-300 ml-0 ${
-        isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-      } ${
-        theme === 'light' ? 'bg-gray-50' : 'bg-gray-900'
-      }`}>
+      <main className={`flex-1 overflow-auto pt-16 p-6 transition-all duration-300 ml-0 ${isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        } ${theme === 'light' ? 'bg-gray-50' : 'bg-gray-900'
+        }`}>
         {renderActiveSection()}
       </main>
     </div>

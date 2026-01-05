@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Filter, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Search, Filter, Loader2, ChevronLeft, ChevronRight, X, Trash2, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { Orden, OrdenStatus } from '@/types/database.types';
-import { obtenerTodasLasOrdenes } from '@/lib/services/ordenService';
+import { obtenerTodasLasOrdenes, eliminarOrden } from '@/lib/services/ordenService';
 import OrdenModal from './ordenes/OrdenModal';
 
 // Helper function to get status color and label (coded status)
@@ -110,6 +110,8 @@ export default function OrdenesNuevo() {
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [ordenToDelete, setOrdenToDelete] = useState<any>(null);
 
   // Guardar filtros en localStorage cuando cambien
   useEffect(() => {
@@ -247,8 +249,8 @@ export default function OrdenesNuevo() {
 
   const hasActiveFilters = () => {
     return columnFilters.numeroOrden || columnFilters.cliente || columnFilters.identificacion ||
-           columnFilters.equipo || columnFilters.serial || columnFilters.marca ||
-           columnFilters.modelo || columnFilters.sede || columnFilters.estado !== 'all';
+      columnFilters.equipo || columnFilters.serial || columnFilters.marca ||
+      columnFilters.modelo || columnFilters.sede || columnFilters.estado !== 'all';
   };
 
   // Cálculos de paginación
@@ -261,19 +263,38 @@ export default function OrdenesNuevo() {
     setCurrentPage(pageNumber);
   };
 
+  const handleDeleteClick = (e: React.MouseEvent, orden: any) => {
+    e.stopPropagation();
+    setOrdenToDelete(orden);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!ordenToDelete) return;
+
+    try {
+      await eliminarOrden(ordenToDelete.id);
+      setIsDeleteModalOpen(false);
+      setOrdenToDelete(null);
+      // Recargar la lista
+      cargarOrdenes();
+    } catch (error) {
+      console.error("Error al eliminar:", error);
+      alert("Error al eliminar la orden. Por favor intente nuevamente.");
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6">
       {/* Header con búsqueda */}
       <div className="mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className={`text-2xl sm:text-3xl font-bold mb-2 ${
-            theme === 'light' ? 'text-gray-900' : 'text-white'
-          }`}>
+          <h1 className={`text-2xl sm:text-3xl font-bold mb-2 ${theme === 'light' ? 'text-gray-900' : 'text-white'
+            }`}>
             Órdenes de Servicio
           </h1>
-          <p className={`text-sm ${
-            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-          }`}>
+          <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+            }`}>
             Gestiona y monitorea todas las órdenes de servicio
           </p>
         </div>
@@ -281,15 +302,14 @@ export default function OrdenesNuevo() {
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${
-              showFilters
-                ? theme === 'light'
-                  ? 'bg-yellow-500 text-white'
-                  : 'bg-yellow-400 text-black'
-                : theme === 'light'
-                  ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-            }`}
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${showFilters
+              ? theme === 'light'
+                ? 'bg-yellow-500 text-white'
+                : 'bg-yellow-400 text-black'
+              : theme === 'light'
+                ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              }`}
           >
             <Filter className="w-4 h-4" />
             <span>Filtros</span>
@@ -302,11 +322,10 @@ export default function OrdenesNuevo() {
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${
-              theme === 'light'
-                ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-            }`}
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${theme === 'light'
+              ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+              : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+              }`}
           >
             <span>+ Nueva Orden</span>
           </button>
@@ -315,23 +334,20 @@ export default function OrdenesNuevo() {
 
       {/* Panel de filtros colapsable */}
       {showFilters && (
-        <div className={`mb-4 p-4 rounded-lg border ${
-          theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-800 border-gray-700'
-        }`}>
+        <div className={`mb-4 p-4 rounded-lg border ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-800 border-gray-700'
+          }`}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className={`text-sm font-medium ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
+            <h3 className={`text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
               Filtros de Búsqueda
             </h3>
             {hasActiveFilters() && (
               <button
                 onClick={clearAllFilters}
-                className={`text-xs px-3 py-1 rounded-lg transition-colors ${
-                  theme === 'light'
-                    ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
+                className={`text-xs px-3 py-1 rounded-lg transition-colors ${theme === 'light'
+                  ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
               >
                 Limpiar filtros
               </button>
@@ -344,17 +360,16 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.numeroOrden}
-                onChange={(e) => setColumnFilters({...columnFilters, numeroOrden: e.target.value})}
+                onChange={(e) => setColumnFilters({ ...columnFilters, numeroOrden: e.target.value })}
                 placeholder="N° Orden..."
-                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
+                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
               />
               {columnFilters.numeroOrden && (
                 <button
-                  onClick={() => setColumnFilters({...columnFilters, numeroOrden: ''})}
+                  onClick={() => setColumnFilters({ ...columnFilters, numeroOrden: '' })}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
@@ -366,12 +381,11 @@ export default function OrdenesNuevo() {
             <div>
               <select
                 value={columnFilters.estado}
-                onChange={(e) => setColumnFilters({...columnFilters, estado: e.target.value as OrdenStatus | 'all'})}
-                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
+                onChange={(e) => setColumnFilters({ ...columnFilters, estado: e.target.value as OrdenStatus | 'all' })}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
               >
                 <option value="all">Todos los estados</option>
                 <option value="pendiente">Pendiente</option>
@@ -387,17 +401,16 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.cliente}
-                onChange={(e) => setColumnFilters({...columnFilters, cliente: e.target.value})}
+                onChange={(e) => setColumnFilters({ ...columnFilters, cliente: e.target.value })}
                 placeholder="Cliente..."
-                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
+                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
               />
               {columnFilters.cliente && (
                 <button
-                  onClick={() => setColumnFilters({...columnFilters, cliente: ''})}
+                  onClick={() => setColumnFilters({ ...columnFilters, cliente: '' })}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
@@ -410,17 +423,16 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.identificacion}
-                onChange={(e) => setColumnFilters({...columnFilters, identificacion: e.target.value})}
+                onChange={(e) => setColumnFilters({ ...columnFilters, identificacion: e.target.value })}
                 placeholder="Identificación..."
-                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
+                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
               />
               {columnFilters.identificacion && (
                 <button
-                  onClick={() => setColumnFilters({...columnFilters, identificacion: ''})}
+                  onClick={() => setColumnFilters({ ...columnFilters, identificacion: '' })}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
@@ -433,17 +445,16 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.equipo}
-                onChange={(e) => setColumnFilters({...columnFilters, equipo: e.target.value})}
+                onChange={(e) => setColumnFilters({ ...columnFilters, equipo: e.target.value })}
                 placeholder="Tipo de equipo..."
-                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
+                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
               />
               {columnFilters.equipo && (
                 <button
-                  onClick={() => setColumnFilters({...columnFilters, equipo: ''})}
+                  onClick={() => setColumnFilters({ ...columnFilters, equipo: '' })}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
@@ -456,17 +467,16 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.serial}
-                onChange={(e) => setColumnFilters({...columnFilters, serial: e.target.value})}
+                onChange={(e) => setColumnFilters({ ...columnFilters, serial: e.target.value })}
                 placeholder="Serial..."
-                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
+                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
               />
               {columnFilters.serial && (
                 <button
-                  onClick={() => setColumnFilters({...columnFilters, serial: ''})}
+                  onClick={() => setColumnFilters({ ...columnFilters, serial: '' })}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
@@ -479,17 +489,16 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.marca}
-                onChange={(e) => setColumnFilters({...columnFilters, marca: e.target.value})}
+                onChange={(e) => setColumnFilters({ ...columnFilters, marca: e.target.value })}
                 placeholder="Marca..."
-                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
+                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
               />
               {columnFilters.marca && (
                 <button
-                  onClick={() => setColumnFilters({...columnFilters, marca: ''})}
+                  onClick={() => setColumnFilters({ ...columnFilters, marca: '' })}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
@@ -502,17 +511,16 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.modelo}
-                onChange={(e) => setColumnFilters({...columnFilters, modelo: e.target.value})}
+                onChange={(e) => setColumnFilters({ ...columnFilters, modelo: e.target.value })}
                 placeholder="Modelo..."
-                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
+                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
               />
               {columnFilters.modelo && (
                 <button
-                  onClick={() => setColumnFilters({...columnFilters, modelo: ''})}
+                  onClick={() => setColumnFilters({ ...columnFilters, modelo: '' })}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
@@ -525,17 +533,16 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.sede}
-                onChange={(e) => setColumnFilters({...columnFilters, sede: e.target.value})}
+                onChange={(e) => setColumnFilters({ ...columnFilters, sede: e.target.value })}
                 placeholder="Sede..."
-                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
+                className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
               />
               {columnFilters.sede && (
                 <button
-                  onClick={() => setColumnFilters({...columnFilters, sede: ''})}
+                  onClick={() => setColumnFilters({ ...columnFilters, sede: '' })}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
@@ -549,17 +556,15 @@ export default function OrdenesNuevo() {
 
       {/* Resultados y paginación */}
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className={`text-sm ${
-          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-        }`}>
+        <div className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+          }`}>
           Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredOrdenes.length)} de {filteredOrdenes.length} órdenes
         </div>
 
         {/* Items por página */}
         <div className="flex items-center gap-2">
-          <span className={`text-sm ${
-            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-          }`}>
+          <span className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+            }`}>
             Mostrar:
           </span>
           <select
@@ -568,11 +573,10 @@ export default function OrdenesNuevo() {
               setItemsPerPage(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className={`px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-              theme === 'light'
-                ? 'border-gray-300 bg-white text-gray-900'
-                : 'border-gray-600 bg-gray-700 text-gray-100'
-            }`}
+            className={`px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+              ? 'border-gray-300 bg-white text-gray-900'
+              : 'border-gray-600 bg-gray-700 text-gray-100'
+              }`}
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
@@ -598,20 +602,18 @@ export default function OrdenesNuevo() {
 
       {/* Empty state */}
       {!isLoading && filteredOrdenes.length === 0 && (
-        <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
-          theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
-        }`}>
+        <div className={`text-center py-12 rounded-lg border-2 border-dashed ${theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
+          }`}>
           <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
             {hasActiveFilters() ? 'No se encontraron órdenes con los filtros aplicados' : 'No hay órdenes registradas'}
           </p>
           {!hasActiveFilters() && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className={`mt-4 px-4 py-2 rounded-lg text-sm transition-colors ${
-                theme === 'light'
-                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                  : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-              }`}
+              className={`mt-4 px-4 py-2 rounded-lg text-sm transition-colors ${theme === 'light'
+                ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+                }`}
             >
               Crear primera orden
             </button>
@@ -622,132 +624,126 @@ export default function OrdenesNuevo() {
       {/* Tabla con scroll horizontal */}
       {!isLoading && currentItems.length > 0 && (
         <>
-          <div className={`rounded-lg border overflow-hidden ${
-            theme === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'
-          }`}>
+          <div className={`rounded-lg border overflow-hidden ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'
+            }`}>
             <div className="overflow-x-auto">
               <table className="w-full" style={{ minWidth: '1200px' }}>
                 <thead className={theme === 'light' ? 'bg-gray-50' : 'bg-gray-700'}>
                   <tr>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       Estado
                     </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       N° Orden
                     </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       Cliente
                     </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       Identificación
                     </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       Marca
                     </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       Modelo
                     </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       Serial
                     </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       Responsable
                     </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       Sede
                     </th>
-                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
                       Fecha Creación
+                    </th>
+                    <th className={`px-4 py-3 text-right text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
+                      Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y ${
-                  theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-                }`}>
+                <tbody className={`divide-y ${theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
+                  }`}>
                   {currentItems.map((orden) => {
                     const statusInfo = getEstadoActualInfo(orden.estado_actual, orden.estado);
 
                     return (
-                      <tr 
-                        key={orden.id} 
+                      <tr
+                        key={orden.id}
                         onClick={() => router.push(`/paneladmin/ordenes/${orden.id}`)}
-                        className={`cursor-pointer transition-colors ${
-                          theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
-                        }`}
+                        className={`cursor-pointer transition-colors ${theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700'
+                          }`}
                       >
                         <td className="px-4 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${statusInfo.color}`}>
                             {statusInfo.label}
                           </span>
                         </td>
-                        <td className={`px-4 py-4 whitespace-nowrap ${
-                          theme === 'light' ? 'text-gray-900' : 'text-white'
-                        }`}>
+                        <td className={`px-4 py-4 whitespace-nowrap ${theme === 'light' ? 'text-gray-900' : 'text-white'
+                          }`}>
                           <span className="font-medium">{orden.numero_orden}</span>
                         </td>
-                        <td className={`px-4 py-4 ${
-                          theme === 'light' ? 'text-gray-900' : 'text-gray-300'
-                        }`}>
+                        <td className={`px-4 py-4 ${theme === 'light' ? 'text-gray-900' : 'text-gray-300'
+                          }`}>
                           <div className="max-w-xs">
                             <div className="font-medium truncate" title={getClienteName(orden)}>
                               {getClienteName(orden)}
                             </div>
                           </div>
                         </td>
-                        <td className={`px-4 py-4 whitespace-nowrap ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
+                        <td className={`px-4 py-4 whitespace-nowrap ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
                           {orden.cliente?.identificacion || '-'}
                         </td>
-                        <td className={`px-4 py-4 whitespace-nowrap ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
+                        <td className={`px-4 py-4 whitespace-nowrap ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
                           {orden.marca || '-'}
                         </td>
-                        <td className={`px-4 py-4 whitespace-nowrap ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
+                        <td className={`px-4 py-4 whitespace-nowrap ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
                           {orden.modelo || '-'}
                         </td>
-                        <td className={`px-4 py-4 whitespace-nowrap ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
+                        <td className={`px-4 py-4 whitespace-nowrap ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
                           {orden.serial || '-'}
                         </td>
-                        <td className={`px-4 py-4 whitespace-nowrap ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
+                        <td className={`px-4 py-4 whitespace-nowrap ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
                           {orden.responsable || '-'}
                         </td>
-                        <td className={`px-4 py-4 whitespace-nowrap ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
+                        <td className={`px-4 py-4 whitespace-nowrap ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
                           {orden.sede || '-'}
                         </td>
-                        <td className={`px-4 py-4 whitespace-nowrap ${
-                          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
+                        <td className={`px-4 py-4 whitespace-nowrap ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
                           {new Date(orden.fecha_creacion).toLocaleDateString('es-CO')}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-right">
+                          <button
+                            onClick={(e) => handleDeleteClick(e, orden)}
+                            className={`p-2 rounded-full transition-colors ${theme === 'light'
+                              ? 'text-red-500 hover:bg-red-50'
+                              : 'text-red-400 hover:bg-red-900/20'
+                              }`}
+                            title="Eliminar orden"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -763,11 +759,10 @@ export default function OrdenesNuevo() {
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  theme === 'light'
-                    ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${theme === 'light'
+                  ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span className="hidden sm:inline">Anterior</span>
@@ -785,15 +780,14 @@ export default function OrdenesNuevo() {
                       <button
                         key={pageNumber}
                         onClick={() => handlePageChange(pageNumber)}
-                        className={`w-10 h-10 rounded-lg font-medium transition-colors ${
-                          currentPage === pageNumber
-                            ? theme === 'light'
-                              ? 'bg-yellow-500 text-white'
-                              : 'bg-yellow-400 text-black'
-                            : theme === 'light'
-                              ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                              : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                        }`}
+                        className={`w-10 h-10 rounded-lg font-medium transition-colors ${currentPage === pageNumber
+                          ? theme === 'light'
+                            ? 'bg-yellow-500 text-white'
+                            : 'bg-yellow-400 text-black'
+                          : theme === 'light'
+                            ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          }`}
                       >
                         {pageNumber}
                       </button>
@@ -811,11 +805,10 @@ export default function OrdenesNuevo() {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  theme === 'light'
-                    ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${theme === 'light'
+                  ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
               >
                 <span className="hidden sm:inline">Siguiente</span>
                 <ChevronRight className="w-4 h-4" />
@@ -831,6 +824,50 @@ export default function OrdenesNuevo() {
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleModalSuccess}
       />
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-2xl shadow-xl transform transition-all p-6 ${theme === 'light' ? 'bg-white' : 'bg-gray-800 border border-gray-700'
+            }`}>
+            <div className="flex flex-col items-center text-center">
+              <div className={`p-3 rounded-full mb-4 ${theme === 'light' ? 'bg-red-100' : 'bg-red-900/30'
+                }`}>
+                <AlertTriangle className={`w-8 h-8 ${theme === 'light' ? 'text-red-600' : 'text-red-400'
+                  }`} />
+              </div>
+
+              <h3 className={`text-xl font-bold mb-2 ${theme === 'light' ? 'text-gray-900' : 'text-white'
+                }`}>
+                ¿Eliminar orden {ordenToDelete?.numero_orden}?
+              </h3>
+
+              <p className={`mb-6 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                }`}>
+                Esta acción no se puede deshacer. ¿Estás seguro de que deseas eliminar esta orden permanentemente?
+              </p>
+
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${theme === 'light'
+                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                    }`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 px-4 py-2 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+                >
+                  Sí, eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

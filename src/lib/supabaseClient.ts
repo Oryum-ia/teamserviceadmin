@@ -45,6 +45,11 @@ export const getSupabase = () => {
 export const getSupabaseAdmin = () => {
   if (supabaseAdminInstance) return supabaseAdminInstance
 
+  // Evitar error en cliente donde no existe process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (typeof window !== 'undefined') {
+    return null;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -95,6 +100,10 @@ const getSupabaseAdminLazy = (): SupabaseClient | null => {
   
   const client = getSupabaseAdmin()
   if (!client) {
+    // Si estamos en el cliente, retornar null en lugar de lanzar error
+    if (typeof window !== 'undefined') {
+      return null
+    }
     throw new Error('Supabase Admin client not available. Missing SUPABASE_SERVICE_ROLE_KEY.')
   }
   _supabaseAdminLazy = client

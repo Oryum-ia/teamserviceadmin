@@ -26,69 +26,89 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
   const [fotos, setFotos] = useState<string[]>(orden.fotos_entrega || []);
   const [subiendoFotos, setSubiendoFotos] = useState(false);
 
-  // Usuario automático (usuario actual de la sesión)
-  const [usuarioEntrega, setUsuarioEntrega] = useState('');
+  // ID del técnico que entrega (inicializado con el de la orden o null)
+  const [tecnicoEntregaId, setTecnicoEntregaId] = useState<string>(orden.tecnico_entrega || '');
+  const [usuarioEntregaNombre, setUsuarioEntregaNombre] = useState('');
 
-  // Obtener usuario actual de la sesión
+  // Sincronizar usuario actual si no hay técnico asignado
   useEffect(() => {
     const obtenerUsuarioActual = async () => {
       try {
         const { supabase } = await import('@/lib/supabaseClient');
+        const { data: authData } = await supabase.auth.getUser();
 
-        const { data: authData, error: authError } = await supabase.auth.getUser();
-
-        if (authError || !authData?.user) {
-          console.error('Error al obtener usuario:', authError);
-          setUsuarioEntrega('Usuario no identificado');
-          return;
+        if (authData?.user) {
+          if (!orden.tecnico_entrega && !tecnicoEntregaId) {
+            setTecnicoEntregaId(authData.user.id);
+          }
+          if (!usuarioEntregaNombre) {
+            setUsuarioEntregaNombre(authData.user.email || '');
+          }
         }
-
-        const userId = authData.user.id;
-
-        const { data: userData, error: userError } = await supabase
-          .from('usuarios')
-          .select('nombre, email')
-          .eq('id', userId)
-          .single();
-
-        if (userError) {
-          console.warn('No se encontró usuario en la tabla usuarios, usando email');
-          setUsuarioEntrega(authData.user.email || 'Usuario no identificado');
-          return;
-        }
-
-        const nombreUsuario = userData?.nombre || userData?.email || authData.user.email || 'Usuario no identificado';
-        setUsuarioEntrega(nombreUsuario);
       } catch (error) {
-        console.error('Error en obtenerUsuarioActual:', error);
-        setUsuarioEntrega('Usuario no identificado');
+        console.error('Error al obtener usuario actual:', error);
       }
     };
-
     obtenerUsuarioActual();
+  }, [orden.tecnico_entrega]);
+
+  // Lista de técnicos (con caché)
+  const [tecnicos, setTecnicos] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('tecnicos_lista');
+      if (cached) {
+        try { return JSON.parse(cached); } catch (e) { return []; }
+      }
+    }
+    return [];
+  });
+
+  // Cargar lista de técnicos
+  useEffect(() => {
+    const cargarTecnicos = async () => {
+      try {
+        const cached = localStorage.getItem('tecnicos_lista');
+        if (cached) return;
+
+        const { supabase } = await import('@/lib/supabaseClient');
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select('id, nombre, email')
+          .in('rol', ['tecnico', 'super-admin'])
+          .order('nombre');
+
+        if (!error && data) {
+          setTecnicos(data);
+          localStorage.setItem('tecnicos_lista', JSON.stringify(data));
+        }
+      } catch (error) {
+        console.error('Error al cargar técnicos:', error);
+      }
+    };
+    cargarTecnicos();
   }, []);
 
-// Helper para formatear fecha en formato compatible con input datetime-local (hora Colombia)
-const formatForInput = (date: Date) => {
-  // Restar 5 horas para convertir UTC a Colombia
-  const colombiaDate = new Date(date.getTime() - (5 * 60 * 60 * 1000));
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${colombiaDate.getFullYear()}-${pad(colombiaDate.getMonth() + 1)}-${pad(colombiaDate.getDate())}T${pad(colombiaDate.getHours())}:${pad(colombiaDate.getMinutes())}`;
-};
+  // Helper para formatear fecha en formato compatible con input datetime-local (hora Colombia)
+  const formatForInput = (date: Date) => {
+    // Restar 5 horas para convertir UTC a Colombia
+    const colombiaDate = new Date(date.getTime() - (5 * 60 * 60 * 1000));
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${colombiaDate.getFullYear()}-${pad(colombiaDate.getMonth() + 1)}-${pad(colombiaDate.getDate())}T${pad(colombiaDate.getHours())}:${pad(colombiaDate.getMinutes())}`;
+  };
 
-const tipoEntregaInicial = orden.entrega?.tipo_entrega
-  ? orden.entrega.tipo_entrega
-  : orden.aprobado_cliente === true
-    ? 'Reparado'
-    : 'Devuelto';
+  const tipoEntregaInicial = orden.entrega?.tipo_entrega
+    ? orden.entrega.tipo_entrega
+    : orden.aprobado_cliente === true
+      ? 'Reparado'
+      : 'Devuelto';
 
-const [formData, setFormData] = useState({
-  tipo_entrega: tipoEntregaInicial,
-  fecha_entrega: orden.fecha_entrega ? formatForInput(new Date(orden.fecha_entrega)) : formatForInput(new Date()),
-  fecha_proximo_mantenimiento: orden.fecha_proximo_mantenimiento || '',
-  calificacion: (orden.entrega?.calificacion ?? orden.calificacion) || '',
-  comentarios_cliente: (orden.entrega?.comentarios_cliente ?? orden.comentarios_cliente) || ''
-});
+  const [formData, setFormData] = useState({
+    tipo_entrega: tipoEntregaInicial,
+    fecha_entrega: orden.fecha_entrega ? formatForInput(new Date(orden.fecha_entrega)) : formatForInput(new Date()),
+    fecha_proximo_mantenimiento: orden.fecha_proximo_mantenimiento || '',
+    calificacion: (orden.entrega?.calificacion ?? orden.calificacion) || '',
+    comentarios_cliente: (orden.entrega?.comentarios_cliente ?? orden.comentarios_cliente) || ''
+  });
 
   useEffect(() => {
     const tipoEntrega = orden.entrega?.tipo_entrega
@@ -128,14 +148,15 @@ const [formData, setFormData] = useState({
       return {
         tipo_entrega: formData.tipo_entrega,
         fecha_entrega: formData.fecha_entrega,
-        fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento
+        fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento,
+        tecnico_entrega: tecnicoEntregaId
       };
     };
 
     return () => {
       delete (window as any).guardarDatosEntrega;
     };
-  }, [formData]);
+  }, [formData, tecnicoEntregaId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -208,14 +229,12 @@ const [formData, setFormData] = useState({
     <div className="p-6">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h2 className={`text-2xl font-bold mb-2 ${
-            theme === 'light' ? 'text-gray-900' : 'text-white'
-          }`}>
+          <h2 className={`text-2xl font-bold mb-2 ${theme === 'light' ? 'text-gray-900' : 'text-white'
+            }`}>
             Entrega
           </h2>
-          <p className={`text-sm ${
-            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-          }`}>
+          <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+            }`}>
             Finalice y entregue la orden al cliente
           </p>
         </div>
@@ -230,12 +249,10 @@ const [formData, setFormData] = useState({
       </div>
 
       {!faseIniciada && orden.estado_actual === 'Entrega' && (
-        <div className={`mb-6 p-4 rounded-lg border ${
-          theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-900/20 border-amber-800'
-        }`}>
-          <p className={`text-sm font-medium ${
-            theme === 'light' ? 'text-amber-800' : 'text-amber-300'
+        <div className={`mb-6 p-4 rounded-lg border ${theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-900/20 border-amber-800'
           }`}>
+          <p className={`text-sm font-medium ${theme === 'light' ? 'text-amber-800' : 'text-amber-300'
+            }`}>
             ⚠️ Debe presionar "Iniciar Fase" para comenzar a trabajar en esta entrega.
           </p>
         </div>
@@ -243,40 +260,33 @@ const [formData, setFormData] = useState({
 
       {/* Mensaje de devolución por no aceptación */}
       {!orden.aprobado_cliente && (
-        <div className={`mb-6 p-6 rounded-lg border ${
-          theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
-        }`}>
+        <div className={`mb-6 p-6 rounded-lg border ${theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
+          }`}>
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="w-5 h-5 text-red-600" />
-            <p className={`text-sm font-medium ${
-              theme === 'light' ? 'text-red-800' : 'text-red-300'
-            }`}>
+            <p className={`text-sm font-medium ${theme === 'light' ? 'text-red-800' : 'text-red-300'
+              }`}>
               El cliente no aceptó la cotización. Este equipo será devuelto sin reparación.
             </p>
           </div>
-          
+
           {/* Tabla de Cobro - Solo Revisión */}
           {orden.valor_revision > 0 && (
-            <div className={`mt-4 rounded-lg border overflow-hidden ${
-              theme === 'light' ? 'bg-white border-red-300' : 'bg-gray-800 border-red-700'
-            }`}>
-              <div className={`px-4 py-3 font-semibold ${
-                theme === 'light' ? 'bg-red-100 text-red-900' : 'bg-red-900/40 text-red-200'
+            <div className={`mt-4 rounded-lg border overflow-hidden ${theme === 'light' ? 'bg-white border-red-300' : 'bg-gray-800 border-red-700'
               }`}>
+              <div className={`px-4 py-3 font-semibold ${theme === 'light' ? 'bg-red-100 text-red-900' : 'bg-red-900/40 text-red-200'
+                }`}>
                 💵 Cobro por Revisión
               </div>
               <div className="p-4">
                 <table className="w-full">
-                  <tbody className={`divide-y ${
-                    theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-                  }`}>
+                  <tbody className={`divide-y ${theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
+                    }`}>
                     <tr>
-                      <td className={`py-2 text-sm ${
-                        theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                      }`}>Valor de Revisión Técnica</td>
-                      <td className={`py-2 text-sm font-medium text-right ${
-                        theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                      }`}>
+                      <td className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                        }`}>Valor de Revisión Técnica</td>
+                      <td className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                        }`}>
                         {new Intl.NumberFormat('es-CO', {
                           style: 'currency',
                           currency: 'COP',
@@ -285,15 +295,12 @@ const [formData, setFormData] = useState({
                         }).format(orden.valor_revision)}
                       </td>
                     </tr>
-                    <tr className={`border-t-2 ${
-                      theme === 'light' ? 'border-red-300' : 'border-red-700'
-                    }`}>
-                      <td className={`py-3 text-base font-bold ${
-                        theme === 'light' ? 'text-red-900' : 'text-red-200'
-                      }`}>TOTAL A PAGAR</td>
-                      <td className={`py-3 text-xl font-bold text-right ${
-                        theme === 'light' ? 'text-red-700' : 'text-red-400'
+                    <tr className={`border-t-2 ${theme === 'light' ? 'border-red-300' : 'border-red-700'
                       }`}>
+                      <td className={`py-3 text-base font-bold ${theme === 'light' ? 'text-red-900' : 'text-red-200'
+                        }`}>TOTAL A PAGAR</td>
+                      <td className={`py-3 text-xl font-bold text-right ${theme === 'light' ? 'text-red-700' : 'text-red-400'
+                        }`}>
                         {new Intl.NumberFormat('es-CO', {
                           style: 'currency',
                           currency: 'COP',
@@ -304,9 +311,8 @@ const [formData, setFormData] = useState({
                     </tr>
                   </tbody>
                 </table>
-                <p className={`text-xs mt-3 italic ${
-                  theme === 'light' ? 'text-red-700' : 'text-red-400'
-                }`}>
+                <p className={`text-xs mt-3 italic ${theme === 'light' ? 'text-red-700' : 'text-red-400'
+                  }`}>
                   ⚠️ Solo se cobra el valor de revisión porque el cliente rechazó la reparación.
                 </p>
               </div>
@@ -314,44 +320,37 @@ const [formData, setFormData] = useState({
           )}
         </div>
       )}
-      
+
       {/* Mensaje y factura de aceptación */}
       {orden.aprobado_cliente && orden.total > 0 && (
-        <div className={`mb-6 p-6 rounded-lg border ${
-          theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-green-900/20 border-green-800'
-        }`}>
+        <div className={`mb-6 p-6 rounded-lg border ${theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-green-900/20 border-green-800'
+          }`}>
           <div className="flex items-center gap-2 mb-4">
             <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className={`text-sm font-medium ${
-              theme === 'light' ? 'text-green-800' : 'text-green-300'
-            }`}>
+            <p className={`text-sm font-medium ${theme === 'light' ? 'text-green-800' : 'text-green-300'
+              }`}>
               El cliente aceptó la cotización. Equipo reparado.
             </p>
           </div>
-          
+
           {/* Tabla de Factura - Cliente Aceptó */}
-          <div className={`mt-4 rounded-lg border overflow-hidden ${
-            theme === 'light' ? 'bg-white border-green-300' : 'bg-gray-800 border-green-700'
-          }`}>
-            <div className={`px-4 py-3 font-semibold ${
-              theme === 'light' ? 'bg-green-100 text-green-900' : 'bg-green-900/40 text-green-200'
+          <div className={`mt-4 rounded-lg border overflow-hidden ${theme === 'light' ? 'bg-white border-green-300' : 'bg-gray-800 border-green-700'
             }`}>
+            <div className={`px-4 py-3 font-semibold ${theme === 'light' ? 'bg-green-100 text-green-900' : 'bg-green-900/40 text-green-200'
+              }`}>
               💵 Factura a Cobrar
             </div>
             <div className="p-4">
               <table className="w-full">
-                <tbody className={`divide-y ${
-                  theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
-                }`}>
+                <tbody className={`divide-y ${theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
+                  }`}>
                   <tr>
-                    <td className={`py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>Subtotal (Repuestos y Servicios)</td>
-                    <td className={`py-2 text-sm font-medium text-right ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
+                    <td className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>Subtotal (Repuestos y Servicios)</td>
+                    <td className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                      }`}>
                       {new Intl.NumberFormat('es-CO', {
                         style: 'currency',
                         currency: 'COP',
@@ -361,12 +360,10 @@ const [formData, setFormData] = useState({
                     </td>
                   </tr>
                   <tr>
-                    <td className={`py-2 text-sm ${
-                      theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                    }`}>IVA</td>
-                    <td className={`py-2 text-sm font-medium text-right ${
-                      theme === 'light' ? 'text-gray-900' : 'text-gray-100'
-                    }`}>
+                    <td className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>IVA</td>
+                    <td className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                      }`}>
                       {new Intl.NumberFormat('es-CO', {
                         style: 'currency',
                         currency: 'COP',
@@ -375,15 +372,12 @@ const [formData, setFormData] = useState({
                       }).format(orden.iva || 0)}
                     </td>
                   </tr>
-                  <tr className={`border-t-2 ${
-                    theme === 'light' ? 'border-green-300' : 'border-green-700'
-                  }`}>
-                    <td className={`py-3 text-base font-bold ${
-                      theme === 'light' ? 'text-green-900' : 'text-green-200'
-                    }`}>TOTAL A PAGAR</td>
-                    <td className={`py-3 text-xl font-bold text-right ${
-                      theme === 'light' ? 'text-green-700' : 'text-green-400'
+                  <tr className={`border-t-2 ${theme === 'light' ? 'border-green-300' : 'border-green-700'
                     }`}>
+                    <td className={`py-3 text-base font-bold ${theme === 'light' ? 'text-green-900' : 'text-green-200'
+                      }`}>TOTAL A PAGAR</td>
+                    <td className={`py-3 text-xl font-bold text-right ${theme === 'light' ? 'text-green-700' : 'text-green-400'
+                      }`}>
                       {new Intl.NumberFormat('es-CO', {
                         style: 'currency',
                         currency: 'COP',
@@ -394,9 +388,8 @@ const [formData, setFormData] = useState({
                   </tr>
                 </tbody>
               </table>
-              <p className={`text-xs mt-3 italic ${
-                theme === 'light' ? 'text-green-700' : 'text-green-400'
-              }`}>
+              <p className={`text-xs mt-3 italic ${theme === 'light' ? 'text-green-700' : 'text-green-400'
+                }`}>
                 ✅ El valor de revisión NO se cobra porque el cliente aceptó la reparación.
               </p>
             </div>
@@ -409,41 +402,62 @@ const [formData, setFormData] = useState({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Tipo de entrega */}
           <div>
-            <label className={`block text-sm font-medium mb-2 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
+            <label className={`block text-sm font-medium mb-2 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
               Tipo de entrega <span className="text-red-500">*</span>
             </label>
-            <div className={`w-full px-4 py-3 border rounded-lg ${
-              theme === 'light'
+            <div className={`w-full px-4 py-3 border rounded-lg ${theme === 'light'
                 ? 'border-gray-300 bg-gray-100 text-gray-600'
                 : 'border-gray-600 bg-gray-800 text-gray-400'
-            }`}>
+              }`}>
               {formData.tipo_entrega === 'Reparado' ? 'Reparado' : 'Devuelto (cliente no aceptó reparación)'}
             </div>
           </div>
 
           {/* Usuario que entrega */}
-          <div className={`rounded-lg border p-4 ${
-            theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-700 border-gray-600'
-          }`}>
-            <p className={`text-xs font-medium mb-1 ${
-              theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+          <div className={`rounded-lg border p-4 ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-700 border-gray-600'
             }`}>
+            <label className={`block text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+              }`}>
               Usuario que entrega
-            </p>
-            <p className={`text-sm font-medium ${
-              theme === 'light' ? 'text-gray-900' : 'text-gray-200'
-            }`}>
-              {usuarioEntrega || 'Cargando...'}
-            </p>
+            </label>
+            <select
+              value={tecnicoEntregaId}
+              onChange={async (e) => {
+                const newValue = e.target.value;
+                setTecnicoEntregaId(newValue);
+                // Guardar inmediatamente
+                try {
+                  const { supabase } = await import('@/lib/supabaseClient');
+                  await supabase
+                    .from('ordenes')
+                    .update({ tecnico_entrega: newValue, ultima_actualizacion: new Date().toISOString() })
+                    .eq('id', orden.id);
+                  toast.success('Usuario de entrega actualizado');
+                } catch (err) {
+                  console.error(err);
+                  toast.error('Error al actualizar usuario');
+                }
+              }}
+              disabled={!puedeEditar}
+              className={`w-full px-3 py-2 border rounded-lg text-sm ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-800 text-gray-100'
+                } disabled:opacity-50`}
+            >
+              <option value="">Seleccionar técnico...</option>
+              {tecnicos.map((tech) => (
+                <option key={tech.id} value={tech.id}>
+                  {tech.nombre || tech.email || 'Sin nombre'}
+                </option>
+              ))}
+            </select>
           </div>
 
-{/* Fecha de entrega (editable) */}
+          {/* Fecha de entrega (editable) */}
           <div>
-            <label className={`block text-sm font-medium mb-2 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
+            <label className={`block text-sm font-medium mb-2 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
               Fecha de entrega
             </label>
             <input
@@ -468,20 +482,18 @@ const [formData, setFormData] = useState({
                 }
               }}
               disabled={!puedeEditar}
-              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                theme === 'light'
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
                   : 'border-gray-600 bg-gray-700 text-gray-100'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
             />
           </div>
 
           {/* Fecha próximo mantenimiento - Solo si fue reparado */}
           {orden.aprobado_cliente && (
             <div>
-              <label className={`block text-sm font-medium mb-2 ${
-                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}>
+              <label className={`block text-sm font-medium mb-2 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
                 Fecha próximo mantenimiento
               </label>
               <input
@@ -495,9 +507,9 @@ const [formData, setFormData] = useState({
                     const { supabase } = await import('@/lib/supabaseClient');
                     const { error } = await supabase
                       .from('ordenes')
-                      .update({ 
+                      .update({
                         fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento,
-                        ultima_actualizacion: new Date().toISOString() 
+                        ultima_actualizacion: new Date().toISOString()
                       })
                       .eq('id', orden.id);
                     if (error) throw error;
@@ -508,16 +520,14 @@ const [formData, setFormData] = useState({
                   }
                 }}
                 disabled={!puedeEditar}
-                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                     ? 'border-gray-300 bg-white text-gray-900'
                     : 'border-gray-600 bg-gray-700 text-gray-100'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
               />
               {formData.fecha_proximo_mantenimiento && (
-                <p className={`text-xs mt-1 ${
-                  theme === 'light' ? 'text-gray-500' : 'text-gray-400'
-                }`}>
+                <p className={`text-xs mt-1 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
                   🔔 Se enviará un recordatorio automático un día antes
                 </p>
               )}
@@ -528,21 +538,19 @@ const [formData, setFormData] = useState({
         {/* Fotos de entrega */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className={`text-sm font-medium ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
+            <label className={`text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
               Fotos de entrega {fotos.length > 0 && `(${fotos.length})`}
             </label>
 
             {/* Botón de subir fotos */}
             {puedeEditar && (
-              <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                subiendoFotos
+              <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${subiendoFotos
                   ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed opacity-60'
                   : theme === 'light'
-                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                  : 'bg-yellow-400 hover:bg-yellow-500 text-black'
-              }`}>
+                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                    : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+                }`}>
                 <input
                   type="file"
                   accept="image/*,video/*"
@@ -586,23 +594,19 @@ const [formData, setFormData] = useState({
 
         {/* Cuidados de Uso del Modelo */}
         {orden.equipo?.modelo?.cuidado_uso && (
-          <div className={`rounded-lg border p-6 ${
-            theme === 'light' ? 'bg-blue-50 border-blue-200' : 'bg-blue-900/20 border-blue-700'
-          }`}>
-            <h3 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${
-              theme === 'light' ? 'text-blue-900' : 'text-blue-300'
+          <div className={`rounded-lg border p-6 ${theme === 'light' ? 'bg-blue-50 border-blue-200' : 'bg-blue-900/20 border-blue-700'
             }`}>
+            <h3 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${theme === 'light' ? 'text-blue-900' : 'text-blue-300'
+              }`}>
               <AlertCircle className="w-5 h-5" />
               Cuidados de Uso - {orden.equipo?.modelo?.equipo || 'Equipo'}
             </h3>
-            <div className={`text-sm whitespace-pre-wrap ${
-              theme === 'light' ? 'text-blue-800' : 'text-blue-200'
-            }`}>
+            <div className={`text-sm whitespace-pre-wrap ${theme === 'light' ? 'text-blue-800' : 'text-blue-200'
+              }`}>
               {orden.equipo.modelo.cuidado_uso}
             </div>
-            <p className={`text-xs mt-3 italic ${
-              theme === 'light' ? 'text-blue-600' : 'text-blue-400'
-            }`}>
+            <p className={`text-xs mt-3 italic ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'
+              }`}>
               💡 Esta información se mostrará al cliente en la página de seguimiento
             </p>
           </div>
@@ -610,41 +614,35 @@ const [formData, setFormData] = useState({
 
         {/* Firma de Entrega (solo visualización) */}
         <div>
-          <h3 className={`text-lg font-semibold mb-3 ${
-            theme === 'light' ? 'text-gray-900' : 'text-white'
-          }`}>
+          <h3 className={`text-lg font-semibold mb-3 ${theme === 'light' ? 'text-gray-900' : 'text-white'
+            }`}>
             Firma de Entrega
           </h3>
           {firmaEntrega ? (
             <div>
-              <FirmaDisplay 
+              <FirmaDisplay
                 firmaBase64={firmaEntrega}
                 titulo="Firma del Cliente - Entrega"
                 className=""
               />
               {fechaFirmaEntrega && (
-                <p className={`text-sm mt-2 ${
-                  theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                }`}>
+                <p className={`text-sm mt-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                  }`}>
                   Fecha de firma: {new Date(fechaFirmaEntrega).toLocaleString('es-CO')}
                 </p>
               )}
             </div>
           ) : (
-            <div className={`rounded-lg border p-6 text-center ${
-              theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
-            }`}>
-              <AlertCircle className={`w-12 h-12 mx-auto mb-3 ${
-                theme === 'light' ? 'text-red-400' : 'text-red-500'
-              }`} />
-              <p className={`font-medium mb-1 ${
-                theme === 'light' ? 'text-red-900' : 'text-red-300'
+            <div className={`rounded-lg border p-6 text-center ${theme === 'light' ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800'
               }`}>
+              <AlertCircle className={`w-12 h-12 mx-auto mb-3 ${theme === 'light' ? 'text-red-400' : 'text-red-500'
+                }`} />
+              <p className={`font-medium mb-1 ${theme === 'light' ? 'text-red-900' : 'text-red-300'
+                }`}>
                 Sin firma de entrega
               </p>
-              <p className={`text-sm ${
-                theme === 'light' ? 'text-red-700' : 'text-red-400'
-              }`}>
+              <p className={`text-sm ${theme === 'light' ? 'text-red-700' : 'text-red-400'
+                }`}>
                 El cliente debe firmar desde la página web
               </p>
             </div>
@@ -653,9 +651,8 @@ const [formData, setFormData] = useState({
 
         {/* Calificación de la orden */}
         <div>
-          <label className={`block text-sm font-medium mb-2 ${
-            theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-          }`}>
+          <label className={`block text-sm font-medium mb-2 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+            }`}>
             Calificación de la orden
           </label>
           <input
@@ -668,19 +665,17 @@ const [formData, setFormData] = useState({
             step="0.1"
             placeholder="Calificación (1-5)"
             disabled
-            className={`w-full px-4 py-3 border rounded-lg ${
-              theme === 'light'
+            className={`w-full px-4 py-3 border rounded-lg ${theme === 'light'
                 ? 'border-gray-300 bg-gray-100 text-gray-600'
                 : 'border-gray-600 bg-gray-800 text-gray-400'
-            }`}
+              }`}
           />
         </div>
 
         {/* Comentarios del cliente */}
         <div>
-          <label className={`block text-sm font-medium mb-2 ${
-            theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-          }`}>
+          <label className={`block text-sm font-medium mb-2 ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+            }`}>
             Comentarios del cliente
           </label>
           <textarea
@@ -692,11 +687,10 @@ const [formData, setFormData] = useState({
             disabled
             spellCheck={true}
             lang="es"
-            className={`w-full px-4 py-3 border rounded-lg ${
-              theme === 'light'
+            className={`w-full px-4 py-3 border rounded-lg ${theme === 'light'
                 ? 'border-gray-300 bg-gray-100 text-gray-600'
                 : 'border-gray-600 bg-gray-800 text-gray-400'
-            }`}
+              }`}
           />
         </div>
       </div>

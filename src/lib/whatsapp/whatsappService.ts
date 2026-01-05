@@ -37,15 +37,15 @@ const EMOJI = {
 export function formatPhoneNumber(phone: string): string {
   // Eliminar espacios, guiones, paréntesis y el símbolo +
   let cleaned = phone.replace(/[\s\-\(\)]/g, '');
-  
+
   // Si ya tiene +, solo removerlo y continuar
   cleaned = cleaned.replace(/\+/g, '');
-  
+
   // Si el número no empieza con 57 (código de Colombia), agregarlo
   if (!cleaned.startsWith('57')) {
     cleaned = '57' + cleaned;
   }
-  
+
   return cleaned;
 }
 
@@ -81,7 +81,7 @@ export function getMensajeOrdenCreada(data: {
   productoId?: string;
 }): string {
   const { clienteNombre, ordenId, trackingUrl, equipoDescripcion } = data;
-  
+
   return `${EMOJI.WRENCH} Team Service Costa
 
 Hola ${clienteNombre},
@@ -92,7 +92,7 @@ ${EMOJI.ID} Orden: ${ordenId}
 ${equipoDescripcion ? `${EMOJI.HAMMER_WRENCH} Equipo: ${equipoDescripcion}\n` : ''}${EMOJI.LOCATION} Estado actual: Recepción
 
 ${EMOJI.MOBILE} Rastrea el progreso en tiempo real:
-${trackingUrl}
+${trackingUrl}estado-producto?codigo=${ordenId}
 
 Guarda este mensaje, ya que tu ID de orden será necesario para futuras consultas.
 
@@ -113,7 +113,7 @@ export function getMensajeCambioFase(data: {
   productoId?: string;
 }): string {
   const { clienteNombre, ordenId, faseActual, trackingUrl } = data;
-  
+
   const descripciones: Record<string, string> = {
     'Recepción': 'Tu equipo ha sido recibido en nuestras instalaciones.',
     'Diagnóstico': 'Nuestros técnicos están realizando el diagnóstico de tu equipo.',
@@ -152,7 +152,7 @@ export function getMensajeCotizacion(data: {
   total?: number;
 }): string {
   const { clienteNombre, ordenId, cotizacionUrl } = data;
-  
+
   return `${EMOJI.SPARKLES} Hola ${clienteNombre},
 hemos finalizado el diagnóstico de tu equipo y la cotización ya está disponible.
 
@@ -177,7 +177,7 @@ export function getMensajeAprobacionRequerida(data: {
   productoId?: string;
 }): string {
   const { clienteNombre, ordenId, trackingUrl } = data;
-  
+
   return `${EMOJI.HOURGLASS} *Aprobación Pendiente*
 
 Hola ${clienteNombre},
@@ -204,7 +204,7 @@ export function getMensajeListoEntrega(data: {
   direccion?: string;
 }): string {
   const { clienteNombre, ordenId, direccion } = data;
-  
+
   return `${EMOJI.CHECK_MARK} *¡Tu Equipo está Listo!*
 
 Hola ${clienteNombre},
@@ -237,7 +237,7 @@ export function getMensajeSeguimiento(data: {
   productoId?: string;
 }): string {
   const { clienteNombre, ordenId, mensaje, trackingUrl } = data;
-  
+
   return `${EMOJI.MEGAPHONE} *Team Service Costa*
 
 Hola ${clienteNombre},
@@ -263,7 +263,7 @@ export function getMensajePQR(data: {
   respuesta: string;
 }): string {
   const { clienteNombre, pqrId, tipoPQR, respuesta } = data;
-  
+
   const emojis: Record<string, string> = {
     'Petición': EMOJI.ENVELOPE,
     'Queja': EMOJI.WARNING,
@@ -272,7 +272,7 @@ export function getMensajePQR(data: {
   };
 
   const emoji = emojis[tipoPQR] || EMOJI.ENVELOPE;
-  
+
   return `${emoji} *Respuesta a tu ${tipoPQR}*
 
 Hola ${clienteNombre},
@@ -300,7 +300,7 @@ export function getMensajeBodega(data: {
   trackingUrl: string;
 }): string {
   const { clienteNombre, ordenId, fecha, trackingUrl } = data;
-  
+
   return `${EMOJI.PACKAGE} *Producto Enviado a Bodega*
 
 Hola ${clienteNombre},
@@ -330,7 +330,7 @@ export function getMensajeChatarrizado(data: {
   trackingUrl: string;
 }): string {
   const { clienteNombre, ordenId, fecha, trackingUrl } = data;
-  
+
   return `${EMOJI.WASTEBASKET} *Producto Chatarrizado*
 
 Hola ${clienteNombre},
@@ -361,14 +361,14 @@ export function getMensajeCotizacionRechazada(data: {
   trackingUrl: string;
 }): string {
   const { clienteNombre, ordenId, valorRevision, trackingUrl } = data;
-  
+
   // Formatear el valor de revisión a moneda colombiana
   const valorFormateado = new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
     minimumFractionDigits: 0
   }).format(valorRevision);
-  
+
   return `${EMOJI.CROSS_MARK} *Cotización Rechazada*
 
 Hola ${clienteNombre},

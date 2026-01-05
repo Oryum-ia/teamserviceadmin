@@ -46,6 +46,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           },
         };
       case 'cotizacion_aceptada':
+      case 'cotizacion_rechazada':
         return {
           cotizacionInfo: {
             ordenId: datosAdicionales.orden_id || '',
@@ -54,6 +55,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             total: parseFloat(datosAdicionales.total) || 0,
             faseActual: datosAdicionales.fase_actual || '',
           },
+        };
+      case 'terminos_aceptados':
+        return {
+          orderInfo: { // Reusing orderInfo for terms accepted
+            orderId: datosAdicionales.orden_id || '',
+            orderNumber: datosAdicionales.numero_orden || '',
+            status: 'pending', // Just a placeholder
+            date: new Date(),
+            description: `Términos aceptados por ${datosAdicionales.cliente_nombre || 'Cliente'}`
+          }
         };
       default:
         return undefined;
@@ -150,8 +161,68 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       )
       .subscribe();
 
+    // Suscribirse a cambios en ordenes para detectar eventos críticos (Términos y Rechazos)
+    const ordenesChannel = supabase
+      .channel('ordenes_notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'ordenes',
+        },
+        (payload) => {
+          const newItem = payload.new as any;
+          const oldItem = payload.old as any;
+
+          // 1. Detectar términos aceptados
+          if (newItem.terminos_aceptados === true && oldItem.terminos_aceptados !== true) {
+            console.log('🔔 Términos aceptados detectados en realtime');
+            addNotification({
+              type: 'terminos_aceptados',
+              title: 'Términos Aceptados',
+              message: `El cliente ha aceptado los términos y condiciones para la orden ${newItem.codigo || newItem.id}`,
+              referenciaId: newItem.id,
+              referenciaTipo: 'orden',
+              data: {
+                orderInfo: {
+                  orderId: newItem.id,
+                  orderNumber: newItem.codigo || 'S/N',
+                  status: 'pending',
+                  date: new Date(),
+                  description: 'Términos aceptados'
+                }
+              }
+            });
+          }
+
+          // 2. Detectar rechazo de cotización
+          if (newItem.aprobado_cliente === false && oldItem.aprobado_cliente !== false) {
+            console.log('🔔 Rechazo de cotización detectado en realtime');
+            addNotification({
+              type: 'cotizacion_rechazada',
+              title: 'Cotización Rechazada',
+              message: `El cliente ha rechazado la cotización para la orden ${newItem.codigo || newItem.id}`,
+              referenciaId: newItem.id,
+              referenciaTipo: 'orden',
+              data: {
+                cotizacionInfo: {
+                  ordenId: newItem.id,
+                  numeroOrden: newItem.codigo || 'S/N',
+                  clienteNombre: 'Cliente', // No tenemos nombre aquí fácil, pero no es crítico
+                  total: 0,
+                  faseActual: 'Cotización'
+                }
+              }
+            });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(ordenesChannel);
     };
   }, [loadNotifications, mapSupabaseNotification]);
 
@@ -208,7 +279,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     try {
       const unreadIds = unreadNotifications.map(n => n.id);
-      
+
       const { error } = await supabase
         .from('notificaciones')
         .update({ leida: true })

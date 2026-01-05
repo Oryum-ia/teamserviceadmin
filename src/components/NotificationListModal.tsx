@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { 
-  X, 
-  Bell, 
-  CheckCheck, 
-  FileText, 
-  Star, 
-  ThumbsUp, 
-  CheckCircle, 
-  ShieldCheck, 
-  AlertCircle, 
+import {
+  X,
+  Bell,
+  CheckCheck,
+  FileText,
+  Star,
+  ThumbsUp,
+  ThumbsDown,
+  CheckCircle,
+  FileCheck,
+  ShieldCheck,
+  AlertCircle,
   Info,
   Search,
   Filter
@@ -29,9 +31,9 @@ interface NotificationListModalProps {
 
 type FilterType = 'all' | 'unread' | 'read';
 
-export function NotificationListModal({ 
-  isOpen, 
-  onClose, 
+export function NotificationListModal({
+  isOpen,
+  onClose,
   notifications,
   onNotificationClick,
   onMarkAllAsRead,
@@ -50,6 +52,10 @@ export function NotificationListModal({
         return <Star className={`${iconClass} text-yellow-500`} />;
       case 'cotizacion_aceptada':
         return <ThumbsUp className={`${iconClass} text-green-500`} />;
+      case 'cotizacion_rechazada':
+        return <ThumbsDown className={`${iconClass} text-red-500`} />;
+      case 'terminos_aceptados':
+        return <FileCheck className={`${iconClass} text-green-600`} />;
       case 'order_authorized':
         return <CheckCircle className={`${iconClass} text-green-500`} />;
       case 'warranty_info':
@@ -81,16 +87,16 @@ export function NotificationListModal({
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    
+
     if (diffMinutes < 1) return 'Ahora';
     if (diffMinutes < 60) return `hace ${diffMinutes}m`;
-    
+
     const diffHours = Math.floor(diffMinutes / 60);
     if (diffHours < 24) return `hace ${diffHours}h`;
-    
+
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return `hace ${diffDays}d`;
-    
+
     return formatDate(date);
   };
 
@@ -107,8 +113,8 @@ export function NotificationListModal({
     // Aplicar búsqueda
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(n => 
-        n.title.toLowerCase().includes(query) || 
+      result = result.filter(n =>
+        n.title.toLowerCase().includes(query) ||
         n.message.toLowerCase().includes(query)
       );
     }
@@ -121,17 +127,17 @@ export function NotificationListModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className={`
         relative w-full max-w-3xl max-h-[85vh] rounded-2xl shadow-2xl overflow-hidden
         flex flex-col
-        ${theme === 'light' 
-          ? 'bg-white' 
+        ${theme === 'light'
+          ? 'bg-white'
           : 'bg-dark-bg-secondary border border-lime-400/20'
         }
       `}>
@@ -156,7 +162,7 @@ export function NotificationListModal({
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
               <button
@@ -179,8 +185,8 @@ export function NotificationListModal({
               onClick={onClose}
               className={`
                 p-2 rounded-lg transition-colors cursor-pointer
-                ${theme === 'light' 
-                  ? 'hover:bg-gray-100 text-gray-500' 
+                ${theme === 'light'
+                  ? 'hover:bg-gray-100 text-gray-500'
                   : 'hover:bg-dark-bg-tertiary text-gray-400'
                 }
               `}
@@ -284,9 +290,9 @@ export function NotificationListModal({
               <Bell className="h-16 w-16 mb-4 opacity-30" />
               <p className="text-lg font-medium">No hay notificaciones</p>
               <p className="text-sm opacity-70">
-                {searchQuery 
-                  ? 'No se encontraron resultados para tu búsqueda' 
-                  : filter === 'unread' 
+                {searchQuery
+                  ? 'No se encontraron resultados para tu búsqueda'
+                  : filter === 'unread'
                     ? 'No tienes notificaciones sin leer'
                     : filter === 'read'
                       ? 'No tienes notificaciones leídas'
@@ -323,7 +329,7 @@ export function NotificationListModal({
                         <div className="flex items-center gap-2">
                           <h4 className={`
                             font-semibold truncate
-                            ${!notification.isRead 
+                            ${!notification.isRead
                               ? theme === 'light' ? 'text-gray-900' : 'text-white'
                               : theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                             }
@@ -344,7 +350,7 @@ export function NotificationListModal({
                           {formatRelativeTime(notification.timestamp)}
                         </span>
                       </div>
-                      
+
                       <p className={`
                         mt-1 text-sm line-clamp-2
                         ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}
@@ -356,8 +362,8 @@ export function NotificationListModal({
                       <div className="flex items-center gap-2 mt-2">
                         <span className={`
                           inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                          ${theme === 'light' 
-                            ? 'bg-gray-100 text-gray-600' 
+                          ${theme === 'light'
+                            ? 'bg-gray-100 text-gray-600'
                             : 'bg-dark-bg-tertiary text-gray-400'
                           }
                         `}>
@@ -366,8 +372,8 @@ export function NotificationListModal({
                         {notification.referenciaTipo && (
                           <span className={`
                             inline-flex items-center px-2 py-0.5 rounded text-xs
-                            ${theme === 'light' 
-                              ? 'bg-blue-50 text-blue-600' 
+                            ${theme === 'light'
+                              ? 'bg-blue-50 text-blue-600'
                               : 'bg-blue-900/20 text-blue-400'
                             }
                           `}>

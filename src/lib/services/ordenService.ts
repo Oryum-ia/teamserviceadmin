@@ -137,7 +137,7 @@ Descripción: ${data.descripcion_problema || 'N/A'}
   }
 
   console.log("✅ Orden creada:", orden);
-  
+
   // Enviar correo de confirmación de orden creada
   try {
     await notificarOrdenCreada(orden.id);
@@ -145,7 +145,7 @@ Descripción: ${data.descripcion_problema || 'N/A'}
     console.error("⚠️ Error al enviar correo de confirmación:", emailError);
     // No lanzar error, la orden ya fue creada exitosamente
   }
-  
+
   return orden;
 }
 
@@ -176,13 +176,13 @@ export async function obtenerTodasLasOrdenes() {
   // Obtener sedes de usuarios por email (responsable)
   const emailsResponsables = [...new Set(data?.map(o => o.responsable).filter(Boolean) || [])];
   let sedesPorEmail: Record<string, string> = {};
-  
+
   if (emailsResponsables.length > 0) {
     const { data: usuarios } = await supabase
       .from("usuarios")
       .select("email, sede")
       .in("email", emailsResponsables);
-    
+
     if (usuarios) {
       sedesPorEmail = usuarios.reduce((acc, u) => {
         if (u.email && u.sede) acc[u.email] = u.sede;
@@ -382,14 +382,14 @@ export async function avanzarACotizacion(
   }
 
   console.log("✅ Orden avanzada a cotización");
-  
+
   // Enviar notificación de cambio de fase
   try {
     await notificarCambioFase(ordenId, 'Cotización');
   } catch (emailError) {
     console.error("⚠️ Error al enviar correo de cambio de fase:", emailError);
   }
-  
+
   return data as Orden;
 }
 
@@ -419,6 +419,7 @@ export async function actualizarCotizacion(
       total: cotizacion.total || 0,
       precio_envio: cotizacion.precio_envio || 0,
       fecha_cotizacion: cotizacion.fecha_cotizacion || crearTimestampColombia(),
+      tecnico_cotiza: cotizacion.tecnico_cotiza || null,
       ultima_actualizacion: crearTimestampColombia()
     })
     .eq("id", ordenId)
@@ -500,14 +501,14 @@ export async function avanzarAReparacion(
   }
 
   console.log("✅ Orden avanzada a reparación");
-  
+
   // Enviar notificación de cambio de fase
   try {
     await notificarCambioFase(ordenId, 'Reparación');
   } catch (emailError) {
     console.error("⚠️ Error al enviar correo de cambio de fase:", emailError);
   }
-  
+
   return data as Orden;
 }
 
@@ -532,14 +533,14 @@ export async function finalizarOrden(ordenId: string) {
   }
 
   console.log("✅ Orden finalizada");
-  
+
   // Enviar notificación de cambio de fase
   try {
     await notificarCambioFase(ordenId, 'Finalizada');
   } catch (emailError) {
     console.error("⚠️ Error al enviar correo de cambio de fase:", emailError);
   }
-  
+
   return data as Orden;
 }
 
@@ -650,4 +651,22 @@ export async function buscarOrdenes(termino: string) {
   }
 
   return data;
+}
+
+/**
+ * Eliminar una orden por ID
+ */
+export async function eliminarOrden(ordenId: string) {
+  const { error } = await supabase
+    .from("ordenes")
+    .delete()
+    .eq("id", ordenId);
+
+  if (error) {
+    console.error("❌ Error al eliminar orden:", error);
+    throw error;
+  }
+
+  console.log("✅ Orden eliminada:", ordenId);
+  return true;
 }

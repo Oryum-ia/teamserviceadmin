@@ -1,10 +1,11 @@
 /**
  * @file Logo.tsx
  * @description Professional logo component for TeamService Costa
- * Uses brand colors: Black, Dark Blue, Yellow
+ * Uses the uploaded brand image.
  */
 
 import React from 'react';
+import Image from 'next/image';
 
 interface LogoProps {
   readonly className?: string;
@@ -12,71 +13,24 @@ interface LogoProps {
   readonly theme?: 'light' | 'dark';
 }
 
-export const Logo: React.FC<LogoProps> = ({ 
-  className = '', 
+export const Logo: React.FC<LogoProps> = ({
+  className = '',
   showText = true,
   theme = 'light'
 }) => {
-  // Professional brand colors (matching original logo)
-  const primaryColor = theme === 'light' ? '#1a1a1b' : '#ffffff'; // Black/White
-  const yellowColor = '#fbbf24'; // Yellow-400
-  const darkBlueColor = '#1e3a8a'; // Blue-900 (dark blue from original logo)
-
-  if (!showText) {
-    // Icon version - Stylized initials
-    return (
-      <div className={`flex items-center justify-center ${className}`}>
-        <div className="relative">
-          <div 
-            className="font-black text-2xl"
-            style={{ color: darkBlueColor }}
-          >
-            TS
-          </div>
-          <div 
-            className="absolute -bottom-1 -right-1 font-black text-xs"
-            style={{ color: yellowColor }}
-          >
-            C
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // If showText is false, we might want to show a smaller icon or just the same logo but smaller.
+  // For now, using the same image as the base.
 
   return (
-    <div className={`flex flex-col leading-none ${className}`}>
-      {/* Main brand name */}
-      <div className="flex items-baseline gap-1">
-        <span 
-          className="font-black text-xl tracking-tight"
-          style={{ color: primaryColor }}
-        >
-          TEAM
-        </span>
-        <span 
-          className="font-black text-xl tracking-tight"
-          style={{ color: darkBlueColor }}
-        >
-          SERVICE
-        </span>
-      </div>
-      
-      {/* Subtitle with accent */}
-      <div className="flex items-center gap-1 mt-0.5">
-        <div 
-          className="h-0.5 w-6 rounded-full"
-          style={{ 
-            background: `linear-gradient(90deg, ${yellowColor} 0%, ${darkBlueColor} 100%)`
-          }}
-        />
-        <span 
-          className="font-bold text-xs tracking-widest"
-          style={{ color: yellowColor }}
-        >
-          COSTA
-        </span>
-      </div>
+    <div className={`relative flex items-center justify-center ${className}`}>
+      <Image
+        src="/img/logo_new.png"
+        alt="Team Service Costa"
+        width={300}
+        height={85}
+        className="object-contain"
+        priority
+      />
     </div>
   );
 };
@@ -85,5 +39,18 @@ export const Logo: React.FC<LogoProps> = ({
  * Compact version for collapsed sidebar
  */
 export const LogoIcon: React.FC<{ theme?: 'light' | 'dark' }> = ({ theme = 'light' }) => {
-  return <Logo showText={false} theme={theme} />;
+  // For the icon only version, we might want to crop it or use the same image but small
+  // using a different class or transform if needed.
+  // For now, let's return the logo restricted in size via container in parent or just use Logo.
+  return (
+    <div className="relative w-10 h-10 flex items-center justify-center">
+      <Image
+        src="/img/logo_new.png"
+        alt="TS"
+        width={40}
+        height={40}
+        className="object-contain"
+      />
+    </div>
+  );
 };
