@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, BellRing, CheckCheck } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { NotificationModal } from './NotificationModal';
@@ -11,7 +12,8 @@ import { useTheme } from './ThemeProvider';
 const STORE_NOTIFICATION_TYPES = ['pedido_nuevo', 'stock_bajo', 'producto_agotado'];
 
 export function NotificationBell() {
-  const { notifications, markAsRead, markAllAsRead } = useNotifications();
+  const router = useRouter();
+  const { notifications, getUnreadCount, markAsRead, markAllAsRead } = useNotifications();
   const { theme } = useTheme();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
@@ -25,6 +27,30 @@ export function NotificationBell() {
   const hasUnread = unreadCount > 0;
 
   const handleNotificationClick = (notification: Notification) => {
+    // Marcar como leída
+    if (!notification.isRead) {
+      markAsRead(notification.id);
+    }
+
+    // Verificar si es una notificación de orden para navegar directamente
+    let ordenId = null;
+
+    if (notification.referenciaTipo === 'orden' && notification.referenciaId) {
+      ordenId = notification.referenciaId;
+    } else if (notification.data?.orderInfo?.orderId) {
+      ordenId = notification.data.orderInfo.orderId;
+    } else if (notification.data?.cotizacionInfo?.ordenId) {
+      ordenId = notification.data.cotizacionInfo.ordenId;
+    }
+
+    if (ordenId) {
+      // Navegar a la orden
+      router.push(`/paneladmin/ordenes/${ordenId}`);
+      setShowDropdown(false);
+      return;
+    }
+
+    // Si no es de orden, comportamiento normal (abrir modal)
     setSelectedNotification(notification);
     setIsModalOpen(true);
     setShowDropdown(false);
@@ -232,8 +258,7 @@ export function NotificationBell() {
         onClose={() => setIsListModalOpen(false)}
         notifications={systemNotifications}
         onNotificationClick={(notification) => {
-          setSelectedNotification(notification);
-          setIsModalOpen(true);
+          handleNotificationClick(notification);
           setIsListModalOpen(false);
         }}
         onMarkAllAsRead={markAllAsRead}

@@ -136,8 +136,15 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
       file.type.startsWith('image/') || file.type.startsWith('video/')
     );
     
-    if (mediaFiles.length > 0 && onFilesDropped) {
-      onFilesDropped(mediaFiles);
+    // Validar tamaño (50MB)
+    const validFiles = mediaFiles.filter(file => file.size <= 50 * 1024 * 1024);
+
+    if (mediaFiles.length > validFiles.length) {
+      console.warn("Algunos archivos exceden el límite de 50MB y fueron ignorados.");
+    }
+    
+    if (validFiles.length > 0 && onFilesDropped) {
+      onFilesDropped(validFiles);
     }
   };
 

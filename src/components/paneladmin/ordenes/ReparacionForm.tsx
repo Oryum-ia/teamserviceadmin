@@ -162,19 +162,46 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
 
+    // Validar archivos
+    const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+    const archivosValidos: File[] = [];
+    const archivosInvalidos: string[] = [];
+
+    files.forEach(file => {
+      // Validar tipo
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        archivosInvalidos.push(`${file.name} (Tipo no válido)`);
+        return;
+      }
+      
+      // Validar tamaño
+      if (file.size > MAX_SIZE) {
+        archivosInvalidos.push(`${file.name} (Excede 50MB)`);
+        return;
+      }
+
+      archivosValidos.push(file);
+    });
+
+    if (archivosInvalidos.length > 0) {
+      toast.error(`Algunos archivos no se pudieron subir:\n${archivosInvalidos.join('\n')}`);
+    }
+
+    if (archivosValidos.length === 0) return;
+
     setSubiendoFotos(true);
     try {
-      const urls = await subirMultiplesImagenes(orden.id, files, 'reparacion');
+      const urls = await subirMultiplesImagenes(orden.id, archivosValidos, 'reparacion');
       const nuevasFotos = [...fotos, ...urls];
       setFotos(nuevasFotos);
 
       // Guardar en la base de datos inmediatamente
       await actualizarFotosReparacion(orden.id, nuevasFotos);
 
-      toast.success(`${files.length} foto(s) subida(s) exitosamente`);
+      toast.success(`${archivosValidos.length} archivo(s) subido(s) exitosamente`);
     } catch (error) {
-      console.error('Error al subir fotos:', error);
-      toast.error('Error al subir las fotos');
+      console.error('Error al subir archivos:', error);
+      toast.error('Error al subir los archivos. Verifique su conexión.');
     } finally {
       setSubiendoFotos(false);
     }
@@ -347,7 +374,7 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
             <label className={`text-sm font-medium ${
               theme === 'light' ? 'text-gray-700' : 'text-gray-300'
             }`}>
-              Fotos de reparación {fotos.length > 0 && `(${fotos.length})`}
+              Evidencia (Fotos y Videos) {fotos.length > 0 && `(${fotos.length})`}
             </label>
 
             {/* Botón de subir fotos */}
@@ -374,7 +401,7 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
                   disabled={subiendoFotos || !puedeEditar}
                 />
                 <Upload className="w-4 h-4" />
-                <span>{subiendoFotos ? 'Subiendo...' : 'Subir fotos'}</span>
+                <span>{subiendoFotos ? 'Subiendo...' : 'Subir evidencia'}</span>
               </label>
             )}
           </div>

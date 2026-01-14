@@ -43,8 +43,16 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
       file.type.startsWith('image/') || file.type.startsWith('video/')
     );
     
-    if (mediaFiles.length > 0) {
-      onFilesSelected(mediaFiles);
+    // Validar tamaño (50MB)
+    const validFiles = mediaFiles.filter(file => file.size <= 50 * 1024 * 1024);
+    
+    if (mediaFiles.length > validFiles.length) {
+      // Si hay archivos rechazados por tamaño, podríamos notificar al padre si hubiera prop onError
+      console.warn("Algunos archivos exceden el límite de 50MB y fueron ignorados.");
+    }
+
+    if (validFiles.length > 0) {
+      onFilesSelected(validFiles);
     }
   };
 
@@ -61,8 +69,15 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
       file.type.startsWith('image/') || file.type.startsWith('video/')
     );
     
-    if (mediaFiles.length > 0) {
-      onFilesSelected(mediaFiles);
+    // Validar tamaño (50MB)
+    const validFiles = mediaFiles.filter(file => file.size <= 50 * 1024 * 1024);
+
+    if (mediaFiles.length > validFiles.length) {
+       console.warn("Algunos archivos exceden el límite de 50MB y fueron ignorados.");
+    }
+    
+    if (validFiles.length > 0) {
+      onFilesSelected(validFiles);
     }
     
     // Limpiar el input para permitir subir las mismas imágenes
