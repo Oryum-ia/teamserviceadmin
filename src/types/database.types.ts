@@ -288,6 +288,7 @@ export interface ProductoTienda {
   descripcion?: string;
   precio?: number;
   stock?: number;
+  descuento?: number; // Porcentaje de descuento (0-100)
   categoria_id?: string; // Relación con categoría
   marca_id?: string; // Relación con marca
   imagenes?: string[]; // Array de URLs de imágenes

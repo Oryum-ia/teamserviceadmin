@@ -294,7 +294,7 @@ export default function ModeloModal({ isOpen, onClose, onSuccess, modeloEditar }
                   name="referencia"
                   value={formData.referencia}
                   onChange={handleChange}
-                  placeholder="Ej: K4"
+                  placeholder="Ej: 1.600-213.0"
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                     theme === 'light'
                       ? 'border-gray-300 bg-white text-gray-900'

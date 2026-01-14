@@ -58,12 +58,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         };
       case 'terminos_aceptados':
         return {
-          orderInfo: { // Reusing orderInfo for terms accepted
+          orderInfo: {
             orderId: datosAdicionales.orden_id || '',
             orderNumber: datosAdicionales.numero_orden || '',
-            status: 'pending', // Just a placeholder
+            status: 'pending',
             date: new Date(),
             description: `Términos aceptados por ${datosAdicionales.cliente_nombre || 'Cliente'}`
+          },
+          customerInfo: {
+            customerId: '',
+            name: datosAdicionales.cliente_nombre || '',
+          }
+        };
+      case 'diagnostico_completado':
+      case 'reparacion_completada':
+        return {
+          orderInfo: {
+            orderId: datosAdicionales.orden_id || '',
+            orderNumber: datosAdicionales.numero_orden || '',
+            status: 'completed',
+            date: new Date(),
+            description: datosAdicionales.tecnico_nombre 
+              ? `Completado por ${datosAdicionales.tecnico_nombre}`
+              : 'Completado'
+          },
+          customerInfo: {
+            customerId: '',
+            name: datosAdicionales.cliente_nombre || '',
           }
         };
       default:
@@ -162,6 +183,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       .subscribe();
 
     // Suscribirse a cambios en ordenes para detectar eventos críticos (Términos y Rechazos)
+    // NOTA: Las notificaciones se crean via triggers en Supabase, aquí solo logueamos para debug
     const ordenesChannel = supabase
       .channel('ordenes_notifications')
       .on(
@@ -175,46 +197,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const newItem = payload.new as any;
           const oldItem = payload.old as any;
 
-          // 1. Detectar términos aceptados
+          // 1. Detectar términos aceptados (la notificación se crea via trigger en Supabase)
           if (newItem.terminos_aceptados === true && oldItem.terminos_aceptados !== true) {
-            console.log('🔔 Términos aceptados detectados en realtime');
-            addNotification({
-              type: 'terminos_aceptados',
-              title: 'Términos Aceptados',
-              message: `El cliente ha aceptado los términos y condiciones para la orden ${newItem.codigo || newItem.id}`,
-              referenciaId: newItem.id,
-              referenciaTipo: 'orden',
-              data: {
-                orderInfo: {
-                  orderId: newItem.id,
-                  orderNumber: newItem.codigo || 'S/N',
-                  status: 'pending',
-                  date: new Date(),
-                  description: 'Términos aceptados'
-                }
-              }
-            });
+            console.log('🔔 Términos aceptados detectados en realtime - orden:', newItem.codigo);
+            // La notificación se insertará en la tabla por el trigger y llegará via el canal de notificaciones
           }
 
-          // 2. Detectar rechazo de cotización
+          // 2. Detectar rechazo de cotización (la notificación se crea via trigger en Supabase)
           if (newItem.aprobado_cliente === false && oldItem.aprobado_cliente !== false) {
-            console.log('🔔 Rechazo de cotización detectado en realtime');
-            addNotification({
-              type: 'cotizacion_rechazada',
-              title: 'Cotización Rechazada',
-              message: `El cliente ha rechazado la cotización para la orden ${newItem.codigo || newItem.id}`,
-              referenciaId: newItem.id,
-              referenciaTipo: 'orden',
-              data: {
-                cotizacionInfo: {
-                  ordenId: newItem.id,
-                  numeroOrden: newItem.codigo || 'S/N',
-                  clienteNombre: 'Cliente', // No tenemos nombre aquí fácil, pero no es crítico
-                  total: 0,
-                  faseActual: 'Cotización'
-                }
-              }
-            });
+            console.log('🔔 Rechazo de cotización detectado en realtime - orden:', newItem.codigo);
+            // La notificación se insertará en la tabla por el trigger y llegará via el canal de notificaciones
           }
         }
       )
@@ -250,51 +242,70 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setNotifications((prev) => prev.filter((notification) => notification.id !== id));
   }, []);
 
-  const markAsRead = useCallback(async (id: string) => {
-    // Actualizar en Supabase
-    try {
-      const { error } = await supabase
-        .from('notificaciones')
-        .update({ leida: true })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      // Actualizar en el estado local
-      setNotifications((prev) =>
-        prev.map((notification) =>
-          notification.id === id
-            ? { ...notification, isRead: true }
-            : notification
-        )
-      );
-    } catch (error) {
-      console.error('Error al marcar notificación como leída:', error);
-    }
+  // Verificar si un ID es un UUID válido de Supabase (no generado localmente)
+  const isSupabaseId = useCallback((id: string): boolean => {
+    // UUIDs de Supabase tienen formato xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(id);
   }, []);
+
+  const markAsRead = useCallback(async (id: string) => {
+    // Si es un ID de Supabase, actualizar en la base de datos
+    if (isSupabaseId(id)) {
+      try {
+        const { error } = await supabase
+          .from('notificaciones')
+          .update({ leida: true })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Error al marcar notificación como leída en Supabase:', error);
+        }
+      } catch (error) {
+        console.error('Error al marcar notificación como leída:', error);
+      }
+    }
+
+    // Siempre actualizar en el estado local
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        notification.id === id
+          ? { ...notification, isRead: true }
+          : notification
+      )
+    );
+  }, [isSupabaseId]);
 
   const markAllAsRead = useCallback(async () => {
     const unreadNotifications = notifications.filter(n => !n.isRead);
     if (unreadNotifications.length === 0) return;
 
-    try {
-      const unreadIds = unreadNotifications.map(n => n.id);
+    // Separar las notificaciones de Supabase de las locales
+    const supabaseNotifications = unreadNotifications.filter(n => isSupabaseId(n.id));
+    
+    // Actualizar solo las de Supabase en la base de datos
+    if (supabaseNotifications.length > 0) {
+      try {
+        const supabaseIds = supabaseNotifications.map(n => n.id);
 
-      const { error } = await supabase
-        .from('notificaciones')
-        .update({ leida: true })
-        .in('id', unreadIds);
+        const { error } = await supabase
+          .from('notificaciones')
+          .update({ leida: true })
+          .in('id', supabaseIds);
 
-      if (error) throw error;
-
-      // Actualizar en el estado local
-      setNotifications((prev) =>
-        prev.map((notification) => ({ ...notification, isRead: true }))
-      );
-    } catch (error) {
-      console.error('Error al marcar todas las notificaciones como leídas:', error);
+        if (error) {
+          console.error('Error al marcar notificaciones como leídas en Supabase:', error);
+        }
+      } catch (error) {
+        console.error('Error al marcar todas las notificaciones como leídas:', error);
+      }
     }
-  }, [notifications]);
+
+    // Actualizar todas (locales y de Supabase) en el estado local
+    setNotifications((prev) =>
+      prev.map((notification) => ({ ...notification, isRead: true }))
+    );
+  }, [notifications, isSupabaseId]);
 
   const clearAllNotifications = useCallback(() => {
     setNotifications([]);

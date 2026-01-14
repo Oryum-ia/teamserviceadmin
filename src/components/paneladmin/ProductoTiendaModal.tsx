@@ -79,7 +79,7 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         descripcion: producto.descripcion || '',
         precio: producto.precio ? formatNumber(producto.precio.toString()) : '',
         stock: producto.stock?.toString() || '',
-        descuento: producto.promocion ? '10' : '', // Si tiene promoción, asumir 10% (ajustar según tu lógica)
+        descuento: producto.descuento ? producto.descuento.toString() : '',
         categoria_id: producto.categoria_id || '',
         marca_id: producto.marca_id || '',
         imagenes: imagenesArray,
@@ -221,17 +221,20 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         e => e.nombre.trim() !== '' && e.valor.trim() !== ''
       );
 
+      const descuentoNum = formData.descuento ? parseInt(formData.descuento) : 0;
+      
       const productoData = {
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion.trim() || undefined,
         precio: formData.precio ? parseNumber(formData.precio) : undefined,
         stock: formData.stock ? parseInt(formData.stock) : undefined,
+        descuento: descuentoNum, // Porcentaje de descuento
         categoria_id: formData.categoria_id || undefined,
         marca_id: formData.marca_id || undefined,
         imagenes: formData.imagenes.length > 0 ? formData.imagenes : [],
         especificaciones: especificacionesValidas.length > 0 ? especificacionesValidas : [],
         tiempo_garantia: formData.tiempo_garantia.trim() || undefined,
-        promocion: formData.descuento ? true : false, // Si hay descuento, hay promoción
+        promocion: descuentoNum > 0, // Si hay descuento > 0, hay promoción
         activo: formData.activo
       };
 

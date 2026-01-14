@@ -62,6 +62,29 @@ export function NotificationBell() {
   };
 
   const getNotificationPreview = (notification: Notification) => {
+    const parts: string[] = [];
+    
+    // Agregar código de orden si está disponible
+    const orderCode = notification.data?.orderInfo?.orderNumber || 
+                      notification.data?.cotizacionInfo?.numeroOrden ||
+                      (notification.referenciaId ? `#${notification.referenciaId.substring(0, 8)}` : null);
+    if (orderCode) {
+      parts.push(`Orden: ${orderCode}`);
+    }
+    
+    // Agregar nombre del cliente si está disponible
+    const clientName = notification.data?.customerInfo?.name || 
+                       notification.data?.cotizacionInfo?.clienteNombre;
+    if (clientName) {
+      parts.push(`Cliente: ${clientName}`);
+    }
+    
+    // Si hay partes, unirlas con " | ", si no, mostrar el mensaje
+    if (parts.length > 0) {
+      return parts.join(' | ');
+    }
+    
+    // Fallback al mensaje original truncado
     let preview = notification.message;
     if (preview.length > 50) {
       preview = preview.substring(0, 50) + '...';
@@ -175,8 +198,8 @@ export function NotificationBell() {
                         }`}
                     >
                       <div className="flex items-start space-x-3">
-                        <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${!notification.isRead
-                          ? theme === 'light' ? 'bg-mint-500' : 'bg-lime-400'
+                        <div className={`flex-shrink-0 w-3 h-3 rounded-full mt-1.5 ${!notification.isRead
+                          ? 'bg-red-500 animate-pulse shadow-sm shadow-red-500/50'
                           : theme === 'light'
                             ? 'bg-gray-300'
                             : 'bg-gray-600'

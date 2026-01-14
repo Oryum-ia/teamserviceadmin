@@ -875,7 +875,12 @@ export default function OrdenDetallePage() {
 
       toast.success(`Avanzado a fase de ${siguienteFase.label}`);
 
-      // Enviar notificaciones por email y WhatsApp
+      // Las notificaciones de diagnóstico y reparación completados se crean
+      // automáticamente mediante triggers de Supabase (ver triggers en la DB)
+
+      // ========================================
+      // NOTIFICACIONES POR EMAIL Y WHATSAPP
+      // ========================================
       // Usar templates específicos si el cliente rechazó la cotización
       const esRechazoACotizacion = faseActual === 'cotizacion' && orden.aprobado_cliente === false;
 

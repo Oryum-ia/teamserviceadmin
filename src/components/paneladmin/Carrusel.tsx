@@ -21,10 +21,10 @@ import ImagenViewer from './ordenes/ImagenViewer';
 
 // Definir las secciones disponibles
 const SECCIONES = [
-  { id: 'principal', nombre: 'Principal', descripcion: 'Carrusel principal de la landing page' },
-  { id: 'labor-social', nombre: 'Labor Social', descripcion: 'Fotos de las ayudas que hace la empresa' },
-  { id: 'clientes', nombre: 'Clientes', descripcion: 'Fotos de nuestros clientes' },
-  { id: 'quienes-somos', nombre: 'Quiénes Somos', descripcion: 'Imagen única para la sección Quiénes Somos (solo se permite una imagen)' }
+  { id: 'principal', nombre: 'Principal', descripcion: 'Carrusel principal de la landing page', soloImagen: false, unicaImagen: false },
+  { id: 'labor-social', nombre: 'Labor Social', descripcion: 'Carrusel con múltiples slides (título, descripción e imagen)', soloImagen: false, unicaImagen: false },
+  { id: 'clientes', nombre: 'Clientes', descripcion: 'Carrusel con múltiples slides para mostrar nuestros clientes (título, descripción e imagen)', soloImagen: false, unicaImagen: false },
+  { id: 'quienes-somos', nombre: 'Quiénes Somos', descripcion: 'Imagen única para la sección Quiénes Somos (solo se permite una imagen sin título ni descripción)', soloImagen: true, unicaImagen: true }
 ] as const;
 
 type SeccionId = typeof SECCIONES[number]['id'];
@@ -174,8 +174,8 @@ export default function Carrusel() {
 
       {/* Botón Nueva Imagen */}
       <div className="mb-4 flex justify-end">
-        {/* Solo mostrar botón si no es 'quienes-somos' o si no hay imágenes */}
-        {(seccionActiva !== 'quienes-somos' || imagenes.length === 0) && (
+        {/* Solo mostrar botón si no es sección de imagen única o si no hay imágenes */}
+        {(!seccionActual?.unicaImagen || imagenes.length === 0) && (
           <button
             onClick={() => {
               setSelectedImagen(null);
@@ -188,7 +188,7 @@ export default function Carrusel() {
             }`}
           >
             <Plus className="w-4 h-4" />
-            <span>{seccionActiva === 'quienes-somos' ? 'Subir Imagen' : 'Nueva Imagen'}</span>
+            <span>{seccionActual?.unicaImagen ? 'Subir Imagen' : 'Nueva Imagen'}</span>
           </button>
         )}
       </div>
@@ -200,15 +200,15 @@ export default function Carrusel() {
         </div>
       ) : (
         <>
-          {/* Alerta para sección Quiénes Somos */}
-          {seccionActiva === 'quienes-somos' && imagenes.length > 0 && (
+          {/* Alerta para secciones de imagen única */}
+          {seccionActual?.unicaImagen && imagenes.length > 0 && (
             <div className={`mb-4 p-4 rounded-lg ${
               theme === 'light' ? 'bg-amber-50 border border-amber-200' : 'bg-amber-900/20 border border-amber-800'
             }`}>
               <p className={`text-sm ${
                 theme === 'light' ? 'text-amber-800' : 'text-amber-300'
               }`}>
-                ⚠️ Esta sección solo permite una imagen. Para cambiarla, elimina la actual y sube una nueva.
+                ⚠️ Esta sección solo permite una imagen{seccionActual?.soloImagen ? ' sin título ni descripción' : ''}. Para cambiarla, elimina la actual y sube una nueva.
               </p>
             </div>
           )}
@@ -219,14 +219,14 @@ export default function Carrusel() {
               theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
             }`}>
               <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-                {seccionActiva === 'quienes-somos' 
+                {seccionActual?.unicaImagen 
                   ? 'No hay imagen cargada. Haz clic en "Subir Imagen" para agregar una.'
                   : 'No hay imágenes en esta sección'}
               </p>
             </div>
           ) : (
             <div className={`grid gap-6 ${
-              seccionActiva === 'quienes-somos' 
+              seccionActual?.unicaImagen 
                 ? 'grid-cols-1 max-w-2xl mx-auto' 
                 : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
             }`}>
@@ -302,18 +302,23 @@ export default function Carrusel() {
 
                   {/* Contenido */}
                   <div className="p-4">
-                    <h3 className={`font-semibold mb-2 truncate ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {imagen.titulo || 'Sin título'}
-                    </h3>
-                    
-                    {imagen.descripcion && (
-                      <p className={`text-sm mb-3 line-clamp-2 ${
-                        theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                      }`}>
-                        {imagen.descripcion}
-                      </p>
+                    {/* Solo mostrar título y descripción si NO es sección de solo imagen */}
+                    {!seccionActual?.soloImagen && (
+                      <>
+                        <h3 className={`font-semibold mb-2 truncate ${
+                          theme === 'light' ? 'text-gray-900' : 'text-white'
+                        }`}>
+                          {imagen.titulo || 'Sin título'}
+                        </h3>
+                        
+                        {imagen.descripcion && (
+                          <p className={`text-sm mb-3 line-clamp-2 ${
+                            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
+                            {imagen.descripcion}
+                          </p>
+                        )}
+                      </>
                     )}
 
                     {/* Acciones */}
@@ -334,8 +339,8 @@ export default function Carrusel() {
 
                       {/* Botones de orden y eliminar */}
                       <div className="flex gap-2">
-                        {/* Solo mostrar botones de orden si NO es 'quienes-somos' */}
-                        {seccionActiva !== 'quienes-somos' && (
+                        {/* Solo mostrar botones de orden si NO es sección de imagen única */}
+                        {!seccionActual?.unicaImagen && (
                           <>
                             <button
                               onClick={() => handleMoveUp(index)}
@@ -368,12 +373,13 @@ export default function Carrusel() {
                         <button
                           onClick={() => handleDelete(imagen.id, imagen.titulo || '')}
                           className="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          title={seccionActiva === 'quienes-somos' ? 'Eliminar para cambiar' : 'Eliminar'}
+                          title={seccionActual?.unicaImagen ? 'Eliminar para cambiar' : 'Eliminar'}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
+                  {/* Cerrar el fragmento condicional de solo imagen */}
                   </div>
                 </div>
               ))}
@@ -536,7 +542,9 @@ function CarruselModal({ isOpen, onClose, onSuccess, imagen, ordenActual, seccio
 
   if (!isOpen) return null;
 
-  const seccionNombre = SECCIONES.find(s => s.id === seccion)?.nombre || seccion;
+  const seccionConfig = SECCIONES.find(s => s.id === seccion);
+  const seccionNombre = seccionConfig?.nombre || seccion;
+  const esSoloImagen = seccionConfig?.soloImagen ?? false;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50">
@@ -556,6 +564,7 @@ function CarruselModal({ isOpen, onClose, onSuccess, imagen, ordenActual, seccio
               theme === 'light' ? 'text-gray-600' : 'text-gray-400'
             }`}>
               Sección: {seccionNombre}
+              {esSoloImagen && <span className="ml-2 text-amber-500">(Solo imagen)</span>}
             </p>
           </div>
           <button onClick={onClose} className={`p-2 rounded-lg transition-colors ${
@@ -591,43 +600,48 @@ function CarruselModal({ isOpen, onClose, onSuccess, imagen, ordenActual, seccio
               )}
             </div>
 
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}>
-                Título
-              </label>
-              <input
-                type="text"
-                name="titulo"
-                value={formData.titulo}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
-              />
-            </div>
+            {/* Solo mostrar título y descripción si NO es sección de solo imagen */}
+            {!esSoloImagen && (
+              <>
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${
+                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                  }`}>
+                    Título
+                  </label>
+                  <input
+                    type="text"
+                    name="titulo"
+                    value={formData.titulo}
+                    onChange={handleChange}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                      theme === 'light'
+                        ? 'border-gray-300 bg-white text-gray-900'
+                        : 'border-gray-600 bg-gray-700 text-gray-100'
+                    }`}
+                  />
+                </div>
 
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${
-                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}>
-                Descripción
-              </label>
-              <textarea
-                name="descripcion"
-                value={formData.descripcion}
-                onChange={handleChange}
-                rows={3}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                  theme === 'light'
-                    ? 'border-gray-300 bg-white text-gray-900'
-                    : 'border-gray-600 bg-gray-700 text-gray-100'
-                }`}
-              />
-            </div>
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${
+                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                  }`}>
+                    Descripción
+                  </label>
+                  <textarea
+                    name="descripcion"
+                    value={formData.descripcion}
+                    onChange={handleChange}
+                    rows={3}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                      theme === 'light'
+                        ? 'border-gray-300 bg-white text-gray-900'
+                        : 'border-gray-600 bg-gray-700 text-gray-100'
+                    }`}
+                  />
+                </div>
+              </>
+            )}
 
             <label className="flex items-center space-x-2 cursor-pointer">
               <input

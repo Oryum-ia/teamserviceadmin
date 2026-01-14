@@ -215,3 +215,83 @@ export function suscribirseANotificaciones(
   
   return setupSubscription();
 }
+
+/**
+ * Notificar que el diagnóstico de una orden fue completado
+ * Esta notificación aparece en la campanita del admin
+ */
+export async function notificarDiagnosticoCompletado(
+  ordenId: string,
+  codigoOrden: string,
+  clienteNombre: string,
+  tecnicoNombre?: string
+): Promise<void> {
+  const { supabase } = await import('@/lib/supabaseClient');
+  
+  try {
+    const { error } = await supabase
+      .from('notificaciones')
+      .insert({
+        tipo: 'diagnostico_completado',
+        titulo: `✅ Diagnóstico Completado`,
+        mensaje: `El diagnóstico de la orden ${codigoOrden} ha sido completado${tecnicoNombre ? ` por ${tecnicoNombre}` : ''}.`,
+        leida: false,
+        referencia_id: ordenId,
+        referencia_tipo: 'orden',
+        datos_adicionales: {
+          orden_id: ordenId,
+          numero_orden: codigoOrden,
+          cliente_nombre: clienteNombre,
+          tecnico_nombre: tecnicoNombre
+        }
+      });
+    
+    if (error) {
+      console.error('Error al crear notificación de diagnóstico completado:', error);
+    } else {
+      console.log('✅ Notificación de diagnóstico completado creada');
+    }
+  } catch (err) {
+    console.error('Error en notificarDiagnosticoCompletado:', err);
+  }
+}
+
+/**
+ * Notificar que la reparación de una orden fue completada
+ * Esta notificación aparece en la campanita del admin
+ */
+export async function notificarReparacionCompletada(
+  ordenId: string,
+  codigoOrden: string,
+  clienteNombre: string,
+  tecnicoNombre?: string
+): Promise<void> {
+  const { supabase } = await import('@/lib/supabaseClient');
+  
+  try {
+    const { error } = await supabase
+      .from('notificaciones')
+      .insert({
+        tipo: 'reparacion_completada',
+        titulo: `🔧 Reparación Completada`,
+        mensaje: `La reparación de la orden ${codigoOrden} ha sido completada${tecnicoNombre ? ` por ${tecnicoNombre}` : ''}. Lista para entrega.`,
+        leida: false,
+        referencia_id: ordenId,
+        referencia_tipo: 'orden',
+        datos_adicionales: {
+          orden_id: ordenId,
+          numero_orden: codigoOrden,
+          cliente_nombre: clienteNombre,
+          tecnico_nombre: tecnicoNombre
+        }
+      });
+    
+    if (error) {
+      console.error('Error al crear notificación de reparación completada:', error);
+    } else {
+      console.log('✅ Notificación de reparación completada creada');
+    }
+  } catch (err) {
+    console.error('Error en notificarReparacionCompletada:', err);
+  }
+}

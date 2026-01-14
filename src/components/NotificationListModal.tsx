@@ -15,7 +15,9 @@ import {
   AlertCircle,
   Info,
   Search,
-  Filter
+  Filter,
+  Stethoscope,
+  Wrench
 } from 'lucide-react';
 import { Notification } from '../types/notifications';
 import { useTheme } from './ThemeProvider';
@@ -56,6 +58,10 @@ export function NotificationListModal({
         return <ThumbsDown className={`${iconClass} text-red-500`} />;
       case 'terminos_aceptados':
         return <FileCheck className={`${iconClass} text-green-600`} />;
+      case 'diagnostico_completado':
+        return <Stethoscope className={`${iconClass} text-teal-500`} />;
+      case 'reparacion_completada':
+        return <Wrench className={`${iconClass} text-emerald-500`} />;
       case 'order_authorized':
         return <CheckCircle className={`${iconClass} text-green-500`} />;
       case 'warranty_info':
@@ -337,10 +343,7 @@ export function NotificationListModal({
                             {notification.title}
                           </h4>
                           {!notification.isRead && (
-                            <span className={`
-                              flex-shrink-0 w-2 h-2 rounded-full
-                              ${theme === 'light' ? 'bg-mint-500' : 'bg-lime-400'}
-                            `} />
+                            <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
                           )}
                         </div>
                         <span className={`
@@ -359,7 +362,31 @@ export function NotificationListModal({
                       </p>
 
                       {/* Additional Info Tags */}
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        {/* Código de Orden */}
+                        {(notification.data?.orderInfo?.orderNumber || notification.data?.cotizacionInfo?.numeroOrden) && (
+                          <span className={`
+                            inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                            ${theme === 'light'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-purple-900/30 text-purple-400'
+                            }
+                          `}>
+                            📋 {notification.data?.orderInfo?.orderNumber || notification.data?.cotizacionInfo?.numeroOrden}
+                          </span>
+                        )}
+                        {/* Nombre del Cliente */}
+                        {(notification.data?.customerInfo?.name || notification.data?.cotizacionInfo?.clienteNombre) && (
+                          <span className={`
+                            inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                            ${theme === 'light'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-green-900/30 text-green-400'
+                            }
+                          `}>
+                            👤 {notification.data?.customerInfo?.name || notification.data?.cotizacionInfo?.clienteNombre}
+                          </span>
+                        )}
                         <span className={`
                           inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
                           ${theme === 'light'

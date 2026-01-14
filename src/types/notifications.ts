@@ -1,6 +1,6 @@
 export interface Notification {
   id: string;
-  type: 'pqr_nuevo' | 'encuesta_nueva' | 'cotizacion_aceptada' | 'cotizacion_rechazada' | 'terminos_aceptados' | 'order_authorized' | 'warranty_info' | 'system_alert' | 'success' | 'error' | 'warning' | 'info';
+  type: 'pqr_nuevo' | 'encuesta_nueva' | 'cotizacion_aceptada' | 'cotizacion_rechazada' | 'terminos_aceptados' | 'diagnostico_completado' | 'reparacion_completada' | 'order_authorized' | 'warranty_info' | 'system_alert' | 'success' | 'error' | 'warning' | 'info';
   title: string;
   message: string;
   timestamp: Date;

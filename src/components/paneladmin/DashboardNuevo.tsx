@@ -536,7 +536,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
           </div>
 
           <div
-            onClick={() => onSectionChange?.('ordenes', 'finalizada')}
+            onClick={() => onSectionChange?.('ordenes', 'entrega')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
               theme === 'light'
                 ? 'bg-white border-gray-200 hover:border-green-400'
@@ -550,7 +550,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
               <span className={`text-2xl font-bold ${
                 theme === 'light' ? 'text-gray-900' : 'text-white'
               }`}>
-                {estadisticas.ordenes_por_fase['Finalizada'] || 0}
+                {estadisticas.ordenes_por_fase['Entrega'] || 0}
               </span>
             </div>
             <h3 className={`text-sm font-medium ${

@@ -55,8 +55,13 @@ export async function obtenerEstadisticasGlobales(): Promise<EstadisticasGlobale
     o.estado_actual?.toLowerCase().includes('reparacion')
   ).length || 0;
 
+  const conteoEntrega = todasOrdenes?.filter(o => 
+    o.estado_actual?.toLowerCase() === 'entrega'
+  ).length || 0;
+
   const conteoFinalizada = todasOrdenes?.filter(o => 
-    o.estado_actual?.toLowerCase().includes('finalizada')
+    o.estado_actual?.toLowerCase().includes('finalizada') ||
+    o.estado_actual?.toLowerCase().includes('entregada')
   ).length || 0;
 
   const ordenesPorFase: Record<string, number> = {
@@ -64,6 +69,7 @@ export async function obtenerEstadisticasGlobales(): Promise<EstadisticasGlobale
     'Diagnóstico': conteoDiagnostico,
     'Cotización': conteoCotizacion,
     'Reparación': conteoReparacion,
+    'Entrega': conteoEntrega,
     'Finalizada': conteoFinalizada
   };
 
@@ -351,7 +357,9 @@ export async function obtenerEstadisticasDashboard() {
       fase = 'Cotización';
     } else if (estadoActual.toLowerCase().includes('reparación') || estadoActual.toLowerCase().includes('reparacion')) {
       fase = 'Reparación';
-    } else if (estadoActual.toLowerCase().includes('finalizada')) {
+    } else if (estadoActual.toLowerCase() === 'entrega') {
+      fase = 'Entrega';
+    } else if (estadoActual.toLowerCase().includes('finalizada') || estadoActual.toLowerCase().includes('entregada')) {
       fase = 'Finalizada';
     }
 

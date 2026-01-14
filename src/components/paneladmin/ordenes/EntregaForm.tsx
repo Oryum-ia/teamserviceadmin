@@ -445,7 +445,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
                   : 'border-gray-600 bg-gray-800 text-gray-100'
                 } disabled:opacity-50`}
             >
-              <option value="">Seleccionar técnico...</option>
+              <option value="">Seleccionar...</option>
               {tecnicos.map((tech) => (
                 <option key={tech.id} value={tech.id}>
                   {tech.nombre || tech.email || 'Sin nombre'}
