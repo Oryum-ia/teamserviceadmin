@@ -51,10 +51,9 @@ export function formatearFechaColombia(
 ): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
-  // Restar 5 horas para convertir UTC a Colombia (UTC-5)
-  const colombiaDate = new Date(dateObj.getTime() - (5 * 60 * 60 * 1000));
-  
+  // Usar timeZone de Intl para conversión correcta a Colombia
   const defaultOptions: Intl.DateTimeFormatOptions = {
+    timeZone: COLOMBIA_TIMEZONE,
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -63,7 +62,7 @@ export function formatearFechaColombia(
     ...options,
   };
   
-  return colombiaDate.toLocaleString('es-CO', defaultOptions);
+  return dateObj.toLocaleString('es-CO', defaultOptions);
 }
 
 /**

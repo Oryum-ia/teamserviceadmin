@@ -12,7 +12,7 @@ const sampleNotifications = [
       warrantyType: 'Garantía 25-0124',
       coverage: 'Cobertura completa',
       amount: 85000,
-      currency: 'CRC',
+      currency: 'COP',
       customerPhone: '+506 8888-9999',
       customerAddress: 'San José, Costa Rica'
     }
@@ -25,7 +25,7 @@ const sampleNotifications = [
       warrantyType: 'CLEAN MAXX',
       coverage: 'Garantía extendida',
       amount: 125000,
-      currency: 'CRC',
+      currency: 'COP',
       customerPhone: '+506 7777-8888',
       customerAddress: 'Cartago, Costa Rica'
     }
@@ -46,7 +46,7 @@ const sampleNotifications = [
       warrantyType: 'Garantía Estándar',
       coverage: 'Reparación y mantenimiento',
       amount: 65000,
-      currency: 'CRC',
+      currency: 'COP',
       customerPhone: '+506 6666-7777',
       customerAddress: 'Alajuela, Costa Rica'
     }
@@ -214,7 +214,7 @@ export function useSampleNotifications() {
       warrantyExpiration: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       coverage: 'Cobertura completa',
       amount: randomAmount,
-      currency: 'CRC',
+      currency: 'COP',
       customerPhone: '+506 8888-9999',
       customerAddress: `${randomLocation}, Costa Rica`
     });

@@ -223,9 +223,17 @@ export default function OrdenesNuevo() {
 
   const getClienteName = (orden: any) => {
     if (!orden.cliente) return 'Cliente no encontrado';
-    return orden.cliente.es_juridica
-      ? orden.cliente.razon_social || orden.cliente.nombre_comercial
-      : orden.cliente.nombre_comercial || orden.cliente.razon_social;
+    
+    // Prioritize based on es_juridica flag, but ensure we always get a valid name
+    const cliente = orden.cliente;
+    
+    // For companies (jurídicas): prioritize razon_social
+    if (cliente.es_juridica === true) {
+      return cliente.razon_social?.trim() || cliente.nombre_comercial?.trim() || 'Sin nombre';
+    }
+    
+    // For individuals (not jurídicas or es_juridica is null/false): prioritize nombre_comercial
+    return cliente.nombre_comercial?.trim() || cliente.razon_social?.trim() || 'Sin nombre';
   };
 
   const clearAllFilters = () => {

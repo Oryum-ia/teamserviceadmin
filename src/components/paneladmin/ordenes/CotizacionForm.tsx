@@ -91,7 +91,8 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     tipo: orden.cotizacion?.tipo || orden.tipo_orden || 'Reparación',
     comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
     tecnico_reparacion_id: orden.tecnico_repara || '',
-    precio_envio: orden.precio_envio || 0
+    precio_envio: orden.precio_envio || 0,
+    valor_revision: orden.valor_revision || 0
   });
 
   // Datos de aprobación de marca (para garantías)
@@ -116,9 +117,10 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       tipo: orden.cotizacion?.tipo || orden.tipo_orden || 'Reparación',
       comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
       tecnico_reparacion_id: orden.tecnico_repara || '',
-      precio_envio: orden.precio_envio || 0
+      precio_envio: orden.precio_envio || 0,
+      valor_revision: orden.valor_revision || 0
     });
-  }, [orden.tipo_orden, orden.tecnico_repara, orden.precio_envio, orden.ultima_actualizacion, orden.comentarios_cotizacion]);
+  }, [orden.tipo_orden, orden.tecnico_repara, orden.precio_envio, orden.valor_revision, orden.ultima_actualizacion, orden.comentarios_cotizacion]);
 
   // ============================================================================
   // FORCE FRESH DATA ON ORDER CHANGE (F5 refresh)
@@ -145,6 +147,10 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   // Estado temporal para el input de precio de envío (mientras se edita)
   const [precioEnvioInput, setPrecioEnvioInput] = React.useState('');
   const [editandoPrecioEnvio, setEditandoPrecioEnvio] = React.useState(false);
+
+  // Estado temporal para el input de valor de revisión (mientras se edita)
+  const [valorRevisionInput, setValorRevisionInput] = React.useState('');
+  const [editandoValorRevision, setEditandoValorRevision] = React.useState(false);
 
   // Lista de técnicos (con caché)
   const [tecnicos, setTecnicos] = useState<any[]>(() => {
@@ -213,8 +219,8 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       return { subtotal: 0, iva: 0, total: 0, valor_revision: 0, precio_envio: 0 };
     }
 
-    // Obtener valor de revisión de la orden (ya no del modelo)
-    const valorRevision = orden.valor_revision || 0;
+    // Obtener valor de revisión de la cotización actual
+    const valorRevision = formData.valor_revision || 0;
 
     // Precio de envío
     const precioEnvio = formData.precio_envio || 0;
@@ -321,6 +327,10 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   const bloqueadoPorAceptacion = estado === 'Esperando aceptación' || !!aprobadoCliente;
   const puedeEditarRepuestos = (estado === 'Cotización' || estado === 'Esperando repuestos') && !bloqueadoPorAceptacion && faseIniciada;
   const puedeEditarCamposCotizacion = (estado === 'Cotización' || estado === 'Esperando repuestos') && !aprobadoCliente && faseIniciada;
+  // Nueva variable: permitir editar stock incluso cuando la cotización fue enviada, solo bloquear en otras fases
+  const puedeEditarStock = (estado === 'Cotización' || estado === 'Esperando repuestos' || estado === 'Esperando aceptación') && faseIniciada;
+  // Verificar si todos los repuestos tienen stock (para el indicador visual)
+  const todosConStock = repuestos.length > 0 && repuestos.every(r => r.en_stock);
 
   // Note: formatCurrency, parseCurrency, and formatNumberWithCommas are now imported from pricing.utils.ts
 
@@ -403,6 +413,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
             tecnico_repara: formData.tecnico_reparacion_id || null,
             tecnico_cotiza: tecnicoCotizaId || null,
             precio_envio: formData.precio_envio || 0,
+            valor_revision: formData.valor_revision || 0,
             comentarios_cotizacion: formData.comentarios || '',
             total: calcularTotalesConRepuestos(repuestos).total,
             ultima_actualizacion: new Date().toISOString()
@@ -431,6 +442,12 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       };
     }
 
+    // Cleanup: eliminar la función de window al desmontar
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).guardarDatosCotizacion;
+      }
+    };
   }, [formData, orden?.id, repuestos, tecnicoCotizaId]);
 
   const agregarRepuesto = () => {
@@ -573,7 +590,8 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
         tecnico_cotiza: tecnicoCotizaId || null,
         tecnico_repara: formData.tecnico_reparacion_id || null,
         precio_envio: formData.precio_envio || 0,
-        ultima_actualizacion: now
+        ultima_actualizacion: now,
+        valor_revision: formData.valor_revision || 0
       };
 
       await supabase
@@ -985,7 +1003,20 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                     <th className={`px-3 py-2 text-right text-xs font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                       }`}>Valor</th>
                     <th className={`px-3 py-2 text-center text-xs font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                      }`}>En stock</th>
+                      }`}>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className={todosConStock ? 'line-through text-green-600' : ''}>
+                          En stock
+                        </span>
+                        <span className={`text-[10px] font-normal ${
+                          todosConStock 
+                            ? 'text-green-600' 
+                            : theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                        }`}>
+                          ({repuestos.filter(r => r.en_stock).length}/{repuestos.length})
+                        </span>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
@@ -1065,13 +1096,26 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                         </span>
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={repuesto.en_stock}
-                          onChange={(e) => actualizarRepuesto(index, 'en_stock', e.target.checked)}
-                          disabled={!puedeEditarRepuestos}
-                          className="w-4 h-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-500"
-                        />
+                        <div className="flex flex-col items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={repuesto.en_stock}
+                            onChange={(e) => actualizarRepuesto(index, 'en_stock', e.target.checked)}
+                            disabled={!puedeEditarStock}
+                            className={`w-4 h-4 border-gray-300 rounded focus:ring-yellow-500 ${
+                              repuesto.en_stock 
+                                ? 'text-green-500 accent-green-500' 
+                                : 'text-yellow-500'
+                            }`}
+                          />
+                          {repuesto.en_stock && (
+                            <span className={`text-xs line-through ${
+                              theme === 'light' ? 'text-gray-400' : 'text-gray-500'
+                            }`}>
+                              ✓
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1102,6 +1146,39 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                       }`}>
                       {formatCurrency(totales.iva)}
                     </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className={`text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                      }`}>
+                      Valor Revisión
+                    </p>
+                    <input
+                      type="text"
+                      value={editandoValorRevision ? valorRevisionInput : (formData.valor_revision === 0 ? '' : formatCurrency(formData.valor_revision))}
+                      onFocus={() => {
+                        setEditandoValorRevision(true);
+                        setValorRevisionInput(formData.valor_revision === 0 ? '' : formData.valor_revision.toString());
+                      }}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        // Permitir solo números
+                        const cleaned = inputValue.replace(/[^0-9]/g, '');
+                        setValorRevisionInput(cleaned);
+                      }}
+                      onBlur={() => {
+                        const valor = valorRevisionInput === '' ? 0 : Number(valorRevisionInput);
+                        setFormData({ ...formData, valor_revision: valor });
+                        setEditandoValorRevision(false);
+                        setValorRevisionInput('');
+                      }}
+                      disabled={!puedeEditarCamposCotizacion}
+                      placeholder="$0"
+                      className={`w-32 px-2 py-1 border rounded text-sm text-right ${theme === 'light'
+                        ? 'border-gray-300 bg-white text-gray-900'
+                        : 'border-gray-600 bg-gray-700 text-gray-100'
+                        } disabled:opacity-50`}
+                    />
                   </div>
 
                   <div className="text-right">
@@ -1162,12 +1239,92 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
               </div>
             </div>
           ) : (
-            <div className={`p-4 text-center border-2 border-dashed rounded-lg ${theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-700'
-              }`}>
-              <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+            <div className="space-y-4">
+              <div className={`p-4 text-center border-2 border-dashed rounded-lg ${theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-700'
                 }`}>
-                No hay repuestos agregados
-              </p>
+                <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                  }`}>
+                  No hay repuestos agregados
+                </p>
+              </div>
+
+              {/* Valores de Revisión y Envío - Siempre visibles */}
+              <div className={`p-4 rounded-lg border ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-700 border-gray-600'
+                }`}>
+                <div className="flex items-center justify-end gap-8">
+                  <div className="text-right">
+                    <p className={`text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                      }`}>
+                      Valor Revisión
+                    </p>
+                    <input
+                      type="text"
+                      value={editandoValorRevision ? valorRevisionInput : (formData.valor_revision === 0 ? '' : formatCurrency(formData.valor_revision))}
+                      onFocus={() => {
+                        setEditandoValorRevision(true);
+                        setValorRevisionInput(formData.valor_revision === 0 ? '' : formData.valor_revision.toString());
+                      }}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        const cleaned = inputValue.replace(/[^0-9]/g, '');
+                        setValorRevisionInput(cleaned);
+                      }}
+                      onBlur={() => {
+                        const valor = valorRevisionInput === '' ? 0 : Number(valorRevisionInput);
+                        setFormData({ ...formData, valor_revision: valor });
+                        setEditandoValorRevision(false);
+                        setValorRevisionInput('');
+                      }}
+                      disabled={!puedeEditarCamposCotizacion}
+                      placeholder="$0"
+                      className={`w-32 px-2 py-1 border rounded text-sm text-right ${theme === 'light'
+                        ? 'border-gray-300 bg-white text-gray-900'
+                        : 'border-gray-600 bg-gray-700 text-gray-100'
+                        } disabled:opacity-50`}
+                    />
+                  </div>
+
+                  <div className="text-right">
+                    <p className={`text-xs font-medium mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                      }`}>
+                      Precio de Envío
+                    </p>
+                    <input
+                      type="text"
+                      value={editandoPrecioEnvio ? precioEnvioInput : (formData.precio_envio === 0 ? '' : formatCurrency(formData.precio_envio))}
+                      onFocus={() => {
+                        setEditandoPrecioEnvio(true);
+                        setPrecioEnvioInput(formData.precio_envio === 0 ? '' : formData.precio_envio.toString());
+                      }}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        const cleaned = inputValue.replace(/[^0-9]/g, '');
+                        setPrecioEnvioInput(cleaned);
+                      }}
+                      onBlur={() => {
+                        const valor = precioEnvioInput === '' ? 0 : Number(precioEnvioInput);
+                        setFormData({ ...formData, precio_envio: valor });
+                        setEditandoPrecioEnvio(false);
+                        setPrecioEnvioInput('');
+                      }}
+                      disabled={!puedeEditarCamposCotizacion}
+                      placeholder="$0"
+                      className={`w-32 px-2 py-1 border rounded text-sm text-right ${theme === 'light'
+                        ? 'border-gray-300 bg-white text-gray-900'
+                        : 'border-gray-600 bg-gray-700 text-gray-100'
+                        } disabled:opacity-50`}
+                    />
+                  </div>
+                </div>
+
+                <div className={`mt-3 pt-3 border-t ${theme === 'light' ? 'border-gray-300' : 'border-gray-600'
+                  }`}>
+                  <p className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                    }`}>
+                    📌 <strong>Valor de Revisión:</strong> {formatCurrency(formData.valor_revision)} - Solo se cobra si el cliente <strong>rechaza</strong> la cotización.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>

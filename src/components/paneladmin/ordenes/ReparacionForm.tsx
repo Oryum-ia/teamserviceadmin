@@ -163,7 +163,7 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
     if (files.length === 0) return;
 
     // Validar archivos
-    const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+    const MAX_SIZE = 300 * 1024 * 1024; // 300MB
     const archivosValidos: File[] = [];
     const archivosInvalidos: string[] = [];
 
@@ -176,7 +176,7 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
       
       // Validar tamaño
       if (file.size > MAX_SIZE) {
-        archivosInvalidos.push(`${file.name} (Excede 50MB)`);
+        archivosInvalidos.push(`${file.name} (Excede 300MB)`);
         return;
       }
 

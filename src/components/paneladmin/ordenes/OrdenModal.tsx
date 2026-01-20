@@ -45,10 +45,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
     es_retrabajo: false
   });
   
-  // Estado para el valor de revisión del modelo seleccionado
-  const [valorRevision, setValorRevision] = useState(0);
-  const [valorRevisionInput, setValorRevisionInput] = useState('');
-  const [editandoValorRevision, setEditandoValorRevision] = useState(false);
+
 
   // Estado para valor de envío
   const [valorEnvio, setValorEnvio] = useState(0);
@@ -135,7 +132,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
       // Crear la orden con el valor de revisión
       const ordenCreada = await crearOrden({
         ...formData,
-        valor_revision: valorRevision,
+        valor_revision: 0,
         precio_envio: valorEnvio
       });
       toast.success('Orden creada exitosamente');
@@ -302,47 +299,9 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
               </div>
             </div>
 
-            {/* Grid de Valor de Revisión y Envío */}
+            {/* Grid de Valor de Envío */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Valor de Revisión */}
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                }`}>
-                  Valor de Revisión
-                </label>
-                <input
-                  type="text"
-                  value={editandoValorRevision ? valorRevisionInput : (valorRevision === 0 ? '' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valorRevision))}
-                  onFocus={() => {
-                    setEditandoValorRevision(true);
-                    setValorRevisionInput(valorRevision === 0 ? '' : valorRevision.toString());
-                  }}
-                  onChange={(e) => {
-                    const inputValue = e.target.value;
-                    // Permitir solo números
-                    const cleaned = inputValue.replace(/[^0-9]/g, '');
-                    setValorRevisionInput(cleaned);
-                  }}
-                  onBlur={() => {
-                    const valor = valorRevisionInput === '' ? 0 : Number(valorRevisionInput);
-                    setValorRevision(valor);
-                    setEditandoValorRevision(false);
-                    setValorRevisionInput('');
-                  }}
-                  placeholder="$0"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                    theme === 'light'
-                      ? 'border-gray-300 bg-white text-gray-900'
-                      : 'border-gray-600 bg-gray-700 text-gray-100'
-                  }`}
-                />
-                <p className={`text-xs mt-1 ${
-                  theme === 'light' ? 'text-gray-500' : 'text-gray-400'
-                }`}>
-                  Solo se cobra si el cliente rechaza la cotización
-                </p>
-              </div>
+
 
               {/* Valor de Envío */}
               <div>

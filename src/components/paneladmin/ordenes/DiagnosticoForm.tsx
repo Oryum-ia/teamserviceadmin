@@ -243,9 +243,36 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
 
+    // Validar archivos
+    const MAX_SIZE = 300 * 1024 * 1024; // 300MB
+    const archivosValidos: File[] = [];
+    const archivosInvalidos: string[] = [];
+
+    files.forEach(file => {
+      // Validar tipo
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        archivosInvalidos.push(`${file.name} (Tipo no válido)`);
+        return;
+      }
+      
+      // Validar tamaño
+      if (file.size > MAX_SIZE) {
+        archivosInvalidos.push(`${file.name} (Excede 300MB)`);
+        return;
+      }
+
+      archivosValidos.push(file);
+    });
+
+    if (archivosInvalidos.length > 0) {
+      toast.error(`Algunos archivos no se pudieron subir:\n${archivosInvalidos.join('\n')}`);
+    }
+
+    if (archivosValidos.length === 0) return;
+
     setSubiendoFotos(true);
     try {
-      const urls = await subirMultiplesImagenes(orden.id, files, 'diagnostico');
+      const urls = await subirMultiplesImagenes(orden.id, archivosValidos, 'diagnostico');
       const nuevasFotos = [...fotos, ...urls];
       setFotos(nuevasFotos);
       

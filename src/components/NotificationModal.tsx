@@ -230,8 +230,12 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead 
                           ? 'text-gray-900'
                           : 'text-white'
                       }`}>
-                        <DollarSign className="h-4 w-4 mr-1" />
-                        {notification.data.orderInfo.amount.toLocaleString()} {notification.data.orderInfo.currency || 'CRC'}
+                        {new Intl.NumberFormat('es-CO', {
+                          style: 'currency',
+                          currency: notification.data.orderInfo.currency || 'COP',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        }).format(notification.data.orderInfo.amount)}
                       </p>
                     </div>
                   )}
@@ -605,8 +609,12 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead 
                         ? 'text-gray-900'
                         : 'text-white'
                     }`}>
-                      <DollarSign className="h-4 w-4 mr-1" />
-                      {notification.data.cotizacionInfo.total.toLocaleString()} CRC
+                      {new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      }).format(notification.data.cotizacionInfo.total)}
                     </p>
                   </div>
                   <div>

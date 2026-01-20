@@ -118,24 +118,33 @@ export default function OrdenDetallePage() {
     }
   };
 
+  // Referencia para el canal de realtime y bandera de montaje
+  const channelRef = React.useRef<any>(null);
+  const isMountedRef = React.useRef(true);
+
   useEffect(() => {
-    let channel: any = null;
+    isMountedRef.current = true;
 
     const inicializar = async () => {
       if (ordenId) {
         await cargarOrden();
         await verificarSuperAdmin();
-        channel = await configurarRealtime();
+        if (isMountedRef.current) {
+          channelRef.current = await configurarRealtime();
+        }
       }
     };
 
     inicializar();
 
     return () => {
+      // Marcar como desmontado para prevenir actualizaciones de estado
+      isMountedRef.current = false;
       // Limpiar suscripción al desmontar
-      if (channel) {
+      if (channelRef.current) {
         console.log('🧹 Limpiando canal de realtime');
-        channel.unsubscribe();
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
       }
     };
   }, [ordenId]);
@@ -314,6 +323,12 @@ export default function OrdenDetallePage() {
             filter: `id=eq.${ordenId}`
           },
           async (payload) => {
+            // Verificar si el componente sigue montado
+            if (!isMountedRef.current) {
+              console.log('⏭️ Ignorando evento realtime - componente desmontado');
+              return;
+            }
+
             console.log('🔔 Evento recibido en realtime:', {
               evento: payload.eventType,
               id: payload.new?.id,
@@ -335,8 +350,10 @@ export default function OrdenDetallePage() {
                 nuevo: estadoNuevo
               });
 
-              // Mostrar notificación al usuario
-              toast.success(`Estado actualizado: ${estadoNuevo}`);
+              // Mostrar notificación al usuario (solo si sigue montado)
+              if (isMountedRef.current) {
+                toast.success(`Estado actualizado: ${estadoNuevo}`);
+              }
             }
 
             // Detectar cuando el cliente rechaza la cotización
@@ -345,7 +362,9 @@ export default function OrdenDetallePage() {
 
             if (aprobadoAnterior !== aprobadoNuevo && aprobadoNuevo === false) {
               console.log('❌ Cliente rechazó la cotización - Enviando notificaciones');
-              toast.warning('El cliente rechazó la cotización');
+              if (isMountedRef.current) {
+                toast.warning('El cliente rechazó la cotización');
+              }
 
               // Enviar notificaciones de rechazo
               try {
@@ -365,9 +384,19 @@ export default function OrdenDetallePage() {
               }
             }
 
+            // Verificar nuevamente antes de recargar (operación async)
+            if (!isMountedRef.current) return;
+
             // Recargar la orden completa con todas las relaciones
             try {
               const ordenCompleta = await obtenerOrdenPorId(ordenId);
+              
+              // Verificar si sigue montado después de la operación async
+              if (!isMountedRef.current) {
+                console.log('⏭️ Ignorando actualización - componente desmontado');
+                return;
+              }
+
               console.log('✅ Orden completa recargada:', {
                 id: ordenCompleta.id,
                 estado_actual: ordenCompleta.estado_actual,
@@ -390,7 +419,7 @@ export default function OrdenDetallePage() {
             } catch (error) {
               console.error('❌ Error recargando orden:', error);
               // Fallback: usar solo los datos del payload
-              if (payload.new) {
+              if (payload.new && isMountedRef.current) {
                 const nuevaOrden = payload.new as any;
                 setOrden(nuevaOrden);
                 saveOrdenToLocalStorage(nuevaOrden);
@@ -594,6 +623,8 @@ export default function OrdenDetallePage() {
 
     // Solo Diagnóstico y Reparación requieren ser iniciadas
     // Recepción, Cotización y Entrega están siempre disponibles
+    // Diagnóstico y Reparación requieren ser iniciadas
+    // Recepción, Cotización y Entrega están siempre disponibles
     if (faseId !== 'diagnostico' && faseId !== 'reparacion') {
       return true; // Siempre "iniciada" para otras fases
     }
@@ -601,6 +632,7 @@ export default function OrdenDetallePage() {
     // Mapear fase a campo de fecha_inicio solo para diagnóstico y reparación
     const camposFechaInicio: Record<string, string> = {
       'diagnostico': 'fecha_inicio_diagnostico',
+      'cotizacion': 'fecha_cotizacion',
       'reparacion': 'fecha_inicio_reparacion'
     };
 
@@ -618,13 +650,18 @@ export default function OrdenDetallePage() {
       const faseId = mapEstadoAFase(orden.estado_actual);
       const { supabase } = await import('@/lib/supabaseClient');
 
-      // Solo Diagnóstico y Reparación requieren ser iniciadas
       const camposFechaInicio: Record<string, string> = {
         'diagnostico': 'fecha_inicio_diagnostico',
         'reparacion': 'fecha_inicio_reparacion'
       };
 
+      const camposTecnico: Record<string, string> = {
+        'diagnostico': 'tecnico_diagnostico',
+        'reparacion': 'tecnico_repara'
+      };
+
       const campoFecha = camposFechaInicio[faseId];
+      const campoTecnico = camposTecnico[faseId];
 
       if (!campoFecha) {
         toast.error('Esta fase no requiere ser iniciada');
@@ -632,10 +669,17 @@ export default function OrdenDetallePage() {
         return;
       }
 
+      const tecnicoId = await obtenerTecnicoActual();
+      
       const camposActualizacion: any = {
         [campoFecha]: now,
         ultima_actualizacion: now
       };
+
+      // Asignar técnico si existe el campo
+      if (campoTecnico) {
+        camposActualizacion[campoTecnico] = tecnicoId;
+      }
 
       await supabase
         .from('ordenes')
@@ -807,7 +851,8 @@ export default function OrdenDetallePage() {
       } else if (faseActual === 'diagnostico') {
         camposActualizacion.fecha_fin_diagnostico = now;
         camposActualizacion.tecnico_diagnostico = tecnicoId;
-        // NO establecer fecha_cotizacion aquí - el técnico debe iniciarla manualmente
+        // Establecer fecha_cotizacion automáticamente al avanzar a cotización
+        camposActualizacion.fecha_cotizacion = now;
 
         // Al avanzar desde diagnóstico, guardar comentarios y técnico seleccionado
         if (typeof window !== 'undefined' && (window as any).guardarDatosDiagnostico) {

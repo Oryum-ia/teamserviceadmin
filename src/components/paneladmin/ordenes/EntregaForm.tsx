@@ -52,10 +52,10 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
     obtenerUsuarioActual();
   }, [orden.tecnico_entrega]);
 
-  // Lista de técnicos (con caché)
+  // Lista de usuarios para entrega (con caché)
   const [tecnicos, setTecnicos] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('tecnicos_lista');
+      const cached = localStorage.getItem('usuarios_entrega_lista');
       if (cached) {
         try { return JSON.parse(cached); } catch (e) { return []; }
       }
@@ -63,37 +63,46 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
     return [];
   });
 
-  // Cargar lista de técnicos
+  // Cargar lista de usuarios
   useEffect(() => {
-    const cargarTecnicos = async () => {
+    const cargarUsuarios = async () => {
       try {
-        const cached = localStorage.getItem('tecnicos_lista');
+        const cached = localStorage.getItem('usuarios_entrega_lista');
         if (cached) return;
 
         const { supabase } = await import('@/lib/supabaseClient');
         const { data, error } = await supabase
           .from('usuarios')
           .select('id, nombre, email')
-          .in('rol', ['tecnico', 'super-admin'])
+          // .in('rol', ['tecnico', 'super-admin']) // Se eliminó filtro por petición del usuario
           .order('nombre');
 
         if (!error && data) {
           setTecnicos(data);
-          localStorage.setItem('tecnicos_lista', JSON.stringify(data));
+          localStorage.setItem('usuarios_entrega_lista', JSON.stringify(data));
         }
       } catch (error) {
-        console.error('Error al cargar técnicos:', error);
+        console.error('Error al cargar usuarios:', error);
       }
     };
-    cargarTecnicos();
+    cargarUsuarios();
   }, []);
 
   // Helper para formatear fecha en formato compatible con input datetime-local (hora Colombia)
   const formatForInput = (date: Date) => {
-    // Restar 5 horas para convertir UTC a Colombia
-    const colombiaDate = new Date(date.getTime() - (5 * 60 * 60 * 1000));
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${colombiaDate.getFullYear()}-${pad(colombiaDate.getMonth() + 1)}-${pad(colombiaDate.getDate())}T${pad(colombiaDate.getHours())}:${pad(colombiaDate.getMinutes())}`;
+    // Usar Intl para obtener fecha/hora en zona Colombia
+    const formatter = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    // Formato sv-SE genera YYYY-MM-DD HH:mm, convertir a formato datetime-local
+    const formatted = formatter.format(date);
+    return formatted.replace(' ', 'T');
   };
 
   const tipoEntregaInicial = orden.entrega?.tipo_entrega
@@ -166,9 +175,36 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
 
+    // Validar archivos
+    const MAX_SIZE = 300 * 1024 * 1024; // 300MB
+    const archivosValidos: File[] = [];
+    const archivosInvalidos: string[] = [];
+
+    files.forEach(file => {
+      // Validar tipo
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        archivosInvalidos.push(`${file.name} (Tipo no válido)`);
+        return;
+      }
+      
+      // Validar tamaño
+      if (file.size > MAX_SIZE) {
+        archivosInvalidos.push(`${file.name} (Excede 300MB)`);
+        return;
+      }
+
+      archivosValidos.push(file);
+    });
+
+    if (archivosInvalidos.length > 0) {
+      toast.error(`Algunos archivos no se pudieron subir:\n${archivosInvalidos.join('\n')}`);
+    }
+
+    if (archivosValidos.length === 0) return;
+
     setSubiendoFotos(true);
     try {
-      const urls = await subirMultiplesImagenes(orden.id, files, 'entrega');
+      const urls = await subirMultiplesImagenes(orden.id, archivosValidos, 'entrega');
       const nuevasFotos = [...fotos, ...urls];
       setFotos(nuevasFotos);
 
@@ -227,7 +263,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
 
   return (
     <div className="p-6">
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start justify-between mb-6 gap-4 sm:gap-0">
         <div>
           <h2 className={`text-2xl font-bold mb-2 ${theme === 'light' ? 'text-gray-900' : 'text-white'
             }`}>
@@ -272,7 +308,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
 
           {/* Tabla de Cobro - Solo Revisión */}
           {orden.valor_revision > 0 && (
-            <div className={`mt-4 rounded-lg border overflow-hidden ${theme === 'light' ? 'bg-white border-red-300' : 'bg-gray-800 border-red-700'
+            <div className={`mt-4 rounded-lg border overflow-x-auto ${theme === 'light' ? 'bg-white border-red-300' : 'bg-gray-800 border-red-700'
               }`}>
               <div className={`px-4 py-3 font-semibold ${theme === 'light' ? 'bg-red-100 text-red-900' : 'bg-red-900/40 text-red-200'
                 }`}>
@@ -336,7 +372,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
           </div>
 
           {/* Tabla de Factura - Cliente Aceptó */}
-          <div className={`mt-4 rounded-lg border overflow-hidden ${theme === 'light' ? 'bg-white border-green-300' : 'bg-gray-800 border-green-700'
+          <div className={`mt-4 rounded-lg border overflow-x-auto ${theme === 'light' ? 'bg-white border-green-300' : 'bg-gray-800 border-green-700'
             }`}>
             <div className={`px-4 py-3 font-semibold ${theme === 'light' ? 'bg-green-100 text-green-900' : 'bg-green-900/40 text-green-200'
               }`}>
@@ -537,7 +573,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
 
         {/* Fotos de entrega */}
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-3 sm:gap-0">
             <label className={`text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
               }`}>
               Fotos de entrega {fotos.length > 0 && `(${fotos.length})`}
