@@ -109,14 +109,7 @@ export async function crearEquipo(data: {
   const { data: equipo, error } = await supabase
     .from("equipos")
     .insert([equipoData])
-    .select(`
-      *,
-      modelo:modelos(
-        *,
-        marca:marcas(*)
-      ),
-      cliente:clientes(*)
-    `)
+    .select('*')
     .single();
 
   if (error) {

@@ -31,7 +31,12 @@ export const getSupabase = () => {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-    }
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 2,
+      },
+    },
   })
 
   return supabaseInstance

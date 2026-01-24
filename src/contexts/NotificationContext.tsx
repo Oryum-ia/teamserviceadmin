@@ -132,6 +132,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     loadNotifications();
 
     // Suscribirse a cambios en tiempo real
+    // Suscribirse a cambios en tiempo real (COMENTADO POR PROBLEMAS DE WSS EN SERVIDOR)
+    /*
     const channel = supabase
       .channel('notificaciones_realtime')
       .on(
@@ -182,8 +184,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       )
       .subscribe();
 
-    // Suscribirse a cambios en ordenes para detectar eventos críticos (Términos y Rechazos)
-    // NOTA: Las notificaciones se crean via triggers en Supabase, aquí solo logueamos para debug
     const ordenesChannel = supabase
       .channel('ordenes_notifications')
       .on(
@@ -197,16 +197,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const newItem = payload.new as any;
           const oldItem = payload.old as any;
 
-          // 1. Detectar términos aceptados (la notificación se crea via trigger en Supabase)
           if (newItem.terminos_aceptados === true && oldItem.terminos_aceptados !== true) {
             console.log('🔔 Términos aceptados detectados en realtime - orden:', newItem.codigo);
-            // La notificación se insertará en la tabla por el trigger y llegará via el canal de notificaciones
           }
 
-          // 2. Detectar rechazo de cotización (la notificación se crea via trigger en Supabase)
           if (newItem.aprobado_cliente === false && oldItem.aprobado_cliente !== false) {
             console.log('🔔 Rechazo de cotización detectado en realtime - orden:', newItem.codigo);
-            // La notificación se insertará en la tabla por el trigger y llegará via el canal de notificaciones
           }
         }
       )
@@ -216,6 +212,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       supabase.removeChannel(channel);
       supabase.removeChannel(ordenesChannel);
     };
+    */
   }, [loadNotifications, mapSupabaseNotification]);
 
   const addNotification = useCallback((notificationData: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => {

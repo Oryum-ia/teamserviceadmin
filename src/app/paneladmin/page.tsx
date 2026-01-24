@@ -113,9 +113,22 @@ function PanelAdminContent() {
     }
   }, [userSession]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const { supabase } = await import('@/lib/supabaseClient');
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Error cerrando sesión Supabase:', e);
+    }
+
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('userSession');
+      // Limpiar tokens persistentes de Supabase
+      Object.keys(window.localStorage).forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          window.localStorage.removeItem(key);
+        }
+      });
     }
     router.push('/');
   };

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search, Filter, Loader2, ChevronLeft, ChevronRight, X, Trash2, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { Orden, OrdenStatus } from '@/types/database.types';
-import { obtenerTodasLasOrdenes, eliminarOrden } from '@/lib/services/ordenService';
+import { obtenerOrdenesPaginadas, eliminarOrden } from '@/lib/services/ordenService';
 import OrdenModal from './ordenes/OrdenModal';
 
 // Helper function to get status color and label (coded status)
@@ -73,9 +73,11 @@ export default function OrdenesNuevo() {
   const router = useRouter();
   const [ordenes, setOrdenes] = useState<any[]>([]);
   const [filteredOrdenes, setFilteredOrdenes] = useState<any[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Cargar filtros desde localStorage al iniciar
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>(() => {
@@ -120,102 +122,74 @@ export default function OrdenesNuevo() {
     }
   }, [columnFilters]);
 
-  // Cargar órdenes al montar el componente
+  // Cargar órdenes cuando cambien filtros o paginación (con debounce)
   useEffect(() => {
-    cargarOrdenes();
-  }, []);
-
-  // Aplicar filtros
-  useEffect(() => {
-    aplicarFiltros();
-  }, [columnFilters, ordenes]);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    
+    timeoutRef.current = setTimeout(() => {
+      cargarOrdenes();
+    }, 500);
+    
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [columnFilters, currentPage, itemsPerPage]);
 
   const cargarOrdenes = async () => {
+    console.log('🔄 [OrdenesNuevo] Iniciando carga de órdenes...');
     setIsLoading(true);
     setError('');
     try {
-      const data = await obtenerTodasLasOrdenes();
-      setOrdenes(data);
-      setFilteredOrdenes(data);
-      console.log('✅ Órdenes cargadas:', data.length);
+      console.log(`📡 [OrdenesNuevo] Llamando a obtenerOrdenesPaginadas (Pag: ${currentPage})...`);
+      
+      const { data, count } = await obtenerOrdenesPaginadas({
+        page: currentPage, 
+        pageSize: itemsPerPage,
+        filters: columnFilters
+      });
+      
+      console.log('✅ [OrdenesNuevo] Datos recibidos:', data ? data.length : 'null', 'Total:', count);
+      
+      if (Array.isArray(data)) {
+        setOrdenes(data);
+        setFilteredOrdenes(data); // Ya vienen filtrados del servidor
+        setTotalItems(count);
+      } else {
+        console.error('⚠️ [OrdenesNuevo] Los datos recibidos no son un array:', data);
+        setOrdenes([]);
+        setFilteredOrdenes([]);
+        setTotalItems(0);
+        setError('Error: Formato de datos inválido');
+      }
     } catch (err) {
-      console.error('❌ Error al cargar órdenes:', err);
-      setError('Error al cargar las órdenes');
+      console.error('❌ [OrdenesNuevo] Error al cargar órdenes:', err);
+      setError('Error al cargar las órdenes. Revise la consola.');
       setOrdenes([]);
       setFilteredOrdenes([]);
+      setTotalItems(0);
     } finally {
+      console.log('🏁 [OrdenesNuevo] Finalizando carga, quitando spinner.');
       setIsLoading(false);
     }
   };
 
+  // Función aplicarFiltros eliminada (se hace en server) para evitar doble filtrado
   const aplicarFiltros = () => {
-    let resultado = [...ordenes];
-
-    // Filtrar por número de orden
-    if (columnFilters.numeroOrden.trim()) {
-      resultado = resultado.filter(orden =>
-        orden.numero_orden?.toLowerCase().includes(columnFilters.numeroOrden.toLowerCase())
-      );
-    }
-
-    // Filtrar por cliente
-    if (columnFilters.cliente.trim()) {
-      resultado = resultado.filter(orden =>
-        orden.cliente?.razon_social?.toLowerCase().includes(columnFilters.cliente.toLowerCase()) ||
-        orden.cliente?.nombre_comercial?.toLowerCase().includes(columnFilters.cliente.toLowerCase())
-      );
-    }
-
-    // Filtrar por identificación
-    if (columnFilters.identificacion.trim()) {
-      resultado = resultado.filter(orden =>
-        orden.cliente?.identificacion?.toLowerCase().includes(columnFilters.identificacion.toLowerCase())
-      );
-    }
-
-    // Filtrar por equipo
-    if (columnFilters.equipo.trim()) {
-      resultado = resultado.filter(orden =>
-        orden.tipo_producto?.toLowerCase().includes(columnFilters.equipo.toLowerCase())
-      );
-    }
-
-    // Filtrar por serial
-    if (columnFilters.serial.trim()) {
-      resultado = resultado.filter(orden =>
-        orden.serial?.toLowerCase().includes(columnFilters.serial.toLowerCase())
-      );
-    }
-
-    // Filtrar por marca
-    if (columnFilters.marca.trim()) {
-      resultado = resultado.filter(orden =>
-        orden.marca?.toLowerCase().includes(columnFilters.marca.toLowerCase())
-      );
-    }
-
-    // Filtrar por modelo
-    if (columnFilters.modelo.trim()) {
-      resultado = resultado.filter(orden =>
-        orden.modelo?.toLowerCase().includes(columnFilters.modelo.toLowerCase())
-      );
-    }
-
-    // Filtrar por sede (usa la sede seleccionada en la orden, no la del usuario)
-    if (columnFilters.sede.trim()) {
-      resultado = resultado.filter(orden =>
-        orden.sede?.toLowerCase().includes(columnFilters.sede.toLowerCase())
-      );
-    }
-
-    // Filtrar por estado
-    if (columnFilters.estado !== 'all') {
-      resultado = resultado.filter(orden => orden.estado === columnFilters.estado);
-    }
-
-    setFilteredOrdenes(resultado);
-    setCurrentPage(1);
+     // Trigger reload via useEffect dependency
+     setCurrentPage(1);
   };
+
+    // La función original aplicaba filtros en memoria.
+    // Ahora, los filtros triggers un reload del useEffect.
+    // Mantendremos esta función como wrapper simple o la eliminaremos del uso directo.
+    // setCurrentPage(1) se debe llamar al cambiar filtros en los inputs directamente.
+    // Los inputs ya llaman a setColumnFilters, lo cual dispara el useEffect.
+    // Pero si queremos resetear página al filtrar esto ayuda.
+    // Como el useEffect observa columnFilters, resetear página ahí es tricky.
+    // Mejor lógica: useEffect observa columnFilters, si cambian, resetea a pag 1?
+    // No, mejor dejar que el usuario maneje o resetear página manualmente en los inputs.
+    // Simplificación: eliminar lógica de filtrado cliente.
+    // (Este bloque estaba vacio por el reemplazo anterior)
 
   const handleModalSuccess = () => {
     cargarOrdenes();
@@ -263,9 +237,9 @@ export default function OrdenesNuevo() {
 
   // Cálculos de paginación
   const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredOrdenes.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredOrdenes.length / itemsPerPage);
+  const indexOfFirstItem = (currentPage - 1) * itemsPerPage; // Para mostrar índice correcto
+  const currentItems = filteredOrdenes; // Ya vienen paginados del servidor
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
@@ -368,7 +342,10 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.numeroOrden}
-                onChange={(e) => setColumnFilters({ ...columnFilters, numeroOrden: e.target.value })}
+                onChange={(e) => {
+                   setColumnFilters({ ...columnFilters, numeroOrden: e.target.value });
+                   setCurrentPage(1); // Reset page on filter change
+                }}
                 placeholder="N° Orden..."
                 className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
@@ -389,7 +366,10 @@ export default function OrdenesNuevo() {
             <div>
               <select
                 value={columnFilters.estado}
-                onChange={(e) => setColumnFilters({ ...columnFilters, estado: e.target.value as OrdenStatus | 'all' })}
+                onChange={(e) => {
+                  setColumnFilters({ ...columnFilters, estado: e.target.value as OrdenStatus | 'all' });
+                  setCurrentPage(1);
+                }}
                 className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
                   : 'border-gray-600 bg-gray-700 text-gray-100'
@@ -409,7 +389,10 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.cliente}
-                onChange={(e) => setColumnFilters({ ...columnFilters, cliente: e.target.value })}
+                onChange={(e) => {
+                  setColumnFilters({ ...columnFilters, cliente: e.target.value });
+                  setCurrentPage(1);
+                }}
                 placeholder="Cliente..."
                 className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
@@ -431,7 +414,10 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.identificacion}
-                onChange={(e) => setColumnFilters({ ...columnFilters, identificacion: e.target.value })}
+                onChange={(e) => {
+                  setColumnFilters({ ...columnFilters, identificacion: e.target.value });
+                  setCurrentPage(1);
+                }}
                 placeholder="Identificación..."
                 className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
@@ -453,7 +439,10 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.equipo}
-                onChange={(e) => setColumnFilters({ ...columnFilters, equipo: e.target.value })}
+                onChange={(e) => {
+                  setColumnFilters({ ...columnFilters, equipo: e.target.value });
+                  setCurrentPage(1);
+                }}
                 placeholder="Tipo de equipo..."
                 className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
@@ -475,7 +464,10 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.serial}
-                onChange={(e) => setColumnFilters({ ...columnFilters, serial: e.target.value })}
+                onChange={(e) => {
+                  setColumnFilters({ ...columnFilters, serial: e.target.value });
+                  setCurrentPage(1);
+                }}
                 placeholder="Serial..."
                 className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
@@ -497,7 +489,10 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.marca}
-                onChange={(e) => setColumnFilters({ ...columnFilters, marca: e.target.value })}
+                onChange={(e) => {
+                  setColumnFilters({ ...columnFilters, marca: e.target.value });
+                  setCurrentPage(1);
+                }}
                 placeholder="Marca..."
                 className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
@@ -519,7 +514,10 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.modelo}
-                onChange={(e) => setColumnFilters({ ...columnFilters, modelo: e.target.value })}
+                onChange={(e) => {
+                   setColumnFilters({ ...columnFilters, modelo: e.target.value });
+                   setCurrentPage(1);
+                }}
                 placeholder="Modelo..."
                 className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
@@ -541,7 +539,10 @@ export default function OrdenesNuevo() {
               <input
                 type="text"
                 value={columnFilters.sede}
-                onChange={(e) => setColumnFilters({ ...columnFilters, sede: e.target.value })}
+                onChange={(e) => {
+                  setColumnFilters({ ...columnFilters, sede: e.target.value });
+                  setCurrentPage(1);
+                }}
                 placeholder="Sede..."
                 className={`w-full pl-3 pr-8 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
@@ -566,7 +567,7 @@ export default function OrdenesNuevo() {
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
           }`}>
-          Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredOrdenes.length)} de {filteredOrdenes.length} órdenes
+          Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, totalItems)} de {totalItems} órdenes
         </div>
 
         {/* Items por página */}

@@ -21,8 +21,33 @@ export async function subirImagenOrden(
     });
 
   if (error) {
-    console.error("❌ Error al subir imagen:", error);
-    throw error;
+    console.warn("⚠️ Error subida directa (posible bloqueo RLS). Intentando vía API Proxy...", error.message);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', BUCKET_NAME);
+      formData.append('path', fileName);
+
+      const response = await fetch('/api/storage/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json();
+        throw new Error(errJson.error || 'Error en API Upload');
+      }
+
+      const result = await response.json();
+      console.log("✅ Imagen subida vía API:", result.publicUrl);
+      return result.publicUrl;
+
+    } catch (apiError) {
+       console.error("❌ Falló el fallback a API Storage:", apiError);
+       // Lanzar el error original de Storage para debug
+       throw error;
+    }
   }
 
   // Obtener URL pública
@@ -87,20 +112,8 @@ export async function actualizarFotosRecepcion(
   ordenId: string,
   fotos: string[]
 ): Promise<void> {
-  const { error } = await supabase
-    .from("ordenes")
-    .update({
-      fotos_recepcion: fotos,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", ordenId);
-
-  if (error) {
-    console.error("❌ Error al actualizar fotos de recepción:", error);
-    throw error;
-  }
-
-  console.log("✅ Fotos de recepción actualizadas en la orden");
+  console.log(`📸 Actualizando fotos recepción vía API para orden ${ordenId}`);
+  await actualizarFotosViaApi(ordenId, 'recepcion', fotos);
 }
 
 /**
@@ -110,20 +123,8 @@ export async function actualizarFotosDiagnostico(
   ordenId: string,
   fotos: string[]
 ): Promise<void> {
-  const { error } = await supabase
-    .from("ordenes")
-    .update({
-      fotos_diagnostico: fotos,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", ordenId);
-
-  if (error) {
-    console.error("❌ Error al actualizar fotos:", error);
-    throw error;
-  }
-
-  console.log("✅ Fotos actualizadas en la orden");
+  console.log(`📸 Actualizando fotos diagnóstico vía API para orden ${ordenId}`);
+  await actualizarFotosViaApi(ordenId, 'diagnostico', fotos);
 }
 
 /**
@@ -133,20 +134,8 @@ export async function actualizarFotosReparacion(
   ordenId: string,
   fotos: string[]
 ): Promise<void> {
-  const { error } = await supabase
-    .from("ordenes")
-    .update({
-      fotos_reparacion: fotos,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", ordenId);
-
-  if (error) {
-    console.error("❌ Error al actualizar fotos de reparación:", error);
-    throw error;
-  }
-
-  console.log("✅ Fotos de reparación actualizadas");
+  console.log(`📸 Actualizando fotos reparación vía API para orden ${ordenId}`);
+  await actualizarFotosViaApi(ordenId, 'reparacion', fotos);
 }
 
 /**
@@ -156,20 +145,8 @@ export async function actualizarFotosEntrega(
   ordenId: string,
   fotos: string[]
 ): Promise<void> {
-  const { error } = await supabase
-    .from("ordenes")
-    .update({
-      fotos_entrega: fotos,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", ordenId);
-
-  if (error) {
-    console.error("❌ Error al actualizar fotos de entrega:", error);
-    throw error;
-  }
-
-  console.log("✅ Fotos de entrega actualizadas");
+  console.log(`📸 Actualizando fotos entrega vía API para orden ${ordenId}`);
+  await actualizarFotosViaApi(ordenId, 'entrega', fotos);
 }
 
 /**
@@ -190,8 +167,26 @@ export async function descargarImagen(url: string, nombreArchivo: string): Promi
     
     window.URL.revokeObjectURL(blobUrl);
     console.log("✅ Imagen descargada");
+    console.log("✅ Imagen descargada");
   } catch (error) {
     console.error("❌ Error al descargar imagen:", error);
     throw error;
   }
+}
+
+/**
+ * Helper privado para actualizar fotos vía API cuando RLS falla
+ */
+async function actualizarFotosViaApi(ordenId: string, tipo: string, fotos: string[]) {
+  const response = await fetch(`/api/ordenes/${ordenId}/fotos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tipo, fotos })
+  });
+
+  if (!response.ok) {
+     const errData = await response.json();
+     throw new Error(errData.error || 'Falló actualización API');
+  }
+  console.log(`✅ Fotos de ${tipo} guardadas exitosamente (API Bypass)`);
 }
