@@ -38,12 +38,31 @@ export function LoginForm() {
         console.log("✅ Autenticación exitosa:", data.user.id);
 
         try {
-          // Obtener datos del usuario desde la tabla usuarios
-          const { data: userData, error: userError } = await supabase
+          // AUTORECUPERACIÓN DE USUARIO (Auth Reset) 
+          // 1. Intentar buscar por ID (comportamiento normal)
+          let { data: userData, error: userError } = await supabase
             .from('usuarios')
             .select('*')
             .eq('id', data.user.id)
-            .maybeSingle(); // Cambiado de .single() a .maybeSingle()
+            .maybeSingle();
+
+          // 2. Si no se encuentra por ID, buscar por EMAIL (Caso de "Rescate")
+          if (!userData && !userError) {
+            console.warn("⚠️ Usuario no encontrado por ID, intentando recuperar por email...");
+            
+            const { data: userByEmail, error: emailError } = await supabase
+              .from('usuarios')
+              .select('*')
+              .eq('email', email)
+              .maybeSingle();
+
+            if (userByEmail) {
+              console.log("✅ Usuario encontrado por email. Usando registro existente (ID: " + userByEmail.id + ")");
+              // Usamos los datos del usuario encontrado por email
+              // NOTA: Existirá una discrepancia entre auth.uid() y user.id, pero preservamos los datos históricos
+              userData = userByEmail;
+            }
+          }
 
           if (userError) {
             console.error("❌ Error al obtener datos del usuario:", userError);
@@ -52,9 +71,9 @@ export function LoginForm() {
             return;
           }
 
-          // Si el usuario no existe en la tabla, error
+          // Si el usuario no existe en la tabla tras ambos intentos
           if (!userData) {
-            console.error("❌ Usuario no encontrado en tabla usuarios");
+            console.error("❌ Usuario no encontrado en tabla usuarios ni por ID ni Email");
             setError("Usuario no registrado correctamente. Contacta al administrador.");
             await supabase.auth.signOut();
             return;
