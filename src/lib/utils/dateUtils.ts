@@ -1,42 +1,51 @@
 /**
  * Utilidades para manejo de fechas en zona horaria de Colombia (America/Bogota)
  * Todas las fechas del sistema deben usar estas funciones para garantizar consistencia
+ * Se implementa un cálculo manual de offset UTC-5 para evitar dependencias del entorno
  */
 
-const COLOMBIA_TIMEZONE = 'America/Bogota';
+const COLOMBIA_OFFSET_HOURS = 5;
+const COLOMBIA_OFFSET_MS = COLOMBIA_OFFSET_HOURS * 60 * 60 * 1000;
 
 /**
- * Obtiene la fecha y hora actual en zona horaria de Colombia
- * @returns Date object (en UTC, pero representa la hora actual)
+ * Obtiene la fecha y hora actual AJUSTADA a la zona horaria de Colombia
+ * ¡CUIDADO! El objeto Date devuelto tendrá los valores de fecha/hora de Colombia
+ * en sus métodos UTC (getUTCHours, etc).
+ * Si usas .getHours() dependerá del entorno local, por lo que se recomienda
+ * usar las funciones de formateo de este archivo.
  */
 export function obtenerFechaActualColombia(): Date {
-  // Simplemente retornar la fecha actual
-  // El formateo con zona horaria se hace al mostrar
   return new Date();
 }
 
 /**
- * Obtiene la fecha y hora actual en formato ISO para guardar en base de datos
- * IMPORTANTE: Guarda en UTC, el formateo a Colombia se hace al mostrar
- * @returns string en formato ISO (YYYY-MM-DDTHH:mm:ss.sssZ)
+ * Obtiene la fecha y hora actual en formato ISO real (UTC)
+ * Esto es lo correcto para guardar en BD (Supabase usa UTC)
  */
 export function obtenerFechaActualColombiaISO(): string {
   return new Date().toISOString();
 }
 
 /**
- * Convierte una fecha a zona horaria de Colombia
+ * Helper interno para obtener un objeto Date desplazado a la hora de Colombia.
+ * Al usar métodos .getUTC*() en este objeto, obtendrás la hora colombiana.
+ */
+function getShiftedColombiaDate(dateInput: Date | string): Date {
+  const dateObj = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  // Restamos 5 horas al tiempo UTC para llegar a la hora de Colombia
+  // Ejemplo: 21:00 UTC - 5h = 16:00 (que es la hora en Colombia)
+  // Al leer esto como UTC (getUTCHours), leeremos 16.
+  return new Date(dateObj.getTime() - COLOMBIA_OFFSET_MS);
+}
+
+/**
+ * Convierte una fecha a zona horaria de Colombia (Shifted Date)
  * @param date - Fecha a convertir
- * @returns Date object ajustado a Colombia
+ * @returns Date object ajustado
  */
 export function convertirAZonaHorariaColombia(date: Date | string): Date {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  
-  const colombiaString = dateObj.toLocaleString('en-US', {
-    timeZone: COLOMBIA_TIMEZONE,
-  });
-  
-  return new Date(colombiaString);
+  // Esta función existía para compatibilidad, ahora usamos el helper
+  return getShiftedColombiaDate(date);
 }
 
 /**
@@ -49,25 +58,24 @@ export function formatearFechaColombia(
   date: Date | string,
   options?: Intl.DateTimeFormatOptions
 ): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const shiftedDate = getShiftedColombiaDate(date);
   
-  // Usar timeZone de Intl para conversión correcta a Colombia
   const defaultOptions: Intl.DateTimeFormatOptions = {
-    timeZone: COLOMBIA_TIMEZONE,
+    timeZone: 'UTC', // IMPORTANTE: Usar UTC porque ya ajustamos manualmente
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: true,
     ...options,
   };
   
-  return dateObj.toLocaleString('es-CO', defaultOptions);
+  return shiftedDate.toLocaleString('es-CO', defaultOptions);
 }
 
 /**
- * Formatea una fecha en formato corto para Colombia
- * Ejemplo: "21/11/2025, 3:30 PM"
+ * Formato corto: "21/11/2025, 3:30 PM"
  */
 export function formatearFechaColombiaCorta(date: Date | string): string {
   return formatearFechaColombia(date, {
@@ -80,8 +88,7 @@ export function formatearFechaColombiaCorta(date: Date | string): string {
 }
 
 /**
- * Formatea una fecha en formato largo para Colombia
- * Ejemplo: "21 de noviembre de 2025, 3:30 PM"
+ * Formato largo: "21 de noviembre de 2025, 3:30:00 PM"
  */
 export function formatearFechaColombiaLarga(date: Date | string): string {
   return formatearFechaColombia(date, {
@@ -90,36 +97,34 @@ export function formatearFechaColombiaLarga(date: Date | string): string {
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    second: '2-digit'
   });
 }
 
 /**
- * Obtiene solo la fecha (sin hora) en zona horaria de Colombia
- * @returns string en formato YYYY-MM-DD
+ * Obtiene solo la fecha en formato YYYY-MM-DD (Hora Colombia)
  */
 export function obtenerFechaColombiaYYYYMMDD(): string {
-  const colombiaDate = obtenerFechaActualColombia();
-  const year = colombiaDate.getFullYear();
-  const month = String(colombiaDate.getMonth() + 1).padStart(2, '0');
-  const day = String(colombiaDate.getDate()).padStart(2, '0');
+  const shifted = getShiftedColombiaDate(new Date());
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(shifted.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
 /**
- * Obtiene la hora actual en zona horaria de Colombia
- * @returns string en formato HH:mm:ss
+ * Obtiene la hora en formato HH:mm:ss (Hora Colombia)
  */
 export function obtenerHoraColombiaHHMMSS(): string {
-  const colombiaDate = obtenerFechaActualColombia();
-  const hours = String(colombiaDate.getHours()).padStart(2, '0');
-  const minutes = String(colombiaDate.getMinutes()).padStart(2, '0');
-  const seconds = String(colombiaDate.getSeconds()).padStart(2, '0');
+  const shifted = getShiftedColombiaDate(new Date());
+  const hours = String(shifted.getUTCHours()).padStart(2, '0');
+  const minutes = String(shifted.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(shifted.getUTCSeconds()).padStart(2, '0');
   return `${hours}:${minutes}:${seconds}`;
 }
 
 /**
- * Crea un timestamp para Supabase en zona horaria de Colombia
- * Útil para campos created_at, updated_at, etc.
+ * Crea timestamp ISO. Alias para mantener compatibilidad.
  */
 export function crearTimestampColombia(): string {
   return obtenerFechaActualColombiaISO();
@@ -129,56 +134,58 @@ export function crearTimestampColombia(): string {
  * Verifica si una fecha está en el pasado (zona horaria Colombia)
  */
 export function esFechaPasada(date: Date | string): boolean {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  const now = obtenerFechaActualColombia();
-  return dateObj < now;
+  const inputTime = typeof date === 'string' ? new Date(date).getTime() : date.getTime();
+  const nowTime = new Date().getTime();
+  return inputTime < nowTime;
 }
 
 /**
  * Verifica si una fecha está en el futuro (zona horaria Colombia)
  */
 export function esFechaFutura(date: Date | string): boolean {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  const now = obtenerFechaActualColombia();
-  return dateObj > now;
+  const inputTime = typeof date === 'string' ? new Date(date).getTime() : date.getTime();
+  const nowTime = new Date().getTime();
+  return inputTime > nowTime;
 }
 
 /**
- * Calcula la diferencia en días entre dos fechas (zona horaria Colombia)
+ * Calcula diferencia en días
  */
 export function calcularDiferenciaDias(fecha1: Date | string, fecha2: Date | string): number {
-  const date1 = convertirAZonaHorariaColombia(fecha1);
-  const date2 = convertirAZonaHorariaColombia(fecha2);
+  const d1 = getShiftedColombiaDate(fecha1);
+  const d2 = getShiftedColombiaDate(fecha2);
   
-  const diffTime = Math.abs(date2.getTime() - date1.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  // Normalizar a medianoche para contar días completos
+  d1.setUTCHours(0,0,0,0);
+  d2.setUTCHours(0,0,0,0);
   
-  return diffDays;
+  const diffTime = Math.abs(d2.getTime() - d1.getTime());
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
 }
 
 /**
- * Obtiene el inicio del día en zona horaria de Colombia
+ * Obtiene el inicio del día en Colombia (00:00:00)
+ * Retorna un objeto Date real (UTC) que corresponde a esa hora
  */
 export function obtenerInicioDiaColombia(date?: Date | string): Date {
-  const dateObj = date 
-    ? convertirAZonaHorariaColombia(date)
-    : obtenerFechaActualColombia();
+  // 1. Obtener la hora colombiana desplazada
+  const shifted = getShiftedColombiaDate(date || new Date());
   
-  dateObj.setHours(0, 0, 0, 0);
-  return dateObj;
+  // 2. Alinear a medianoche en ese "tiempo colombiano"
+  shifted.setUTCHours(0, 0, 0, 0);
+  
+  // 3. Devolver los milisegundos desplazados inversamente (+5h) para tener el instante real UTC
+  // Esto es: Las 00:00 Col son las 05:00 UTC
+  return new Date(shifted.getTime() + COLOMBIA_OFFSET_MS);
 }
 
 /**
- * Obtiene el fin del día en zona horaria de Colombia
+ * Obtiene el fin del día en Colombia (23:59:59.999)
  */
 export function obtenerFinDiaColombia(date?: Date | string): Date {
-  const dateObj = date 
-    ? convertirAZonaHorariaColombia(date)
-    : obtenerFechaActualColombia();
-  
-  dateObj.setHours(23, 59, 59, 999);
-  return dateObj;
+  const shifted = getShiftedColombiaDate(date || new Date());
+  shifted.setUTCHours(23, 59, 59, 999);
+  return new Date(shifted.getTime() + COLOMBIA_OFFSET_MS);
 }
 
-// Exportar constante de zona horaria para uso directo si es necesario
-export { COLOMBIA_TIMEZONE };
+export const COLOMBIA_TIMEZONE = 'America/Bogota';

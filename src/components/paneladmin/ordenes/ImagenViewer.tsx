@@ -282,18 +282,17 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
             )}
             
             {/* Overlay con botones */}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-              <div className="flex gap-2">
-                {puedeEditar && onEliminar && (
-                  <button
-                    onClick={(e) => handleEliminar(e, url, index)}
-                    className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-                    title="Eliminar foto"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+            {/* Overlay con botones */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all opacity-0 group-hover:opacity-100 z-10">
+              {puedeEditar && onEliminar && (
+                <button
+                  onClick={(e) => handleEliminar(e, url, index)}
+                  className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-sm"
+                  title="Eliminar foto"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* Contador y badge de portada */}
