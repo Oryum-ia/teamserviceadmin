@@ -99,6 +99,13 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
   const comentariosTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [guardandoComentarios, setGuardandoComentarios] = React.useState(false);
 
+  // Sincronizar fotos con incoming orden updates
+  React.useEffect(() => {
+    if (orden.fotos_diagnostico) {
+      setFotos(orden.fotos_diagnostico);
+    }
+  }, [orden.fotos_diagnostico]);
+
   // Cargar repuestos guardados o del modelo
   useEffect(() => {
     const cargarRepuestos = async () => {

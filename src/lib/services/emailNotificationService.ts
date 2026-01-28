@@ -21,7 +21,7 @@ export async function notificarCambioFase(
         *,
         cliente:clientes(*)
       `)
-      .eq('id', ordenId)
+      .eq('id', Number(ordenId))
       .single();
 
     if (ordenError || !orden) {
@@ -102,7 +102,7 @@ export async function notificarOrdenCreada(ordenId: string): Promise<boolean> {
           )
         )
       `)
-      .eq('id', ordenId)
+      .eq('id', Number(ordenId))
       .single();
 
     if (ordenError || !orden) {
@@ -202,7 +202,7 @@ export async function notificarCotizacionRechazada(ordenId: string): Promise<boo
         *,
         cliente:clientes(*)
       `)
-      .eq('id', ordenId)
+      .eq('id', Number(ordenId))
       .single();
 
     if (ordenError || !orden) {

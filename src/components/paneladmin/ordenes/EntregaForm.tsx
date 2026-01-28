@@ -5,7 +5,7 @@ import { Upload, AlertCircle, MessageCircle } from 'lucide-react';
 import { notificarCambioFaseWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
+import { convertirDatetimeLocalColombiaAUTC } from '@/lib/utils/dateUtils';
 import { subirMultiplesImagenes, eliminarImagenOrden, descargarImagen, actualizarFotosEntrega } from '@/lib/services/imagenService';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
@@ -504,7 +504,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
               onBlur={async () => {
                 try {
                   const { supabase } = await import('@/lib/supabaseClient');
-                  const iso = new Date(formData.fecha_entrega).toISOString();
+                  const iso = convertirDatetimeLocalColombiaAUTC(formData.fecha_entrega);
                   const { error } = await supabase
                     .from('ordenes')
                     .update({ fecha_entrega: iso, ultima_actualizacion: new Date().toISOString() })

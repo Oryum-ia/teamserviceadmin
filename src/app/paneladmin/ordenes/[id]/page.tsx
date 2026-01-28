@@ -548,14 +548,16 @@ export default function OrdenDetallePage() {
 
       // Actualizar en base de datos los campos limpiados
       const { supabase } = await import('@/lib/supabaseClient');
-      await supabase
+      const { error } = await supabase
         .from('ordenes')
         .update({
           ...camposALimpiar,
           estado_actual: estadoNuevo,
           ultima_actualizacion: now
         })
-        .eq('id', ordenId);
+        .eq('id', Number(ordenId));
+      
+      if (error) throw error;
 
       // Actualizar estado local y localStorage
       const ordenActualizada = {
@@ -681,10 +683,17 @@ export default function OrdenDetallePage() {
         camposActualizacion[campoTecnico] = tecnicoId;
       }
 
-      await supabase
+      const { data: updateData, error } = await supabase
         .from('ordenes')
         .update(camposActualizacion)
-        .eq('id', ordenId);
+        .eq('id', Number(ordenId))
+        .select();
+
+      if (error) throw error;
+
+      if (!updateData || updateData.length === 0) {
+        throw new Error('No se pudo iniciar la fase. Verifique permisos o que la orden exista.');
+      }
 
       // Actualizar estado local
       const ordenActualizada = {
@@ -905,10 +914,36 @@ export default function OrdenDetallePage() {
         // La fecha de entrega se establecerá al finalizar la orden
       }
 
-      await supabase
+      console.log('📝 Actualizando orden:', ordenId, 'con campos:', camposActualizacion);
+
+      const { data: updateData, error } = await supabase
         .from('ordenes')
         .update(camposActualizacion)
-        .eq('id', ordenId);
+        .eq('id', Number(ordenId))
+        .select();
+
+      if (error) {
+        console.error('❌ Error de Supabase:', error);
+        throw error;
+      }
+
+      // Si no se actualizó ninguna fila, intentar via API (bypass RLS)
+      if (!updateData || updateData.length === 0) {
+        console.warn('⚠️ Update no afectó filas, intentando via API...');
+
+        const response = await fetch(`/api/ordenes/${ordenId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(camposActualizacion)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'No se pudo actualizar la orden. Verifique permisos.');
+        }
+
+        console.log('✅ Orden actualizada via API');
+      }
 
       // Actualizar estado local y localStorage
       const ordenActualizada = {
@@ -981,10 +1016,12 @@ export default function OrdenDetallePage() {
         ultima_actualizacion: now
       };
 
-      await supabase
+      const { error } = await supabase
         .from('ordenes')
         .update(camposActualizacion)
-        .eq('id', ordenId);
+        .eq('id', Number(ordenId));
+
+      if (error) throw error;
 
       const ordenActualizada = {
         ...orden,
@@ -1039,7 +1076,7 @@ export default function OrdenDetallePage() {
       // Guardar la fase anterior antes de cambiar a Bodega
       const faseAnterior = mapEstadoAFase(orden.estado_actual);
 
-      await supabase
+      const { error } = await supabase
         .from('ordenes')
         .update({
           fecha_bodega: now,
@@ -1047,7 +1084,9 @@ export default function OrdenDetallePage() {
           estado_actual: 'Bodega',
           ultima_actualizacion: now
         })
-        .eq('id', ordenId);
+        .eq('id', Number(ordenId));
+
+      if (error) throw error;
 
       const ordenActualizada = {
         ...orden,
@@ -1092,7 +1131,7 @@ export default function OrdenDetallePage() {
       // Guardar la fase anterior si no existe (puede venir de bodega)
       const faseAnterior = orden.fase_anterior || mapEstadoAFase(orden.estado_actual);
 
-      await supabase
+      const { error } = await supabase
         .from('ordenes')
         .update({
           fecha_chatarrizado: now,
@@ -1101,7 +1140,9 @@ export default function OrdenDetallePage() {
           estado_actual: 'Chatarrizado',
           ultima_actualizacion: now
         })
-        .eq('id', ordenId);
+        .eq('id', Number(ordenId));
+
+      if (error) throw error;
 
       const ordenActualizada = {
         ...orden,
@@ -1155,7 +1196,7 @@ export default function OrdenDetallePage() {
       };
       const estadoRestaurar = estadoMap[faseAnterior] || 'Recepción';
 
-      await supabase
+      const { error } = await supabase
         .from('ordenes')
         .update({
           fecha_bodega: null,
@@ -1163,7 +1204,9 @@ export default function OrdenDetallePage() {
           estado_actual: estadoRestaurar,
           ultima_actualizacion: now
         })
-        .eq('id', ordenId);
+        .eq('id', Number(ordenId));
+
+      if (error) throw error;
 
       const ordenActualizada = {
         ...orden,
@@ -1201,7 +1244,7 @@ export default function OrdenDetallePage() {
       const { error } = await supabase
         .from('ordenes')
         .delete()
-        .eq('id', ordenId);
+        .eq('id', Number(ordenId));
 
       if (error) {
         console.error('❌ Error al eliminar orden:', error);

@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
-import { X, ChevronLeft, ChevronRight, Download, Trash2, Upload, Play } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Download, Trash2, Play } from 'lucide-react';
 import EnterpriseMediaCapture from './EnterpriseMediaCapture';
+import { getThumbnailUrl, getPreviewUrl } from '@/lib/utils/imageOptimization';
 
 interface ImagenViewerProps {
   imagenes: string[];
@@ -266,6 +267,7 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
                   className="w-full h-full object-cover"
                   muted
                   playsInline
+                  preload="metadata"
                 />
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="bg-black/70 rounded-full p-3 group-hover:scale-110 transition-transform">
@@ -275,9 +277,10 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
               </>
             ) : (
               <img
-                src={url}
+                src={getThumbnailUrl(url)}
                 alt={`Foto ${index + 1}`}
                 className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                loading="lazy"
               />
             )}
             
@@ -383,7 +386,7 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
               />
             ) : (
               <img
-                src={imagenes[currentIndex]}
+                src={getPreviewUrl(imagenes[currentIndex])}
                 alt={`Foto ${currentIndex + 1}`}
                 className="max-w-[90vw] max-h-[80vh] rounded-lg shadow-2xl"
                 style={{ width: 'auto', height: 'auto', objectFit: 'contain' }}
@@ -424,6 +427,7 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
                           className="w-full h-full object-cover"
                           muted
                           playsInline
+                          preload="metadata"
                         />
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <div className="bg-black/60 rounded-full p-1">
@@ -433,9 +437,10 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
                       </>
                     ) : (
                       <img
-                        src={url}
+                        src={getThumbnailUrl(url)}
                         alt={`Miniatura ${index + 1}`}
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     )}
                   </button>

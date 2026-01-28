@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Play } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
+import { getThumbnailUrl } from '@/lib/utils/imageOptimization';
 
 interface ImagenesGridProps {
   imagenes: string[];
@@ -30,11 +31,12 @@ export default function ImagenesGrid({ imagenes, onRemove }: ImagenesGridProps) 
           
           {isVideo(url) ? (
             <>
-              <video 
-                src={url} 
-                className="w-full h-40 object-cover rounded-lg border border-gray-200 dark:border-gray-700" 
+              <video
+                src={url}
+                className="w-full h-40 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                 muted
                 playsInline
+                preload="metadata"
               />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="bg-black/70 rounded-full p-3">
@@ -43,7 +45,12 @@ export default function ImagenesGrid({ imagenes, onRemove }: ImagenesGridProps) 
               </div>
             </>
           ) : (
-            <img src={url} alt={`foto-${idx}`} className="w-full h-40 object-cover rounded-lg border border-gray-200 dark:border-gray-700" />
+            <img
+              src={getThumbnailUrl(url)}
+              alt={`foto-${idx}`}
+              className="w-full h-40 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+              loading="lazy"
+            />
           )}
         </div>
       ))}

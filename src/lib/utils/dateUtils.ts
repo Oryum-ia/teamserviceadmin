@@ -189,3 +189,36 @@ export function obtenerFinDiaColombia(date?: Date | string): Date {
 }
 
 export const COLOMBIA_TIMEZONE = 'America/Bogota';
+
+/**
+ * Convierte un string de datetime-local (YYYY-MM-DDTHH:mm) interpretado como
+ * hora de Colombia a un ISO string UTC para guardar en base de datos.
+ *
+ * Esta función hace la conversión inversa de formatForInput() en EntregaForm.
+ * Útil cuando los usuarios ingresan una hora que debe ser guardada en UTC.
+ *
+ * @param datetimeLocal - String en formato "YYYY-MM-DDTHH:mm" (hora Colombia)
+ * @returns ISO string en UTC (e.g., "2025-01-28T09:00:00.000Z")
+ *
+ * @example
+ * // Usuario ingresa "2025-01-28T04:00" (4 AM Colombia)
+ * convertirDatetimeLocalColombiaAUTC("2025-01-28T04:00")
+ * // Retorna: "2025-01-28T09:00:00.000Z" (9 AM UTC = 4 AM Colombia UTC-5)
+ */
+export function convertirDatetimeLocalColombiaAUTC(datetimeLocal: string): string {
+  // Parsear componentes del string datetime-local
+  // Formato esperado: YYYY-MM-DDTHH:mm
+  const [datePart, timePart] = datetimeLocal.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
+
+  // Crear Date en UTC usando los componentes como si fueran UTC
+  // Esto nos da una fecha con esos números, pero interpretada como UTC
+  const dateInColombiaAsUTC = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
+
+  // Sumar el offset de Colombia (UTC-5 = +5 horas) para obtener el tiempo UTC real
+  // Ejemplo: Si el usuario ingresó 04:00 Colombia, sumamos 5h = 09:00 UTC
+  const actualUTC = new Date(dateInColombiaAsUTC.getTime() + COLOMBIA_OFFSET_MS);
+
+  return actualUTC.toISOString();
+}

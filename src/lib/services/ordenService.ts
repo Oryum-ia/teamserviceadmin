@@ -442,7 +442,7 @@ export async function actualizarDiagnostico(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("estado_actual")
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .single();
 
   if (fetchError) throw fetchError;
@@ -457,7 +457,7 @@ export async function actualizarDiagnostico(
       comentarios_diagnostico: diagnostico.comentarios || '',
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .select()
     .single();
 
@@ -481,7 +481,7 @@ export async function avanzarACotizacion(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("estado_actual")
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .single();
 
   if (fetchError) throw fetchError;
@@ -496,7 +496,7 @@ export async function avanzarACotizacion(
       estado_actual: 'Cotización',
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .select()
     .single();
 
@@ -527,7 +527,7 @@ export async function actualizarCotizacion(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("estado_actual")
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .single();
 
   if (fetchError) throw fetchError;
@@ -546,7 +546,7 @@ export async function actualizarCotizacion(
       tecnico_cotiza: cotizacion.tecnico_cotiza || null,
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .select()
     .single();
 
@@ -571,7 +571,7 @@ export async function marcarEsperaRepuestos(ordenId: string) {
       fase_actual: 'cotizacion',
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .select()
     .single();
 
@@ -594,7 +594,7 @@ export async function avanzarAReparacion(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("estado_actual, aprobado_cliente")
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .single();
 
   if (fetchError) throw fetchError;
@@ -615,7 +615,7 @@ export async function avanzarAReparacion(
       fecha_inicio_reparacion: crearTimestampColombia(),
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .select()
     .single();
 
@@ -647,7 +647,7 @@ export async function finalizarOrden(ordenId: string) {
       fecha_finalizacion: crearTimestampColombia(),
       updated_at: crearTimestampColombia()
     })
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .select()
     .single();
 
@@ -683,7 +683,7 @@ export async function agregarComentarioRetroceso(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("comentarios_retroceso")
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .single();
 
   if (fetchError) throw fetchError;
@@ -701,7 +701,7 @@ export async function agregarComentarioRetroceso(
       fase_actual: comentario.fase_destino,
       updated_at: crearTimestampColombia()
     })
-    .eq("id", ordenId)
+    .eq("id", Number(ordenId))
     .select()
     .single();
 
@@ -784,7 +784,7 @@ export async function eliminarOrden(ordenId: string) {
   const { error } = await supabase
     .from("ordenes")
     .delete()
-    .eq("id", ordenId);
+    .eq("id", Number(ordenId));
 
   if (error) {
     console.error("❌ Error al eliminar orden:", error);

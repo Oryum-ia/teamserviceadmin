@@ -49,6 +49,13 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
     setFechaFirma(orden.fecha_firma_cliente || null);
   }, [orden.terminos_aceptados, orden.firma_cliente, orden.fecha_aceptacion_terminos, orden.fecha_firma_cliente]);
 
+  // Sincronizar fotos con incoming orden updates (socket/http)
+  React.useEffect(() => {
+    if (orden.fotos_recepcion) {
+      setFotos(orden.fotos_recepcion);
+    }
+  }, [orden.fotos_recepcion]);
+
   // Cargar accesorios del modelo al montar el componente
   React.useEffect(() => {
     const cargarAccesoriosModelo = async () => {
@@ -189,10 +196,17 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
         updated_at: now
       };
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('ordenes')
         .update(updateData)
-        .eq('id', orden.id);
+        .eq('id', orden.id)
+        .select();
+
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        throw new Error("No se pudo actualizar la orden. Verifique que tenga permisos para editar esta orden.");
+      }
 
       if (error) throw error;
       
@@ -203,7 +217,8 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
       onSuccess();
     } catch (error) {
       console.error('Error al avanzar a diagnóstico:', error);
-      toast.error('Error al avanzar a diagnóstico');
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      toast.error(`Error al avanzar a diagnóstico: ${errorMsg}`);
     } finally {
       setIsLoading(false);
     }

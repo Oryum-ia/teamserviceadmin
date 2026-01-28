@@ -76,7 +76,7 @@ const guardarNotaConTimeout = async (
         nota_orden: nota,
         updated_at: crearTimestampColombia()
       })
-      .eq('id', ordenId)
+      .eq('id', Number(ordenId))
       .abortSignal(controller.signal);
 
     clearTimeout(timeoutId);
