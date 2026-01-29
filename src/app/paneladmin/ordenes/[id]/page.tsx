@@ -347,24 +347,12 @@ export default function OrdenDetallePage() {
           }
         }
       } else {
-        // No existe en localStorage o es otra orden, cargar desde Supabase
-        console.log('🌐 Cargando orden desde Supabase');
+        // No existe en localStorage o es otra orden, intentar cargar via API primero
+        console.log('🌐 Cargando orden via API');
         try {
-          const data = await obtenerOrdenPorId(ordenId);
-          
-          if (isMountedRef.current) {
-            setOrden(data);
-            saveOrdenToLocalStorage(data as any);
-
-            // Determinar step actual respetando fase_anterior en Bodega/Chatarrizado
-            setCurrentStep(calcularStepDesdeOrden(data));
-          }
-        } catch (supabaseError) {
-          console.warn('⚠️ Error al cargar desde Supabase, intentando via API...');
-          // Fallback a API si Supabase falla
           const response = await fetch(`/api/ordenes/${ordenId}`);
           if (!response.ok) {
-            throw new Error('No se pudo cargar la orden desde ninguna fuente');
+            throw new Error(`Error HTTP: ${response.status}`);
           }
           const dataApi = await response.json();
           
@@ -373,12 +361,27 @@ export default function OrdenDetallePage() {
             saveOrdenToLocalStorage(dataApi as any);
             setCurrentStep(calcularStepDesdeOrden(dataApi));
           }
+        } catch (apiError) {
+          console.warn('⚠️ Error al cargar via API, intentando Supabase directo...', apiError);
+          // Fallback a Supabase si API falla
+          try {
+            const data = await obtenerOrdenPorId(ordenId);
+            
+            if (isMountedRef.current) {
+              setOrden(data);
+              saveOrdenToLocalStorage(data as any);
+              setCurrentStep(calcularStepDesdeOrden(data));
+            }
+          } catch (supabaseError) {
+            console.error('❌ Error al cargar desde Supabase:', supabaseError);
+            throw new Error('No se pudo cargar la orden desde ninguna fuente');
+          }
         }
       }
     } catch (err) {
       console.error('❌ Error al cargar orden:', err);
       if (isMountedRef.current) {
-        setError('No fue posible cargar los detalles de esta orden. Esto puede deberse a:\n\n• Problemas de conexión con el servidor\n• La orden puede haber sido eliminada o modificada\n• Datos locales desincronizados\n\nIntentando...');
+        setError('No fue posible cargar los detalles de esta orden. Esto puede deberse a:\n\n• Problemas de conexión con el servidor\n• La orden puede haber sido eliminada o modificada\n• Datos locales desincronizados');
         setOrden(null);
       }
     } finally {

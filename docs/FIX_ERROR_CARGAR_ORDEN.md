@@ -205,6 +205,24 @@ Recargar orden (con fallback a API)
 ✅ Orden actualizada correctamente
 ```
 
+### Flujo de Carga Mejorado (v2)
+```
+Cargar orden
+  ↓
+¿Existe en localStorage?
+  ├─ SÍ → Cargar desde localStorage (instantáneo)
+  │        ↓
+  │        Actualizar en segundo plano desde API
+  │        ↓
+  │        Si hay cambios → Actualizar vista
+  │
+  └─ NO → Intentar cargar via API
+           ↓ (falla)
+           Fallback a Supabase directo
+           ↓
+           ✅ Orden cargada
+```
+
 ## Verificación de la Solución
 
 ### 1. Verificar que existe la ruta API
@@ -291,3 +309,49 @@ La aplicación ahora es más resiliente y puede funcionar incluso cuando:
 - Las políticas RLS son restrictivas
 - La conexión realtime falla
 - Hay problemas temporales de red
+
+## Actualización v2 (Enero 2026)
+
+### Problema Persistente
+Después de la implementación inicial, algunos usuarios seguían experimentando el error al cargar órdenes, especialmente al navegar entre diferentes órdenes.
+
+### Causa Identificada
+El problema estaba en el orden de los fallbacks. La función `cargarOrden()` intentaba cargar desde Supabase primero cuando no había datos en localStorage, pero Supabase podía fallar durante SSR (Server-Side Rendering) o por problemas de RLS.
+
+### Solución Implementada
+Se invirtió el orden de los fallbacks para priorizar la API:
+
+**Nuevo flujo de carga:**
+1. Si existe en localStorage → Cargar instantáneamente
+2. Actualizar en segundo plano desde API (más confiable)
+3. Si no existe en localStorage → Intentar API primero
+4. Si API falla → Fallback a Supabase directo
+
+**Ventajas:**
+- La API usa `supabaseAdmin` con bypass de RLS (más confiable)
+- La API funciona correctamente durante SSR
+- Carga más rápida desde localStorage
+- Mejor experiencia de usuario
+
+**Cambios en el código:**
+```typescript
+// ANTES: Supabase primero, API como fallback
+try {
+  const data = await obtenerOrdenPorId(ordenId); // Supabase
+} catch (supabaseError) {
+  const response = await fetch(`/api/ordenes/${ordenId}`); // API
+}
+
+// AHORA: API primero, Supabase como fallback
+try {
+  const response = await fetch(`/api/ordenes/${ordenId}`); // API
+} catch (apiError) {
+  const data = await obtenerOrdenPorId(ordenId); // Supabase
+}
+```
+
+Esta inversión hace que la carga sea más confiable porque la API:
+- Siempre tiene acceso a `supabaseAdmin` (Service Role)
+- No depende de políticas RLS
+- Funciona correctamente en SSR
+- Retorna la orden completa con todas las relaciones
