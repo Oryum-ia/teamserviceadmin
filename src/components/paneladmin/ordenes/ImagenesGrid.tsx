@@ -33,7 +33,7 @@ export default function ImagenesGrid({ imagenes, onRemove }: ImagenesGridProps) 
             <>
               <video
                 src={url}
-                className="w-full h-40 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                className="w-full h-40 object-contain bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
                 muted
                 playsInline
                 preload="metadata"
@@ -48,7 +48,7 @@ export default function ImagenesGrid({ imagenes, onRemove }: ImagenesGridProps) 
             <img
               src={getThumbnailUrl(url)}
               alt={`foto-${idx}`}
-              className="w-full h-40 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+              className="w-full h-40 object-contain bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
               loading="lazy"
             />
           )}

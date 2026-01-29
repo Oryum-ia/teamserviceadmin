@@ -273,7 +273,7 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
               <>
                 <video
                   src={url}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain bg-gray-100 dark:bg-gray-800"
                   muted
                   playsInline
                   preload="metadata"
@@ -288,7 +288,7 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
               <img
                 src={getThumbnailUrl(url)}
                 alt={`Foto ${index + 1}`}
-                className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                className="w-full h-full object-contain bg-gray-100 dark:bg-gray-800"
                 loading="lazy"
               />
             )}
