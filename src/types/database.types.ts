@@ -291,6 +291,8 @@ export interface ProductoTienda {
   descuento?: number; // Porcentaje de descuento (0-100)
   categoria_id?: string; // Relación con categoría
   marca_id?: string; // Relación con marca
+  sub_categoria?: string; // Sub-categoría o línea del producto
+  codigo?: string; // Código de referencia del producto
   imagenes?: string[]; // Array de URLs de imágenes
   especificaciones?: Especificacion[]; // Array de especificaciones dinámicas
   tiempo_garantia?: string; // Tiempo de garantía (ej: "1 año", "6 meses")

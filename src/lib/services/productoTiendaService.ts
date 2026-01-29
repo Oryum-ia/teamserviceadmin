@@ -38,13 +38,13 @@ export async function obtenerTodosLosProductos() {
 }
 
 /**
- * Buscar productos por nombre o descripción
+ * Buscar productos por nombre, descripción o código
  */
 export async function buscarProductos(termino: string) {
   const { data, error } = await supabase
     .from("producto_tienda")
     .select("*")
-    .or(`nombre.ilike.%${termino}%,descripcion.ilike.%${termino}%`)
+    .or(`nombre.ilike.%${termino}%,descripcion.ilike.%${termino}%,codigo.ilike.%${termino}%`)
     .order("nombre", { ascending: true });
 
   if (error) {

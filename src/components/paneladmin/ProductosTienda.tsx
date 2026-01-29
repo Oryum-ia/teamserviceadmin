@@ -89,11 +89,13 @@ export default function ProductosTienda() {
   const aplicarFiltros = () => {
     let resultado = [...productos];
 
-    // Filtro por búsqueda
+    // Filtro por búsqueda (nombre, descripción y código)
     if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
       resultado = resultado.filter(producto =>
-        producto.nombre?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        producto.descripcion?.toLowerCase().includes(searchQuery.toLowerCase())
+        producto.nombre?.toLowerCase().includes(query) ||
+        producto.descripcion?.toLowerCase().includes(query) ||
+        producto.codigo?.toLowerCase().includes(query)
       );
     }
 
@@ -213,11 +215,20 @@ export default function ProductosTienda() {
       key: 'nombre',
       label: 'Nombre',
       render: (producto) => (
-        <span className={`font-medium ${
-          theme === 'light' ? 'text-gray-900' : 'text-white'
-        }`}>
-          {producto.nombre}
-        </span>
+        <div>
+          <span className={`font-medium ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            {producto.nombre}
+          </span>
+          {producto.codigo && (
+            <div className={`text-xs mt-0.5 ${
+              theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+            }`}>
+              Código: {producto.codigo}
+            </div>
+          )}
+        </div>
       ),
     },
     {
@@ -409,7 +420,7 @@ export default function ProductosTienda() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar productos..."
+              placeholder="Buscar por nombre o código..."
               className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                 theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'

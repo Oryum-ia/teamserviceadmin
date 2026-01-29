@@ -41,6 +41,8 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
     descuento: '', // Porcentaje de descuento
     categoria_id: '',
     marca_id: '',
+    sub_categoria: '',
+    codigo: '',
     imagenes: [] as string[],
     tiempo_garantia: '',
     activo: true
@@ -87,6 +89,8 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         descuento: producto.descuento ? producto.descuento.toString() : '',
         categoria_id: producto.categoria_id || '',
         marca_id: producto.marca_id || '',
+        sub_categoria: producto.sub_categoria || '',
+        codigo: producto.codigo || '',
         imagenes: imagenesArray,
         tiempo_garantia: producto.tiempo_garantia || '',
         activo: producto.activo ?? true
@@ -103,6 +107,8 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         descuento: '',
         categoria_id: '',
         marca_id: '',
+        sub_categoria: '',
+        codigo: '',
         imagenes: [],
         tiempo_garantia: '',
         activo: true
@@ -261,15 +267,17 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
       
       const productoData = {
         nombre: formData.nombre.trim(),
-        descripcion: formData.descripcion.trim() || undefined,
+        descripcion: formData.descripcion?.trim() || undefined,
         precio: formData.precio ? parseNumber(formData.precio) : undefined,
         stock: formData.stock ? parseInt(formData.stock) : undefined,
         descuento: descuentoNum, // Porcentaje de descuento
         categoria_id: formData.categoria_id || undefined,
         marca_id: formData.marca_id || undefined,
+        sub_categoria: formData.sub_categoria?.trim() || undefined,
+        codigo: formData.codigo?.trim() || undefined,
         imagenes: imagenesArray,
         especificaciones: especificacionesValidas,
-        tiempo_garantia: formData.tiempo_garantia.trim() || undefined,
+        tiempo_garantia: formData.tiempo_garantia?.trim() || undefined,
         promocion: descuentoNum > 0, // Si hay descuento > 0, hay promoción
         activo: formData.activo
       };
@@ -471,6 +479,49 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
                 onCreateNew={() => setShowMarcaModal(true)}
                 createButtonText="Crear nueva marca"
               />
+            </div>
+
+            {/* Sub-categoría y Código */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Sub-categoría
+                </label>
+                <input
+                  type="text"
+                  name="sub_categoria"
+                  value={formData.sub_categoria}
+                  onChange={handleChange}
+                  placeholder="Ej: Pro Series, Home Edition"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Código
+                </label>
+                <input
+                  type="text"
+                  name="codigo"
+                  value={formData.codigo}
+                  onChange={handleChange}
+                  placeholder="Ej: SKU-12345"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    theme === 'light'
+                      ? 'border-gray-300 bg-white text-gray-900'
+                      : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+                />
+              </div>
             </div>
 
             {/* Precio, Stock y Descuento */}
