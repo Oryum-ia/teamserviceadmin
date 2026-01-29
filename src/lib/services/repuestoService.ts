@@ -163,7 +163,7 @@ export async function guardarRepuestosDiagnostico(
       repuestos_diagnostico: repuestos,
       ultima_actualizacion: new Date().toISOString()
     })
-    .eq("id", Number(ordenId));
+    .eq("id", ordenId);
 
   if (error) {
     console.error("❌ Error al guardar repuestos de diagnóstico:", error);
@@ -178,12 +178,18 @@ export async function guardarRepuestosDiagnostico(
  * Obtener repuestos de diagnóstico de una orden
  * Returns empty array if not found or error
  */
-export async function obtenerRepuestosDiagnostico(ordenId: string) {
+export async function obtenerRepuestosDiagnostico(ordenId: string | number) {
   try {
+    // Validar que ordenId sea válido
+    if (!ordenId || ordenId === 'undefined' || ordenId === 'null') {
+      console.error("❌ ordenId inválido para repuestos de diagnóstico:", ordenId);
+      return [];
+    }
+
     const { data, error } = await supabase
       .from("ordenes")
       .select("repuestos_diagnostico")
-      .eq("id", Number(ordenId))
+      .eq("id", ordenId)
       .single();
 
     if (error) {
@@ -231,13 +237,6 @@ export async function guardarRepuestosCotizacion(
       return false;
     }
 
-    // Convertir a número y validar
-    const ordenIdNum = Number(ordenId);
-    if (isNaN(ordenIdNum)) {
-      console.error("❌ ordenId no es un número válido:", ordenId);
-      return false;
-    }
-
     // Construir el objeto a guardar
     const dataToSave: any = {
       repuestos: repuestos,
@@ -260,7 +259,7 @@ export async function guardarRepuestosCotizacion(
         repuestos_cotizacion: dataToSave,
         ultima_actualizacion: new Date().toISOString()
       })
-      .eq("id", ordenIdNum);
+      .eq("id", ordenId);
 
     if (error) {
       console.error("❌ Error al guardar repuestos de cotización:", error);
@@ -284,7 +283,7 @@ export async function obtenerRepuestosCotizacion(ordenId: string) {
     const { data, error } = await supabase
       .from("ordenes")
       .select("repuestos_cotizacion")
-      .eq("id", Number(ordenId))
+      .eq("id", ordenId)
       .single();
 
     if (error) {

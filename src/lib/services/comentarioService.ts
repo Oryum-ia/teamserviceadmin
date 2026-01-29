@@ -196,7 +196,7 @@ export async function obtenerComentariosPorOrden(ordenId: string) {
       *,
       usuario:usuarios(id, email, nombre)
     `)
-    .eq("orden_id", Number(ordenId))
+    .eq("orden_id", ordenId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -231,7 +231,7 @@ export async function retrocederFaseConComentario(
       estado_actual: estadoNuevo,
       updated_at: new Date().toISOString()
     })
-    .eq("id", Number(ordenId));
+    .eq("id", ordenId);
 
   if (error) {
     console.error("❌ Error al retroceder fase:", error);

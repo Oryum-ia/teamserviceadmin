@@ -535,14 +535,6 @@ export default function OrdenDetallePage() {
       return;
     }
 
-    // Validar que ordenId sea un número válido
-    const ordenIdNum = Number(ordenId);
-    if (isNaN(ordenIdNum)) {
-      toast.error('ID de orden inválido (no es un número)');
-      console.error('❌ ordenId no es un número válido:', ordenId);
-      return;
-    }
-
     const faseId = mapEstadoAFase(orden?.estado_actual);
     const currentPhaseStep = FASES.find(f => f.id === faseId)?.step || 0;
     if (currentPhaseStep === 0) {
@@ -986,7 +978,7 @@ export default function OrdenDetallePage() {
       const { data: updateData, error } = await supabase
         .from('ordenes')
         .update(camposActualizacion)
-        .eq('id', Number(ordenId))
+        .eq('id', ordenId)
         .select();
 
       if (error) {
@@ -1086,7 +1078,7 @@ export default function OrdenDetallePage() {
       const { error } = await supabase
         .from('ordenes')
         .update(camposActualizacion)
-        .eq('id', Number(ordenId));
+        .eq('id', ordenId);
 
       if (error) throw error;
 
@@ -1151,7 +1143,7 @@ export default function OrdenDetallePage() {
           estado_actual: 'Bodega',
           ultima_actualizacion: now
         })
-        .eq('id', Number(ordenId));
+        .eq('id', ordenId);
 
       if (error) throw error;
 
@@ -1207,7 +1199,7 @@ export default function OrdenDetallePage() {
           estado_actual: 'Chatarrizado',
           ultima_actualizacion: now
         })
-        .eq('id', Number(ordenId));
+        .eq('id', ordenId);
 
       if (error) throw error;
 
@@ -1271,7 +1263,7 @@ export default function OrdenDetallePage() {
           estado_actual: estadoRestaurar,
           ultima_actualizacion: now
         })
-        .eq('id', Number(ordenId));
+        .eq('id', ordenId);
 
       if (error) throw error;
 
@@ -1311,7 +1303,7 @@ export default function OrdenDetallePage() {
       const { error } = await supabase
         .from('ordenes')
         .delete()
-        .eq('id', Number(ordenId));
+        .eq('id', ordenId);
 
       if (error) {
         console.error('❌ Error al eliminar orden:', error);
