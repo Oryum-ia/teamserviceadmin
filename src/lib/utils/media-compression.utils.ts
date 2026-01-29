@@ -21,7 +21,7 @@ export interface CompressionResult {
 
 // Constants
 const DEFAULT_COMPRESSION_OPTIONS: CompressionOptions = {
-  maxSizeMB: 10,
+  maxSizeMB: 166.67,
   maxWidthOrHeight: 1920,
   quality: 0.8,
   useWebWorker: true,

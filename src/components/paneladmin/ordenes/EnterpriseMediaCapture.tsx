@@ -59,7 +59,7 @@ export default function EnterpriseMediaCapture({
   mode = 'both',
   facingMode = 'environment',
   disabled = false,
-  maxSizeMB = 10,
+  maxSizeMB = 166.67,
   autoCompress = true,
   showCompressionInfo = true,
 }: MediaCaptureProps) {
