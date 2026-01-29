@@ -141,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('🚪 Sesión cerrada, limpiando estado');
             setUser(null);
             window.localStorage.removeItem('teamservice_user');
-            router.push('/login');
+            router.push('/');
           }
           
           if (event === 'TOKEN_REFRESHED' && session?.user) {
@@ -217,7 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.localStorage.removeItem('teamservice_user')
     }
     setUser(null)
-    router.push('/login')
+    router.push('/')
   }
 
   const value: AuthContextType = {
@@ -252,7 +252,7 @@ export function useRequireAuth(requiredRole?: UserRole) {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        router.push('/login')
+        router.push('/')
         return
       }
       

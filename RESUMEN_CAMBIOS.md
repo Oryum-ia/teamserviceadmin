@@ -4,6 +4,26 @@
 
 ---
 
+## 🔗 Fix: Error 404 en Ruta /login (29 Enero 2026)
+
+### Problema
+Al intentar acceder o ser redirigido a `/login`, la aplicación mostraba error 404 "This page could not be found".
+
+### Causa Raíz
+El código tenía múltiples referencias a la ruta `/login` en redirecciones, pero esa ruta nunca fue creada. La página de login siempre estuvo en la raíz `/`.
+
+### Solución
+Cambiadas todas las referencias de `/login` a `/` (la raíz donde está el LoginForm).
+
+### Archivos Modificados
+- ✅ `src/contexts/AuthContext.tsx` - 3 referencias corregidas
+- ✅ `src/components/SessionMonitor.tsx` - 1 referencia corregida
+- ✅ `src/components/paneladmin/OrdenesNuevo.tsx` - 1 referencia corregida
+- ✅ `middleware.ts` - Actualizada lista de rutas públicas
+- ✅ `docs/FIX_LOGIN_404.md` - **NUEVO** documentación técnica
+
+---
+
 ## 🖼️ Fix: Pérdida de Datos al Eliminar Imagen (29 Enero 2026)
 
 ### Problema

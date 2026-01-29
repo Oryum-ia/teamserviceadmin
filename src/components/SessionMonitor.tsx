@@ -36,7 +36,7 @@ export default function SessionMonitor() {
           console.warn('⚠️ Sesión perdida, redirigiendo al login...');
           // Limpiar localStorage
           window.localStorage.removeItem('teamservice_user');
-          router.push('/login');
+          router.push('/');
           return;
         }
 

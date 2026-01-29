@@ -218,7 +218,7 @@ export default function OrdenesNuevo() {
         setError('Su sesión ha expirado. Por favor, inicie sesión nuevamente.');
         // Redirigir al login después de 2 segundos
         setTimeout(() => {
-          router.push('/login');
+          router.push('/');
         }, 2000);
       } else {
         setError(`Error al cargar las órdenes: ${errorMessage}`);
