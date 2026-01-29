@@ -47,7 +47,16 @@ export default function ProductosTienda() {
   // Aplicar filtros cuando cambien
   useEffect(() => {
     aplicarFiltros();
-  }, [searchQuery, productos, filtroCategoria, filtroMarca, filtroActivo]);
+    // Solo resetear página cuando cambien los filtros, no cuando cambien los productos
+    if (searchQuery || filtroCategoria || filtroMarca || filtroActivo) {
+      setCurrentPage(1);
+    }
+  }, [searchQuery, filtroCategoria, filtroMarca, filtroActivo]);
+
+  // Aplicar filtros cuando cambien los productos (sin resetear página)
+  useEffect(() => {
+    aplicarFiltros();
+  }, [productos]);
 
   const cargarProductos = async () => {
     setIsLoading(true);
@@ -110,7 +119,7 @@ export default function ProductosTienda() {
     }
 
     setFilteredProductos(resultado);
-    setCurrentPage(1);
+    // No resetear currentPage aquí, se hace en el useEffect cuando cambian los filtros
   };
 
   const limpiarFiltros = () => {

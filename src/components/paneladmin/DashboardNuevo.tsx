@@ -260,7 +260,28 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
               theme === 'light' ? 'text-gray-600' : 'text-gray-400'
             }`}>
               <Calendar className="w-4 h-4" />
-              {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {(() => {
+                if (mesSeleccionado) {
+                  // Si hay un mes seleccionado, mostrar ese mes
+                  const [year, month] = mesSeleccionado.split('-');
+                  const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                  return date.toLocaleDateString('es-ES', { 
+                    year: 'numeric', 
+                    month: 'long'
+                  });
+                } else {
+                  // Si no hay filtro, mostrar la fecha actual completa
+                  const hoy = new Date();
+                  const opciones: Intl.DateTimeFormatOptions = { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    timeZone: 'America/Bogota'
+                  };
+                  return hoy.toLocaleDateString('es-ES', opciones);
+                }
+              })()}
             </p>
           </div>
           
@@ -353,7 +374,11 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
                 <h3 className={`text-sm font-medium ${
                   theme === 'light' ? 'text-yellow-900' : 'text-yellow-300'
                 }`}>
-                  Total de Órdenes {mesSeleccionado ? `(${new Date(mesSeleccionado + '-01').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })})` : ''}
+                  Total de Órdenes {mesSeleccionado ? `(${(() => {
+                    const [year, month] = mesSeleccionado.split('-');
+                    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                    return date.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+                  })()})` : ''}
                 </h3>
                 <ClipboardList className={`w-5 h-5 ${
                   theme === 'light' ? 'text-yellow-600' : 'text-yellow-400'
@@ -389,7 +414,11 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
                 <h3 className={`text-sm font-medium ${
                   theme === 'light' ? 'text-green-900' : 'text-green-300'
                 }`}>
-                  Ingresos {mesSeleccionado ? `(${new Date(mesSeleccionado + '-01').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })})` : ''}
+                  Ingresos {mesSeleccionado ? `(${(() => {
+                    const [year, month] = mesSeleccionado.split('-');
+                    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                    return date.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+                  })()})` : ''}
                 </h3>
                 <TrendingUp className={`w-5 h-5 ${
                   theme === 'light' ? 'text-green-600' : 'text-green-400'
