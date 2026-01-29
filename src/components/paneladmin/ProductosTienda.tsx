@@ -44,19 +44,15 @@ export default function ProductosTienda() {
     cargarMarcas();
   }, []);
 
-  // Aplicar filtros cuando cambien
+  // Aplicar filtros cuando cambien los filtros o productos
   useEffect(() => {
     aplicarFiltros();
-    // Solo resetear página cuando cambien los filtros, no cuando cambien los productos
-    if (searchQuery || filtroCategoria || filtroMarca || filtroActivo) {
-      setCurrentPage(1);
-    }
-  }, [searchQuery, filtroCategoria, filtroMarca, filtroActivo]);
+  }, [productos, searchQuery, filtroCategoria, filtroMarca, filtroActivo]);
 
-  // Aplicar filtros cuando cambien los productos (sin resetear página)
+  // Solo resetear página cuando cambien los filtros (no cuando cambien los productos)
   useEffect(() => {
-    aplicarFiltros();
-  }, [productos]);
+    setCurrentPage(1);
+  }, [searchQuery, filtroCategoria, filtroMarca, filtroActivo]);
 
   const cargarProductos = async () => {
     setIsLoading(true);
