@@ -224,6 +224,8 @@ export async function obtenerOrdenesPaginadas({
   pageSize = 20,
   filters = {} as any
 }) {
+  console.log('🔍 [ordenService] obtenerOrdenesPaginadas llamado con:', { page, pageSize, filters });
+  
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
@@ -244,26 +246,47 @@ export async function obtenerOrdenesPaginadas({
 
   // Aplicar filtros
   if (filters.numeroOrden) {
+    console.log('🔎 Aplicando filtro numeroOrden:', filters.numeroOrden);
     query = query.ilike('codigo', `%${filters.numeroOrden}%`);
   }
 
   if (filters.identificacion) {
+    console.log('🔎 Aplicando filtro identificacion:', filters.identificacion);
     // Filtrar por ID de cliente en relación
      query = query.ilike('cliente.identificacion', `%${filters.identificacion}%`);
   }
   
   if (filters.cliente) {
+    console.log('🔎 Aplicando filtro cliente:', filters.cliente);
      // Filtro en tabla relacionada clientes
      query = query.or(`razon_social.ilike.%${filters.cliente}%,nombre_comercial.ilike.%${filters.cliente}%`, { foreignTable: 'clientes' });
   }
 
   if (filters.serial) {
+    console.log('🔎 Aplicando filtro serial:', filters.serial);
       query = query.ilike('equipo.serial', `%${filters.serial}%`);
+  }
+
+  // Filtro de fase
+  if (filters.fase) {
+    console.log('🔎 Aplicando filtro fase:', filters.fase);
+    // Filtrar por fase basado en estado_actual
+    // Si contiene múltiples estados separados por coma, filtrar por todos
+    if (filters.fase.includes(',')) {
+      const fases = filters.fase.split(',').map(f => f.trim());
+      console.log('🔎 Filtrando por múltiples fases:', fases);
+      query = query.in('estado_actual', fases);
+    } else {
+      // Usar coincidencia exacta para evitar falsos positivos
+      query = query.eq('estado_actual', filters.fase);
+    }
   }
 
   // Filtro de estado
   if (filters.estado && filters.estado !== 'all') {
+    console.log('🔎 Aplicando filtro estado:', filters.estado);
     const estadosDB = mapStatusToEstadosDB(filters.estado);
+    console.log('📊 Estados DB mapeados:', estadosDB);
     if (estadosDB.length > 0) {
       query = query.in('estado_actual', estadosDB);
     }
@@ -442,7 +465,7 @@ export async function actualizarDiagnostico(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("estado_actual")
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .single();
 
   if (fetchError) throw fetchError;
@@ -457,7 +480,7 @@ export async function actualizarDiagnostico(
       comentarios_diagnostico: diagnostico.comentarios || '',
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .select()
     .single();
 
@@ -481,7 +504,7 @@ export async function avanzarACotizacion(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("estado_actual")
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .single();
 
   if (fetchError) throw fetchError;
@@ -496,7 +519,7 @@ export async function avanzarACotizacion(
       estado_actual: 'Cotización',
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .select()
     .single();
 
@@ -527,7 +550,7 @@ export async function actualizarCotizacion(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("estado_actual")
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .single();
 
   if (fetchError) throw fetchError;
@@ -546,7 +569,7 @@ export async function actualizarCotizacion(
       tecnico_cotiza: cotizacion.tecnico_cotiza || null,
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .select()
     .single();
 
@@ -571,7 +594,7 @@ export async function marcarEsperaRepuestos(ordenId: string) {
       fase_actual: 'cotizacion',
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .select()
     .single();
 
@@ -594,7 +617,7 @@ export async function avanzarAReparacion(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("estado_actual, aprobado_cliente")
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .single();
 
   if (fetchError) throw fetchError;
@@ -615,7 +638,7 @@ export async function avanzarAReparacion(
       fecha_inicio_reparacion: crearTimestampColombia(),
       ultima_actualizacion: crearTimestampColombia()
     })
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .select()
     .single();
 
@@ -647,7 +670,7 @@ export async function finalizarOrden(ordenId: string) {
       fecha_finalizacion: crearTimestampColombia(),
       updated_at: crearTimestampColombia()
     })
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .select()
     .single();
 
@@ -683,7 +706,7 @@ export async function agregarComentarioRetroceso(
   const { data: ordenActual, error: fetchError } = await supabase
     .from("ordenes")
     .select("comentarios_retroceso")
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .single();
 
   if (fetchError) throw fetchError;
@@ -701,7 +724,7 @@ export async function agregarComentarioRetroceso(
       fase_actual: comentario.fase_destino,
       updated_at: crearTimestampColombia()
     })
-    .eq("id", Number(ordenId))
+    .eq("id", ordenId)
     .select()
     .single();
 
@@ -784,7 +807,7 @@ export async function eliminarOrden(ordenId: string) {
   const { error } = await supabase
     .from("ordenes")
     .delete()
-    .eq("id", Number(ordenId));
+    .eq("id", ordenId);
 
   if (error) {
     console.error("❌ Error al eliminar orden:", error);

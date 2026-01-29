@@ -225,6 +225,19 @@ export async function guardarRepuestosCotizacion(
   }
 ): Promise<boolean> {
   try {
+    // Validar que ordenId sea válido
+    if (!ordenId || ordenId === 'undefined' || ordenId === 'null') {
+      console.error("❌ ordenId inválido:", ordenId);
+      return false;
+    }
+
+    // Convertir a número y validar
+    const ordenIdNum = Number(ordenId);
+    if (isNaN(ordenIdNum)) {
+      console.error("❌ ordenId no es un número válido:", ordenId);
+      return false;
+    }
+
     // Construir el objeto a guardar
     const dataToSave: any = {
       repuestos: repuestos,
@@ -247,7 +260,7 @@ export async function guardarRepuestosCotizacion(
         repuestos_cotizacion: dataToSave,
         ultima_actualizacion: new Date().toISOString()
       })
-      .eq("id", Number(ordenId));
+      .eq("id", ordenIdNum);
 
     if (error) {
       console.error("❌ Error al guardar repuestos de cotización:", error);

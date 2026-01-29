@@ -50,8 +50,13 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
 
   const handleEliminar = (e: React.MouseEvent, url: string, index: number) => {
     e.stopPropagation();
-    if (onEliminar) {
-      onEliminar(url, index);
+    e.preventDefault();
+    try {
+      if (onEliminar) {
+        onEliminar(url, index);
+      }
+    } catch (err) {
+      console.error('Error al eliminar imagen:', err);
     }
   };
 

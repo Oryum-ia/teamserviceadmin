@@ -65,7 +65,8 @@ interface ColumnFilters {
   marca: string;
   modelo: string;
   sede: string;
-  estado: OrdenStatus | 'all';
+  estado: OrdenStatus | 'all' | string; // Permitir string para múltiples estados
+  fase: string; // Puede contener múltiples fases separadas por coma
 }
 
 export default function OrdenesNuevo() {
@@ -85,7 +86,20 @@ export default function OrdenesNuevo() {
       const savedFilters = localStorage.getItem('ordenes_filtros');
       if (savedFilters) {
         try {
-          return JSON.parse(savedFilters);
+          const parsed = JSON.parse(savedFilters);
+          // Asegurar que el campo fase siempre exista
+          return {
+            numeroOrden: parsed.numeroOrden || '',
+            cliente: parsed.cliente || '',
+            identificacion: parsed.identificacion || '',
+            equipo: parsed.equipo || '',
+            serial: parsed.serial || '',
+            marca: parsed.marca || '',
+            modelo: parsed.modelo || '',
+            sede: parsed.sede || '',
+            estado: parsed.estado || 'all',
+            fase: parsed.fase || ''
+          };
         } catch (e) {
           console.error('Error al cargar filtros guardados:', e);
         }
@@ -100,11 +114,44 @@ export default function OrdenesNuevo() {
       marca: '',
       modelo: '',
       sede: '',
-      estado: 'all'
+      estado: 'all',
+      fase: ''
     };
   });
 
-  // No abrir filtros automáticamente - solo aplicarlos
+  // Detectar si viene de dashboard con filtro de fase o estado
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const faseParam = params.get('fase');
+      const estadoParam = params.get('estado');
+      
+      if (faseParam || estadoParam) {
+        console.log('🔍 Parámetros recibidos:', { faseParam, estadoParam });
+        
+        const newFilters = { ...columnFilters };
+        
+        if (faseParam) {
+          // Usar directamente el parámetro de fase sin mapeo
+          newFilters.fase = faseParam;
+          console.log('✅ Filtro de fase aplicado:', faseParam);
+        }
+        
+        if (estadoParam) {
+          // Si el estado contiene múltiples valores separados por coma,
+          // guardarlos para filtrar por múltiples estados
+          newFilters.estado = estadoParam as OrdenStatus | 'all';
+          console.log('✅ Filtro de estado aplicado:', estadoParam);
+        }
+        
+        setColumnFilters(newFilters);
+        setShowFilters(true);
+        
+        // Limpiar los parámetros de la URL después de aplicarlos
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, []);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -137,6 +184,7 @@ export default function OrdenesNuevo() {
 
   const cargarOrdenes = async () => {
     console.log('🔄 [OrdenesNuevo] Iniciando carga de órdenes...');
+    console.log('📋 [OrdenesNuevo] Filtros actuales:', columnFilters);
     setIsLoading(true);
     setError('');
     try {
@@ -220,7 +268,8 @@ export default function OrdenesNuevo() {
       marca: '',
       modelo: '',
       sede: '',
-      estado: 'all' as const
+      estado: 'all' as const,
+      fase: ''
     };
     setColumnFilters(defaultFilters);
     // Limpiar también el localStorage
@@ -232,7 +281,7 @@ export default function OrdenesNuevo() {
   const hasActiveFilters = () => {
     return columnFilters.numeroOrden || columnFilters.cliente || columnFilters.identificacion ||
       columnFilters.equipo || columnFilters.serial || columnFilters.marca ||
-      columnFilters.modelo || columnFilters.sede || columnFilters.estado !== 'all';
+      columnFilters.modelo || columnFilters.sede || columnFilters.estado !== 'all' || columnFilters.fase;
   };
 
   // Cálculos de paginación
@@ -319,10 +368,21 @@ export default function OrdenesNuevo() {
         <div className={`mb-4 p-4 rounded-lg border ${theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-gray-800 border-gray-700'
           }`}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className={`text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-              }`}>
-              Filtros de Búsqueda
-            </h3>
+            <div className="flex items-center gap-3">
+              <h3 className={`text-sm font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                Filtros de Búsqueda
+              </h3>
+              {columnFilters.fase && (
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  theme === 'light' ? 'bg-purple-100 text-purple-800' : 'bg-purple-900/30 text-purple-300'
+                }`}>
+                  Fase: {columnFilters.fase.includes(',') 
+                    ? columnFilters.fase.split(',').map(f => f.trim()).join(' o ') 
+                    : columnFilters.fase}
+                </span>
+              )}
+            </div>
             {hasActiveFilters() && (
               <button
                 onClick={clearAllFilters}
@@ -360,6 +420,32 @@ export default function OrdenesNuevo() {
                   <X className="w-4 h-4" />
                 </button>
               )}
+            </div>
+
+            {/* Fase */}
+            <div>
+              <select
+                value={columnFilters.fase}
+                onChange={(e) => {
+                  setColumnFilters({ ...columnFilters, fase: e.target.value });
+                  setCurrentPage(1);
+                }}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${theme === 'light'
+                  ? 'border-gray-300 bg-white text-gray-900'
+                  : 'border-gray-600 bg-gray-700 text-gray-100'
+                  }`}
+              >
+                <option value="">Todas las fases</option>
+                <option value="Recepción">Recepción</option>
+                <option value="Diagnóstico">Diagnóstico</option>
+                <option value="Cotización">Cotización</option>
+                <option value="Esperando aceptación">Esperando aceptación</option>
+                <option value="Reparación">Reparación</option>
+                <option value="Entrega">Entrega</option>
+                <option value="Finalizada">Finalizada</option>
+                <option value="Bodega">Bodega</option>
+                <option value="Chatarrizado">Chatarrizado</option>
+              </select>
             </div>
 
             {/* Estado */}
@@ -613,13 +699,29 @@ export default function OrdenesNuevo() {
       {!isLoading && filteredOrdenes.length === 0 && (
         <div className={`text-center py-12 rounded-lg border-2 border-dashed ${theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
           }`}>
-          <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
-            {hasActiveFilters() ? 'No se encontraron órdenes con los filtros aplicados' : 'No hay órdenes registradas'}
+          <p className={`text-lg font-medium mb-2 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+            {hasActiveFilters() ? 'No se encontraron órdenes' : 'No hay órdenes registradas'}
           </p>
-          {!hasActiveFilters() && (
+          <p className={`text-sm mb-4 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+            {hasActiveFilters() 
+              ? `No hay órdenes que coincidan con los filtros aplicados${columnFilters.fase ? ` (Fase: ${columnFilters.fase})` : ''}`
+              : 'Comienza creando tu primera orden de servicio'
+            }
+          </p>
+          {hasActiveFilters() ? (
+            <button
+              onClick={clearAllFilters}
+              className={`px-4 py-2 rounded-lg text-sm transition-colors ${theme === 'light'
+                ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                }`}
+            >
+              Limpiar filtros
+            </button>
+          ) : (
             <button
               onClick={() => setIsModalOpen(true)}
-              className={`mt-4 px-4 py-2 rounded-lg text-sm transition-colors ${theme === 'light'
+              className={`px-4 py-2 rounded-lg text-sm transition-colors ${theme === 'light'
                 ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
                 : 'bg-yellow-400 hover:bg-yellow-500 text-black'
                 }`}
@@ -642,6 +744,10 @@ export default function OrdenesNuevo() {
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                       }`}>
                       Estado
+                    </th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>
+                      Fase
                     </th>
                     <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                       }`}>
@@ -700,6 +806,13 @@ export default function OrdenesNuevo() {
                         <td className="px-4 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${statusInfo.color}`}>
                             {statusInfo.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            theme === 'light' ? 'bg-purple-100 text-purple-800' : 'bg-purple-900/30 text-purple-300'
+                          }`}>
+                            {orden.estado_actual || 'Sin fase'}
                           </span>
                         </td>
                         <td className={`px-4 py-4 whitespace-nowrap ${theme === 'light' ? 'text-gray-900' : 'text-white'

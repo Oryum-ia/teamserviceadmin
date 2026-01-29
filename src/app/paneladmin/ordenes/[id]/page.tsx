@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
+import { useSafeOrdenId } from '@/hooks/useSafeOrdenId';
 import { obtenerOrdenPorId } from '@/lib/services/ordenService';
 import { retrocederFaseConComentario } from '@/lib/services/comentarioService';
 import RecepcionForm from '@/components/paneladmin/ordenes/RecepcionForm';
@@ -56,8 +57,7 @@ export default function OrdenDetallePage() {
   const { theme } = useTheme();
   const toast = useToast();
   const router = useRouter();
-  const params = useParams();
-  const ordenId = params?.id as string;
+  const { id: ordenId, isReady } = useSafeOrdenId();
 
   const [orden, setOrden] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -121,15 +121,39 @@ export default function OrdenDetallePage() {
   // Referencia para el canal de realtime y bandera de montaje
   const channelRef = React.useRef<any>(null);
   const isMountedRef = React.useRef(true);
+  const lastOrdenIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
 
     const inicializar = async () => {
-      if (ordenId) {
+      if (isReady && ordenId) {
+        // Si cambió el ID de orden, limpiar estado anterior
+        if (lastOrdenIdRef.current && lastOrdenIdRef.current !== ordenId) {
+          console.log('🔄 Cambio de orden detectado, limpiando estado anterior');
+          setOrden(null);
+          setIsLoading(true);
+          setError('');
+          setCurrentStep(0);
+          
+          // Limpiar canal anterior si existe
+          if (channelRef.current) {
+            console.log('🧹 Limpiando canal de realtime anterior');
+            await channelRef.current.unsubscribe();
+            channelRef.current = null;
+          }
+        }
+
+        lastOrdenIdRef.current = ordenId;
+        
         await cargarOrden();
         await verificarSuperAdmin();
+        
         if (isMountedRef.current) {
+          // Limpiar canal anterior antes de crear uno nuevo
+          if (channelRef.current) {
+            await channelRef.current.unsubscribe();
+          }
           channelRef.current = await configurarRealtime();
         }
       }
@@ -142,12 +166,12 @@ export default function OrdenDetallePage() {
       isMountedRef.current = false;
       // Limpiar suscripción al desmontar
       if (channelRef.current) {
-        console.log('🧹 Limpiando canal de realtime');
+        console.log('🧹 Limpiando canal de realtime al desmontar');
         channelRef.current.unsubscribe();
         channelRef.current = null;
       }
     };
-  }, [ordenId]);
+  }, [isReady, ordenId]);
 
   // Mapear estado_actual a fase (solo estados normales del flujo)
   const mapEstadoAFase = (estadoActual: string): string => {
@@ -263,45 +287,73 @@ export default function OrdenDetallePage() {
   };
 
   const cargarOrden = async () => {
+    if (!ordenId) {
+      setError('ID de orden inválido');
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError('');
+    
     try {
+      console.log('🔄 Cargando orden:', ordenId);
+      
       // Intentar cargar desde localStorage primero
       const ordenLocal = getOrdenFromLocalStorage();
 
-      if (ordenLocal && ordenLocal.id === parseInt(ordenId)) {
+      // Verificar si la orden en localStorage corresponde a la orden actual
+      const esOrdenActual = ordenLocal && String(ordenLocal.id) === String(ordenId);
+
+      if (esOrdenActual) {
         console.log('📦 Cargando orden desde localStorage');
-        setOrden(ordenLocal);
+        setOrden(ordenLocal as any);
 
         // Determinar step actual respetando fase_anterior en Bodega/Chatarrizado
-        setCurrentStep(calcularStepDesdeOrden(ordenLocal));
+        setCurrentStep(calcularStepDesdeOrden(ordenLocal as any));
 
         setIsLoading(false);
 
         // Cargar desde Supabase en segundo plano para validar
-        const dataRemota = await obtenerOrdenPorId(ordenId);
+        try {
+          const dataRemota = await obtenerOrdenPorId(ordenId);
 
-        // Si hay diferencias, actualizar
-        if (dataRemota.ultima_actualizacion !== ordenLocal.ultima_actualizacion) {
-          console.log('🔄 Actualizando desde Supabase (datos más recientes)');
-          setOrden(dataRemota);
-          saveOrdenToLocalStorage(dataRemota);
+          // Si hay diferencias, actualizar
+          if (dataRemota.ultima_actualizacion !== ordenLocal.ultima_actualizacion) {
+            console.log('🔄 Actualizando desde Supabase (datos más recientes)');
+            if (isMountedRef.current) {
+              setOrden(dataRemota);
+              saveOrdenToLocalStorage(dataRemota as any);
+              setCurrentStep(calcularStepDesdeOrden(dataRemota));
+            }
+          }
+        } catch (bgError) {
+          console.warn('⚠️ Error al actualizar en segundo plano:', bgError);
+          // No mostrar error al usuario, ya tiene datos locales
         }
       } else {
-        // No existe en localStorage, cargar desde Supabase
+        // No existe en localStorage o es otra orden, cargar desde Supabase
         console.log('🌐 Cargando orden desde Supabase');
         const data = await obtenerOrdenPorId(ordenId);
-        setOrden(data);
-        saveOrdenToLocalStorage(data);
+        
+        if (isMountedRef.current) {
+          setOrden(data);
+          saveOrdenToLocalStorage(data as any);
 
-        // Determinar step actual respetando fase_anterior en Bodega/Chatarrizado
-        setCurrentStep(calcularStepDesdeOrden(data));
+          // Determinar step actual respetando fase_anterior en Bodega/Chatarrizado
+          setCurrentStep(calcularStepDesdeOrden(data));
+        }
       }
     } catch (err) {
-      console.error('Error al cargar orden:', err);
-      setError('Error al cargar la orden');
+      console.error('❌ Error al cargar orden:', err);
+      if (isMountedRef.current) {
+        setError('Error al cargar la orden');
+        setOrden(null);
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -476,6 +528,21 @@ export default function OrdenDetallePage() {
       return;
     }
 
+    // Validar que ordenId existe y es válido
+    if (!ordenId) {
+      toast.error('ID de orden inválido');
+      console.error('❌ ordenId es null o undefined');
+      return;
+    }
+
+    // Validar que ordenId sea un número válido
+    const ordenIdNum = Number(ordenId);
+    if (isNaN(ordenIdNum)) {
+      toast.error('ID de orden inválido (no es un número)');
+      console.error('❌ ordenId no es un número válido:', ordenId);
+      return;
+    }
+
     const faseId = mapEstadoAFase(orden?.estado_actual);
     const currentPhaseStep = FASES.find(f => f.id === faseId)?.step || 0;
     if (currentPhaseStep === 0) {
@@ -555,7 +622,7 @@ export default function OrdenDetallePage() {
           estado_actual: estadoNuevo,
           ultima_actualizacion: now
         })
-        .eq('id', Number(ordenId));
+        .eq('id', ordenId);
       
       if (error) throw error;
 
@@ -686,7 +753,7 @@ export default function OrdenDetallePage() {
       const { data: updateData, error } = await supabase
         .from('ordenes')
         .update(camposActualizacion)
-        .eq('id', Number(ordenId))
+        .eq('id', ordenId)
         .select();
 
       if (error) throw error;

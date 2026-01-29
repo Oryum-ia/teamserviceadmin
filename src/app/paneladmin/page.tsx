@@ -52,12 +52,34 @@ function PanelAdminContent() {
   const { theme } = useTheme();
 
   // Función para cambiar de sección
-  const handleSectionChange = (section: string, fase?: string) => {
+  const handleSectionChange = (section: string, fase?: string, estado?: string) => {
+    console.log('🔄 handleSectionChange llamado:', { section, fase, estado });
     setActiveSection(section);
-    if (section === 'ordenes' && fase) {
-      setFiltroFase(fase);
+    if (section === 'ordenes') {
+      // Construir URL con parámetros de filtro
+      const params = new URLSearchParams();
+      if (fase) {
+        params.set('fase', fase);
+        console.log('📝 Agregando fase a URL:', fase);
+      }
+      if (estado) {
+        params.set('estado', estado);
+        console.log('📝 Agregando estado a URL:', estado);
+      }
+      
+      const queryString = params.toString();
+      const newUrl = queryString ? `?${queryString}` : '';
+      
+      console.log('🌐 Nueva URL:', `/paneladmin${newUrl}`);
+      
+      // Actualizar URL sin recargar la página
+      window.history.pushState({}, '', `/paneladmin${newUrl}`);
+      
+      // Forzar re-render del componente OrdenesNuevo con un key único
+      setFiltroFase(Date.now().toString());
     } else {
       setFiltroFase(undefined);
+      window.history.pushState({}, '', '/paneladmin');
     }
   };
 

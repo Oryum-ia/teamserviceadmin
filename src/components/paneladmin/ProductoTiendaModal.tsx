@@ -69,13 +69,18 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
   // Cargar datos del producto si estamos editando
   useEffect(() => {
     if (producto) {
-      // Usar imagenes[] directamente
-      const imagenesArray = producto.imagenes && producto.imagenes.length > 0 
+      // Usar imagenes[] directamente de forma segura
+      const imagenesArray = Array.isArray(producto.imagenes) && producto.imagenes.length > 0 
         ? producto.imagenes 
         : [];
       
+      // Asegurar que especificaciones sea un array válido
+      const especificacionesArray = Array.isArray(producto.especificaciones) && producto.especificaciones.length > 0
+        ? producto.especificaciones
+        : [];
+      
       setFormData({
-        nombre: producto.nombre,
+        nombre: producto.nombre || '',
         descripcion: producto.descripcion || '',
         precio: producto.precio ? formatNumber(producto.precio.toString()) : '',
         stock: producto.stock?.toString() || '',
@@ -87,7 +92,7 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         activo: producto.activo ?? true
       });
       setImagePreviews(imagenesArray);
-      setEspecificaciones(producto.especificaciones || []);
+      setEspecificaciones(especificacionesArray);
     } else {
       // Reset form for new producto
       setFormData({
@@ -177,15 +182,27 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
   };
 
   const handleEliminarImagen = (url: string, index: number) => {
-    const nuevasImagenes = formData.imagenes.filter((_, i) => i !== index);
-    setFormData(prev => ({ ...prev, imagenes: nuevasImagenes }));
-    setImagePreviews(nuevasImagenes);
-    toast.success('Imagen eliminada');
+    try {
+      console.log('Eliminando imagen en índice:', index, 'Total:', formData.imagenes.length);
+      const nuevasImagenes = formData.imagenes.filter((_, i) => i !== index);
+      console.log('Nuevas imágenes:', nuevasImagenes.length);
+      setFormData(prev => ({ ...prev, imagenes: nuevasImagenes }));
+      setImagePreviews(nuevasImagenes);
+      toast.success('Imagen eliminada');
+    } catch (err) {
+      console.error('Error al eliminar imagen:', err);
+      toast.error('Error al eliminar la imagen');
+    }
   };
 
   const handleReordenarImagenes = (nuevasImagenes: string[]) => {
-    setFormData(prev => ({ ...prev, imagenes: nuevasImagenes }));
-    setImagePreviews(nuevasImagenes);
+    try {
+      setFormData(prev => ({ ...prev, imagenes: nuevasImagenes }));
+      setImagePreviews(nuevasImagenes);
+    } catch (err) {
+      console.error('Error al reordenar imágenes:', err);
+      toast.error('Error al reordenar las imágenes');
+    }
   };
 
   // Handlers para especificaciones
@@ -194,13 +211,29 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
   };
 
   const eliminarEspecificacion = (index: number) => {
-    setEspecificaciones(especificaciones.filter((_, i) => i !== index));
+    try {
+      console.log('Eliminando especificación en índice:', index, 'Total:', especificaciones.length);
+      const nuevasEspecificaciones = especificaciones.filter((_, i) => i !== index);
+      console.log('Nuevas especificaciones:', nuevasEspecificaciones.length);
+      setEspecificaciones(nuevasEspecificaciones);
+      toast.success('Especificación eliminada');
+    } catch (err) {
+      console.error('Error al eliminar especificación:', err);
+      toast.error('Error al eliminar la especificación');
+    }
   };
 
   const actualizarEspecificacion = (index: number, campo: 'nombre' | 'valor', valor: string) => {
-    const nuevas = [...especificaciones];
-    nuevas[index][campo] = valor;
-    setEspecificaciones(nuevas);
+    try {
+      const nuevas = [...especificaciones];
+      if (nuevas[index]) {
+        nuevas[index][campo] = valor;
+        setEspecificaciones(nuevas);
+      }
+    } catch (err) {
+      console.error('Error al actualizar especificación:', err);
+      toast.error('Error al actualizar la especificación');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -216,12 +249,15 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         return;
       }
 
-      // Filtrar especificaciones vacías
-      const especificacionesValidas = especificaciones.filter(
-        e => e.nombre.trim() !== '' && e.valor.trim() !== ''
+      // Filtrar especificaciones vacías de forma segura
+      const especificacionesValidas = (especificaciones || []).filter(
+        e => e && e.nombre && e.valor && e.nombre.trim() !== '' && e.valor.trim() !== ''
       );
 
       const descuentoNum = formData.descuento ? parseInt(formData.descuento) : 0;
+      
+      // Asegurar que imagenes sea un array válido
+      const imagenesArray = Array.isArray(formData.imagenes) ? formData.imagenes : [];
       
       const productoData = {
         nombre: formData.nombre.trim(),
@@ -231,8 +267,8 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         descuento: descuentoNum, // Porcentaje de descuento
         categoria_id: formData.categoria_id || undefined,
         marca_id: formData.marca_id || undefined,
-        imagenes: formData.imagenes.length > 0 ? formData.imagenes : [],
-        especificaciones: especificacionesValidas.length > 0 ? especificacionesValidas : [],
+        imagenes: imagenesArray,
+        especificaciones: especificacionesValidas,
         tiempo_garantia: formData.tiempo_garantia.trim() || undefined,
         promocion: descuentoNum > 0, // Si hay descuento > 0, hay promoción
         activo: formData.activo
@@ -583,7 +619,11 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
                       />
                       <button
                         type="button"
-                        onClick={() => eliminarEspecificacion(index)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          eliminarEspecificacion(index);
+                        }}
                         className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         title="Eliminar especificación"
                       >

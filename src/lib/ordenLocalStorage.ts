@@ -19,13 +19,15 @@ export interface OrdenLocalData {
   numero_orden: string;
   codigo?: string;
   cliente_id: number | string;
-  equipo: string;
-  marca: string;
-  modelo: string;
-  serie: string;
-  fase_actual: string;
-  estado: string;
+  equipo?: string | any; // Puede ser string o objeto con relaciones
+  marca?: string;
+  modelo?: string;
+  serie?: string;
+  tipo_producto?: string;
+  fase_actual?: string;
+  estado?: string;
   estado_actual?: string;
+  fase_anterior?: string | null;
   
   // Datos de cotización
   tipo_orden?: string | null;
@@ -62,6 +64,15 @@ export interface OrdenLocalData {
   fecha_entrega?: string | null;
   fecha_solicitud_repuestos?: string | null;
   fecha_recepcion_repuestos?: string | null;
+  fecha_bodega?: string | null;
+  fecha_chatarrizado?: string | null;
+  
+  // Datos de recepción y entrega
+  terminos_aceptados?: boolean;
+  firma_cliente?: string | null;
+  firma_entrega?: string | null;
+  fecha_aceptacion_terminos?: string | null;
+  fecha_firma_cliente?: string | null;
   
   // Metadatos
   ultima_actualizacion: string;

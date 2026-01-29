@@ -78,7 +78,7 @@ function StatCard({ title, value, icon: Icon, change, theme, gradient, onClick }
 }
 
 interface DashboardProps {
-  onSectionChange?: (section: string, fase?: string) => void;
+  onSectionChange?: (section: string, fase?: string, estado?: string) => void;
 }
 
 export default function DashboardNuevo({ onSectionChange }: DashboardProps = {}) {
@@ -91,16 +91,42 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
   const [statsClientes, setStatsClientes] = useState({ total: 0, nuevos_mes: 0 });
   const [statsEquipos, setStatsEquipos] = useState({ total: 0, mantenimiento_pendiente: 0 });
   const [statsTecnicos, setStatsTecnicos] = useState({ total: 0, activos: 0 });
+  
+  // Filtros
+  const [sedeSeleccionada, setSedeSeleccionada] = useState<string>('todas');
+  const [mesSeleccionado, setMesSeleccionado] = useState<string>('');
+  const [sedes, setSedes] = useState<string[]>([]);
 
   useEffect(() => {
+    cargarSedes();
     cargarEstadisticas();
-  }, []);
+  }, [sedeSeleccionada, mesSeleccionado]);
+
+  const cargarSedes = async () => {
+    try {
+      const { obtenerSedes } = await import('@/lib/services/estadisticasService');
+      const sedesData = await obtenerSedes();
+      setSedes(sedesData);
+    } catch (err) {
+      console.error('Error al cargar sedes:', err);
+    }
+  };
 
   const cargarEstadisticas = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const data = await obtenerEstadisticasDashboard();
+      const filtros: any = {};
+      
+      if (sedeSeleccionada && sedeSeleccionada !== 'todas') {
+        filtros.sede = sedeSeleccionada;
+      }
+      
+      if (mesSeleccionado) {
+        filtros.mes = mesSeleccionado;
+      }
+      
+      const data = await obtenerEstadisticasDashboard(filtros);
       setEstadisticas(data.estadisticas);
       setOrdenesRecientes(data.ordenes_recientes);
       
@@ -221,9 +247,9 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
 
   return (
     <div className="p-4 md:p-6 h-full overflow-auto">
-      {/* Header con fecha */}
-      <div className="mb-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+      {/* Header con fecha y filtros */}
+      <div className="mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
             <h1 className={`text-3xl font-bold mb-2 ${
               theme === 'light' ? 'text-gray-900' : 'text-white'
@@ -237,134 +263,211 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
               {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <div className={`mt-4 md:mt-0 px-4 py-2 rounded-lg border ${
-            theme === 'light' 
-              ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
-              : 'bg-yellow-900/20 border-yellow-700 text-yellow-300'
+          
+          {/* Filtros compactos */}
+          <div className={`flex flex-wrap items-center gap-2 p-3 rounded-lg border ${
+            theme === 'light'
+              ? 'bg-gray-50 border-gray-200'
+              : 'bg-gray-800 border-gray-700'
           }`}>
-            <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5" />
-              <span className="font-semibold">Sistema Activo</span>
-            </div>
+            <select
+              value={sedeSeleccionada}
+              onChange={(e) => setSedeSeleccionada(e.target.value)}
+              className={`px-3 py-1.5 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                theme === 'light'
+                  ? 'bg-white border-gray-300 text-gray-900'
+                  : 'bg-gray-700 border-gray-600 text-white'
+              }`}
+            >
+              <option value="todas">📍 Todas las sedes</option>
+              {sedes.map(sede => (
+                <option key={sede} value={sede}>{sede}</option>
+              ))}
+            </select>
+
+            <input
+              type="month"
+              value={mesSeleccionado}
+              onChange={(e) => setMesSeleccionado(e.target.value)}
+              placeholder="Mes"
+              className={`px-3 py-1.5 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                theme === 'light'
+                  ? 'bg-white border-gray-300 text-gray-900'
+                  : 'bg-gray-700 border-gray-600 text-white'
+              }`}
+            />
+
+            {(sedeSeleccionada !== 'todas' || mesSeleccionado) && (
+              <button
+                onClick={() => {
+                  setSedeSeleccionada('todas');
+                  setMesSeleccionado('');
+                }}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  theme === 'light'
+                    ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                    : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                }`}
+              >
+                ✕ Limpiar
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Métricas Principales - Grid Mejorado */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-        {/* Total de Órdenes */}
-        <div className={`p-6 rounded-lg shadow-sm border ${
-          theme === 'light'
-            ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200'
-            : 'bg-gradient-to-br from-yellow-900/20 to-yellow-800/20 border-yellow-700'
-        }`}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className={`text-sm font-medium ${
-              theme === 'light' ? 'text-yellow-900' : 'text-yellow-300'
+        {isLoading ? (
+          // Skeleton loaders
+          <>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className={`p-6 rounded-lg shadow-sm border animate-pulse ${
+                theme === 'light'
+                  ? 'bg-white border-gray-200'
+                  : 'bg-gray-800 border-gray-700'
+              }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`w-12 h-12 rounded-lg ${
+                    theme === 'light' ? 'bg-gray-200' : 'bg-gray-700'
+                  }`} />
+                </div>
+                <div className={`h-4 w-24 rounded mb-2 ${
+                  theme === 'light' ? 'bg-gray-200' : 'bg-gray-700'
+                }`} />
+                <div className={`h-8 w-16 rounded ${
+                  theme === 'light' ? 'bg-gray-200' : 'bg-gray-700'
+                }`} />
+              </div>
+            ))}
+          </>
+        ) : estadisticas ? (
+          <>
+            {/* Total de Órdenes */}
+            <div className={`p-6 rounded-lg shadow-sm border ${
+              theme === 'light'
+                ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200'
+                : 'bg-gradient-to-br from-yellow-900/20 to-yellow-800/20 border-yellow-700'
             }`}>
-              Total de Órdenes
-            </h3>
-            <ClipboardList className={`w-5 h-5 ${
-              theme === 'light' ? 'text-yellow-600' : 'text-yellow-400'
-            }`} />
-          </div>
-          <div className={`text-3xl font-bold ${
-            theme === 'light' ? 'text-yellow-900' : 'text-yellow-100'
-          }`}>
-            {estadisticas.total_ordenes}
-          </div>
-          <div className={`text-sm mt-2 ${
-            theme === 'light' ? 'text-yellow-700' : 'text-yellow-400'
-          }`}>
-            <div>Hoy: {estadisticas.ordenes_dia}</div>
-            <div>Esta semana: {estadisticas.ordenes_semana}</div>
-            <div>Este mes: {estadisticas.ordenes_mes}</div>
-          </div>
-        </div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className={`text-sm font-medium ${
+                  theme === 'light' ? 'text-yellow-900' : 'text-yellow-300'
+                }`}>
+                  Total de Órdenes {mesSeleccionado ? `(${new Date(mesSeleccionado + '-01').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })})` : ''}
+                </h3>
+                <ClipboardList className={`w-5 h-5 ${
+                  theme === 'light' ? 'text-yellow-600' : 'text-yellow-400'
+                }`} />
+              </div>
+              <div className={`text-3xl font-bold ${
+                theme === 'light' ? 'text-yellow-900' : 'text-yellow-100'
+              }`}>
+                {estadisticas.total_ordenes}
+              </div>
+              <div className={`text-sm mt-2 ${
+                theme === 'light' ? 'text-yellow-700' : 'text-yellow-400'
+              }`}>
+                {mesSeleccionado ? (
+                  <div>Total del período seleccionado</div>
+                ) : (
+                  <>
+                    <div>Hoy: {estadisticas.ordenes_dia}</div>
+                    <div>Esta semana: {estadisticas.ordenes_semana}</div>
+                    <div>Este mes: {estadisticas.ordenes_mes}</div>
+                  </>
+                )}
+              </div>
+            </div>
 
-        {/* Ingresos */}
-        <div className={`p-6 rounded-lg shadow-sm border ${
-          theme === 'light'
-            ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-200'
-            : 'bg-gradient-to-br from-green-900/20 to-green-800/20 border-green-700'
-        }`}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className={`text-sm font-medium ${
-              theme === 'light' ? 'text-green-900' : 'text-green-300'
+            {/* Ingresos */}
+            <div className={`p-6 rounded-lg shadow-sm border ${
+              theme === 'light'
+                ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-200'
+                : 'bg-gradient-to-br from-green-900/20 to-green-800/20 border-green-700'
             }`}>
-              Ingresos
-            </h3>
-            <TrendingUp className={`w-5 h-5 ${
-              theme === 'light' ? 'text-green-600' : 'text-green-400'
-            }`} />
-          </div>
-          <div className={`text-3xl font-bold ${
-            theme === 'light' ? 'text-green-900' : 'text-green-100'
-          }`}>
-            ${estadisticas.ingresos_totales.toLocaleString('es-CO')}
-          </div>
-          <div className={`text-sm mt-2 ${
-            theme === 'light' ? 'text-green-700' : 'text-green-400'
-          }`}>
-            Este mes: ${estadisticas.ingresos_mes_actual.toLocaleString('es-CO')}
-          </div>
-        </div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className={`text-sm font-medium ${
+                  theme === 'light' ? 'text-green-900' : 'text-green-300'
+                }`}>
+                  Ingresos {mesSeleccionado ? `(${new Date(mesSeleccionado + '-01').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })})` : ''}
+                </h3>
+                <TrendingUp className={`w-5 h-5 ${
+                  theme === 'light' ? 'text-green-600' : 'text-green-400'
+                }`} />
+              </div>
+              <div className={`text-3xl font-bold ${
+                theme === 'light' ? 'text-green-900' : 'text-green-100'
+              }`}>
+                ${estadisticas.ingresos_totales.toLocaleString('es-CO')}
+              </div>
+              <div className={`text-sm mt-2 ${
+                theme === 'light' ? 'text-green-700' : 'text-green-400'
+              }`}>
+                {mesSeleccionado ? (
+                  <div>Total del período seleccionado</div>
+                ) : (
+                  <div>Este mes: ${estadisticas.ingresos_mes_actual.toLocaleString('es-CO')}</div>
+                )}
+              </div>
+            </div>
 
-        {/* En Proceso */}
-        <div className={`p-6 rounded-lg shadow-sm border ${
-          theme === 'light'
-            ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
-            : 'bg-gradient-to-br from-blue-900/20 to-blue-800/20 border-blue-700'
-        }`}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className={`text-sm font-medium ${
-              theme === 'light' ? 'text-blue-900' : 'text-blue-300'
+            {/* En Proceso */}
+            <div className={`p-6 rounded-lg shadow-sm border ${
+              theme === 'light'
+                ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
+                : 'bg-gradient-to-br from-blue-900/20 to-blue-800/20 border-blue-700'
             }`}>
-              En Proceso
-            </h3>
-            <Settings className={`w-5 h-5 ${
-              theme === 'light' ? 'text-blue-600' : 'text-blue-400'
-            }`} />
-          </div>
-          <div className={`text-3xl font-bold ${
-            theme === 'light' ? 'text-blue-900' : 'text-blue-100'
-          }`}>
-            {estadisticas.ordenes_por_estado.en_proceso}
-          </div>
-          <div className={`text-sm mt-2 ${
-            theme === 'light' ? 'text-blue-700' : 'text-blue-400'
-          }`}>
-            Activas actualmente
-          </div>
-        </div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className={`text-sm font-medium ${
+                  theme === 'light' ? 'text-blue-900' : 'text-blue-300'
+                }`}>
+                  En Proceso
+                </h3>
+                <Settings className={`w-5 h-5 ${
+                  theme === 'light' ? 'text-blue-600' : 'text-blue-400'
+                }`} />
+              </div>
+              <div className={`text-3xl font-bold ${
+                theme === 'light' ? 'text-blue-900' : 'text-blue-100'
+              }`}>
+                {estadisticas.ordenes_por_estado.en_proceso}
+              </div>
+              <div className={`text-sm mt-2 ${
+                theme === 'light' ? 'text-blue-700' : 'text-blue-400'
+              }`}>
+                Activas actualmente
+              </div>
+            </div>
 
-        {/* Completadas */}
-        <div className={`p-6 rounded-lg shadow-sm border ${
-          theme === 'light'
-            ? 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200'
-            : 'bg-gradient-to-br from-purple-900/20 to-purple-800/20 border-purple-700'
-        }`}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className={`text-sm font-medium ${
-              theme === 'light' ? 'text-purple-900' : 'text-purple-300'
+            {/* Completadas */}
+            <div className={`p-6 rounded-lg shadow-sm border ${
+              theme === 'light'
+                ? 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200'
+                : 'bg-gradient-to-br from-purple-900/20 to-purple-800/20 border-purple-700'
             }`}>
-              Completadas
-            </h3>
-            <CheckCircle className={`w-5 h-5 ${
-              theme === 'light' ? 'text-purple-600' : 'text-purple-400'
-            }`} />
-          </div>
-          <div className={`text-3xl font-bold ${
-            theme === 'light' ? 'text-purple-900' : 'text-purple-100'
-          }`}>
-            {estadisticas.ordenes_por_estado.completada}
-          </div>
-          <div className={`text-sm mt-2 ${
-            theme === 'light' ? 'text-purple-700' : 'text-purple-400'
-          }`}>
-            Total finalizadas
-          </div>
-        </div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className={`text-sm font-medium ${
+                  theme === 'light' ? 'text-purple-900' : 'text-purple-300'
+                }`}>
+                  Completadas
+                </h3>
+                <CheckCircle className={`w-5 h-5 ${
+                  theme === 'light' ? 'text-purple-600' : 'text-purple-400'
+                }`} />
+              </div>
+              <div className={`text-3xl font-bold ${
+                theme === 'light' ? 'text-purple-900' : 'text-purple-100'
+              }`}>
+                {estadisticas.ordenes_por_estado.completada}
+              </div>
+              <div className={`text-sm mt-2 ${
+                theme === 'light' ? 'text-purple-700' : 'text-purple-400'
+              }`}>
+                Total finalizadas
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
 
       {/* Métricas Secundarias */}
@@ -415,7 +518,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* Recepción */}
           <div
-            onClick={() => onSectionChange?.('ordenes', 'recepcion')}
+            onClick={() => onSectionChange?.('ordenes', 'Recepción')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
               theme === 'light'
                 ? 'bg-white border-gray-200 hover:border-teal-400'
@@ -446,7 +549,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
 
           {/* Diagnóstico */}
           <div
-            onClick={() => onSectionChange?.('ordenes', 'diagnostico')}
+            onClick={() => onSectionChange?.('ordenes', 'Diagnóstico')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
               theme === 'light'
                 ? 'bg-white border-gray-200 hover:border-blue-400'
@@ -476,7 +579,11 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
           </div>
 
           <div
-            onClick={() => onSectionChange?.('ordenes', 'cotizacion')}
+            onClick={() => {
+              // Cotización incluye "Cotización" y "Esperando aceptación"
+              // Pasamos múltiples fases separadas por coma
+              onSectionChange?.('ordenes', 'Cotización,Esperando aceptación');
+            }}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
               theme === 'light'
                 ? 'bg-white border-gray-200 hover:border-purple-400'
@@ -506,7 +613,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
           </div>
 
           <div
-            onClick={() => onSectionChange?.('ordenes', 'reparacion')}
+            onClick={() => onSectionChange?.('ordenes', 'Reparación')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
               theme === 'light'
                 ? 'bg-white border-gray-200 hover:border-orange-400'
@@ -536,7 +643,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
           </div>
 
           <div
-            onClick={() => onSectionChange?.('ordenes', 'entrega')}
+            onClick={() => onSectionChange?.('ordenes', 'Entrega')}
             className={`p-5 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
               theme === 'light'
                 ? 'bg-white border-gray-200 hover:border-green-400'
