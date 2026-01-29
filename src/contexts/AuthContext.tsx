@@ -78,6 +78,106 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false)
   }, [])
 
+  // Sincronizar con Supabase Auth y escuchar cambios de sesión
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Importar supabase dinámicamente para evitar problemas SSR
+    import('@/lib/supabaseClient').then(({ supabase }) => {
+      // Verificar sesión de Supabase al iniciar
+      const checkSupabaseSession = async () => {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error('❌ Error al verificar sesión de Supabase:', error);
+            return;
+          }
+
+          if (session?.user) {
+            console.log('✅ Sesión de Supabase válida encontrada');
+            // Si hay sesión en Supabase pero no en AuthContext, sincronizar
+            if (!user) {
+              const { data: userData } = await supabase
+                .from('usuarios')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (userData) {
+                const syncedUser = {
+                  id: userData.id,
+                  email: userData.email,
+                  nombre: userData.nombres || userData.email,
+                  rol: userData.rol,
+                  activo: userData.activo
+                };
+                setUser(syncedUser);
+                window.localStorage.setItem('teamservice_user', JSON.stringify(syncedUser));
+                console.log('🔄 Usuario sincronizado desde Supabase');
+              }
+            }
+          } else {
+            // Si no hay sesión en Supabase pero sí en AuthContext, limpiar
+            if (user) {
+              console.log('⚠️ No hay sesión en Supabase, limpiando AuthContext');
+              setUser(null);
+              window.localStorage.removeItem('teamservice_user');
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error al verificar sesión:', error);
+        }
+      };
+
+      checkSupabaseSession();
+
+      // Listener para cambios de sesión de Supabase
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('🔐 Supabase auth event:', event);
+          
+          if (event === 'SIGNED_OUT') {
+            console.log('🚪 Sesión cerrada, limpiando estado');
+            setUser(null);
+            window.localStorage.removeItem('teamservice_user');
+            router.push('/login');
+          }
+          
+          if (event === 'TOKEN_REFRESHED' && session?.user) {
+            console.log('✅ Token refrescado, sesión válida');
+          }
+
+          if (event === 'SIGNED_IN' && session?.user) {
+            console.log('✅ Usuario inició sesión en Supabase');
+            // Sincronizar con AuthContext
+            const { data: userData } = await supabase
+              .from('usuarios')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+            
+            if (userData) {
+              const syncedUser = {
+                id: userData.id,
+                email: userData.email,
+                nombre: userData.nombres || userData.email,
+                rol: userData.rol,
+                activo: userData.activo
+              };
+              setUser(syncedUser);
+              window.localStorage.setItem('teamservice_user', JSON.stringify(syncedUser));
+            }
+          }
+        }
+      );
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    });
+  }, [])
+
   const signIn = async (email: string, password: string) => {
     setLoading(true)
     

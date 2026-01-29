@@ -226,6 +226,26 @@ export async function obtenerOrdenesPaginadas({
 }) {
   console.log('🔍 [ordenService] obtenerOrdenesPaginadas llamado con:', { page, pageSize, filters });
   
+  // Verificar sesión antes de hacer la consulta
+  try {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('❌ Error al verificar sesión:', sessionError);
+      throw new Error('Error al verificar la sesión. Por favor, recargue la página.');
+    }
+
+    if (!session) {
+      console.error('❌ No hay sesión válida');
+      throw new Error('Sesión expirada. Por favor, inicie sesión nuevamente.');
+    }
+
+    console.log('✅ Sesión válida verificada');
+  } catch (error) {
+    console.error('❌ Error en verificación de sesión:', error);
+    throw error;
+  }
+  
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 

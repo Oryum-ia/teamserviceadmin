@@ -5,6 +5,7 @@ import { ThemeProvider } from "../components/ThemeProvider";
 import { NotificationProvider } from "../contexts/NotificationContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import ToastContainer from "../components/ToastContainer";
+import SessionMonitor from "../components/SessionMonitor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
         >
           <ToastProvider>
             <NotificationProvider>
+              <SessionMonitor />
               {children}
               <ToastContainer />
             </NotificationProvider>

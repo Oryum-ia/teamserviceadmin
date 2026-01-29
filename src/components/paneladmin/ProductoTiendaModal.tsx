@@ -48,7 +48,6 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
     activo: true
   });
 
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [especificaciones, setEspecificaciones] = useState<Especificacion[]>([]);
 
   // Cargar categorías y marcas
@@ -95,7 +94,6 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         tiempo_garantia: producto.tiempo_garantia || '',
         activo: producto.activo ?? true
       });
-      setImagePreviews(imagenesArray);
       setEspecificaciones(especificacionesArray);
     } else {
       // Reset form for new producto
@@ -113,7 +111,6 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         tiempo_garantia: '',
         activo: true
       });
-      setImagePreviews([]);
       setEspecificaciones([]);
     }
     setError('');
@@ -176,7 +173,6 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
           ...prev, 
           imagenes: [...prev.imagenes, ...uploadedUrls] 
         }));
-        setImagePreviews(prev => [...prev, ...uploadedUrls]);
         toast.success(`${uploadedUrls.length} imagen(es) cargada(s) exitosamente`);
       }
     } catch (err) {
@@ -190,10 +186,11 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
   const handleEliminarImagen = (url: string, index: number) => {
     try {
       console.log('Eliminando imagen en índice:', index, 'Total:', formData.imagenes.length);
-      const nuevasImagenes = formData.imagenes.filter((_, i) => i !== index);
-      console.log('Nuevas imágenes:', nuevasImagenes.length);
-      setFormData(prev => ({ ...prev, imagenes: nuevasImagenes }));
-      setImagePreviews(nuevasImagenes);
+      setFormData(prev => {
+        const nuevasImagenes = prev.imagenes.filter((_, i) => i !== index);
+        console.log('Nuevas imágenes:', nuevasImagenes.length);
+        return { ...prev, imagenes: nuevasImagenes };
+      });
       toast.success('Imagen eliminada');
     } catch (err) {
       console.error('Error al eliminar imagen:', err);
@@ -204,7 +201,6 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
   const handleReordenarImagenes = (nuevasImagenes: string[]) => {
     try {
       setFormData(prev => ({ ...prev, imagenes: nuevasImagenes }));
-      setImagePreviews(nuevasImagenes);
     } catch (err) {
       console.error('Error al reordenar imágenes:', err);
       toast.error('Error al reordenar las imágenes');
@@ -351,7 +347,7 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
                 <label className={`text-sm font-medium ${
                   theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                 }`}>
-                  Imágenes del producto {imagePreviews.length > 0 && `(${imagePreviews.length})`}
+                  Imágenes del producto {formData.imagenes.length > 0 && `(${formData.imagenes.length})`}
                 </label>
                 
                 {/* Botón de subir imágenes */}
@@ -381,7 +377,7 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
                 </label>
               </div>
               
-              {imagePreviews.length > 0 && (
+              {formData.imagenes.length > 0 && (
                 <p className={`text-xs mb-2 ${
                   theme === 'light' ? 'text-gray-500' : 'text-gray-400'
                 }`}>
@@ -390,9 +386,9 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
               )}
               
               {/* Visualizador de imágenes con drag & drop integrado */}
-              {imagePreviews.length > 0 ? (
+              {formData.imagenes.length > 0 ? (
                 <ImagenViewer
-                  imagenes={imagePreviews}
+                  imagenes={formData.imagenes}
                   onEliminar={handleEliminarImagen}
                   puedeEditar={true}
                   onFilesDropped={handleImageUpload}

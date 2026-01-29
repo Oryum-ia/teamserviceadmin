@@ -209,9 +209,21 @@ export default function OrdenesNuevo() {
         setTotalItems(0);
         setError('Error: Formato de datos inválido');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ [OrdenesNuevo] Error al cargar órdenes:', err);
-      setError('Error al cargar las órdenes. Revise la consola.');
+      
+      // Detectar errores de sesión
+      const errorMessage = err?.message || String(err);
+      if (errorMessage.includes('Sesión expirada') || errorMessage.includes('sesión')) {
+        setError('Su sesión ha expirado. Por favor, inicie sesión nuevamente.');
+        // Redirigir al login después de 2 segundos
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      } else {
+        setError(`Error al cargar las órdenes: ${errorMessage}`);
+      }
+      
       setOrdenes([]);
       setFilteredOrdenes([]);
       setTotalItems(0);

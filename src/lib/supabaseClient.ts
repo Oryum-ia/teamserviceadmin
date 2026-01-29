@@ -31,6 +31,15 @@ export const getSupabase = () => {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: 'teamservice-supabase-auth',
+      flowType: 'pkce',
+    },
+    global: {
+      headers: {
+        'x-application-name': 'teamservice-costa',
+      },
     },
     realtime: {
       params: {
@@ -38,6 +47,38 @@ export const getSupabase = () => {
       },
     },
   })
+
+  // Agregar listener global para mantener sesión activa
+  if (typeof window !== 'undefined') {
+    supabaseInstance.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('✅ Token refrescado automáticamente');
+      }
+      if (event === 'SIGNED_OUT') {
+        console.log('🚪 Usuario cerró sesión');
+        // Limpiar localStorage del AuthContext
+        window.localStorage.removeItem('teamservice_user');
+      }
+      if (event === 'USER_UPDATED') {
+        console.log('👤 Usuario actualizado');
+      }
+      
+      // Si hay sesión, asegurar que se mantenga activa
+      if (session && event === 'SIGNED_IN') {
+        console.log('✅ Sesión iniciada, configurando mantenimiento automático');
+      }
+    });
+
+    // Refrescar token cada 30 minutos para mantener sesión activa indefinidamente
+    const client = supabaseInstance;
+    setInterval(async () => {
+      const { data: { session }, error } = await client.auth.getSession();
+      if (session && !error) {
+        console.log('🔄 Refrescando token para mantener sesión activa...');
+        await client.auth.refreshSession();
+      }
+    }, 30 * 60 * 1000); // 30 minutos
+  }
 
   return supabaseInstance
 }
