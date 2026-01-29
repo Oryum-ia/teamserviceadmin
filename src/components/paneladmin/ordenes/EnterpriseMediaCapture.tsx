@@ -59,7 +59,7 @@ export default function EnterpriseMediaCapture({
   mode = 'both',
   facingMode = 'environment',
   disabled = false,
-  maxSizeMB = 166.67,
+  maxSizeMB = 45,
   autoCompress = true,
   showCompressionInfo = true,
 }: MediaCaptureProps) {
@@ -116,9 +116,11 @@ export default function EnterpriseMediaCapture({
       }
 
       // Security: Validate file size (before compression)
-      const maxBytes = maxSizeMB * 1024 * 1024 * 5; // 5x the target for pre-compression
+      // For videos, allow larger files since we'll compress them
+      const isVideo = file.type.startsWith('video/');
+      const maxBytes = isVideo ? 500 * 1024 * 1024 : maxSizeMB * 1024 * 1024 * 2; // 500MB for videos, 2x for images
       if (file.size > maxBytes) {
-        throw new Error(`File too large. Maximum size is ${formatFileSize(maxBytes)}`);
+        throw new Error(`Archivo demasiado grande. Tamaño máximo: ${formatFileSize(maxBytes)}`);
       }
 
       let finalFile = file;

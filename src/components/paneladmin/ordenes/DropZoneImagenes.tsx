@@ -43,12 +43,15 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
       file.type.startsWith('image/') || file.type.startsWith('video/')
     );
     
-    // Validar tamaño (50MB)
-    const validFiles = mediaFiles.filter(file => file.size <= 50 * 1024 * 1024);
+    // Validar tamaño (500MB para videos, 50MB para imágenes - se comprimirán después)
+    const validFiles = mediaFiles.filter(file => {
+      const isVideo = file.type.startsWith('video/');
+      const maxSize = isVideo ? 500 * 1024 * 1024 : 50 * 1024 * 1024;
+      return file.size <= maxSize;
+    });
     
     if (mediaFiles.length > validFiles.length) {
-      // Si hay archivos rechazados por tamaño, podríamos notificar al padre si hubiera prop onError
-      console.warn("Algunos archivos exceden el límite de 50MB y fueron ignorados.");
+      console.warn("Algunos archivos son demasiado grandes y fueron ignorados.");
     }
 
     if (validFiles.length > 0) {
@@ -69,11 +72,15 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
       file.type.startsWith('image/') || file.type.startsWith('video/')
     );
     
-    // Validar tamaño (50MB)
-    const validFiles = mediaFiles.filter(file => file.size <= 50 * 1024 * 1024);
+    // Validar tamaño (500MB para videos, 50MB para imágenes - se comprimirán después)
+    const validFiles = mediaFiles.filter(file => {
+      const isVideo = file.type.startsWith('video/');
+      const maxSize = isVideo ? 500 * 1024 * 1024 : 50 * 1024 * 1024;
+      return file.size <= maxSize;
+    });
 
     if (mediaFiles.length > validFiles.length) {
-       console.warn("Algunos archivos exceden el límite de 50MB y fueron ignorados.");
+       console.warn("Algunos archivos son demasiado grandes y fueron ignorados.");
     }
     
     if (validFiles.length > 0) {
@@ -94,7 +101,7 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
           disabled={disabled || isUploading}
           mode="both"
           autoCompress={true}
-          maxSizeMB={10}
+          maxSizeMB={45}
           showCompressionInfo={true}
         />
       </div>
@@ -171,7 +178,7 @@ export default function DropZoneImagenes({ onFilesSelected, isUploading = false,
             <div className={`flex items-center gap-2 text-xs ${
               theme === 'light' ? 'text-gray-400' : 'text-gray-500'
             }`}>
-              <span>PNG, JPG, GIF, MP4, WEBM hasta 50MB</span>
+              <span>Imágenes y videos (se comprimirán automáticamente)</span>
             </div>
           </>
         )}

@@ -45,9 +45,8 @@ export const formatFileSize = (bytes: number): string => {
 };
 
 /**
- * Compress video - Currently returns original file
- * Note: Full video compression requires FFmpeg.wasm or server-side processing
- * For now, we validate the file and return it as-is to avoid data loss
+ * Compress video using Canvas API to extract frames and create a compressed video
+ * This is a client-side solution that works without FFmpeg
  */
 export const compressVideo = async (
   file: File,
@@ -61,20 +60,20 @@ export const compressVideo = async (
   }
 
   const originalSize = file.size;
+  const maxBytes = 50 * 1024 * 1024; // 50MB hard limit for Supabase
 
-  // For videos, we simply validate and return the original
-  // True video compression requires FFmpeg.wasm or server-side processing
-  // Converting to image would lose all video data!
-  
-  // Validate video file size
-  const maxVideoSizeMB = opts.maxSizeMB * 3; // Allow videos to be 3x the image limit
-  const maxBytes = maxVideoSizeMB * 1024 * 1024;
-  
-  if (originalSize > maxBytes) {
-    throw new Error(`Video file is too large. Maximum size is ${formatFileSize(maxBytes)}. Please record a shorter video or use a lower resolution.`);
+  // If video is already under the limit, return as-is
+  if (originalSize <= maxBytes) {
+    console.log('📹 Video is under 50MB, no compression needed');
+    return {
+      file,
+      originalSize,
+      compressedSize: originalSize,
+      compressionRatio: 0,
+    };
   }
 
-  // Validate that the video can be loaded (basic integrity check)
+  // Validate that the video can be loaded
   try {
     const video = document.createElement('video');
     video.preload = 'metadata';
@@ -85,7 +84,7 @@ export const compressVideo = async (
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Video loading timeout'));
-      }, 10000); // 10 second timeout
+      }, 10000);
 
       video.onloadedmetadata = () => {
         clearTimeout(timeout);
@@ -97,25 +96,140 @@ export const compressVideo = async (
       };
     });
 
-    // Clean up
-    URL.revokeObjectURL(videoUrl);
-    
-    // Return original file - no compression applied
-    console.log('📹 Video validated successfully:', {
+    console.log('📹 Video info:', {
       name: file.name,
       size: formatFileSize(originalSize),
       duration: `${video.duration?.toFixed(1) || 'unknown'}s`,
       dimensions: `${video.videoWidth}x${video.videoHeight}`,
     });
 
+    // Calculate target dimensions
+    const { width, height } = calculateDimensions(
+      video.videoWidth,
+      video.videoHeight,
+      opts.maxWidthOrHeight
+    );
+
+    // Create canvas for re-encoding
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('Failed to get canvas context');
+    }
+
+    // Check if MediaRecorder API is available
+    if (!window.MediaRecorder || !canvas.captureStream) {
+      console.warn('⚠️ MediaRecorder API not available, returning original file');
+      throw new Error(`Video es demasiado grande (${formatFileSize(originalSize)}). El límite es 50MB. Por favor graba un video más corto o usa menor resolución.`);
+    }
+
+    // Create a stream from canvas
+    const stream = canvas.captureStream(30); // 30 FPS
+    
+    // Determine the best codec and bitrate
+    const mimeTypes = [
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm',
+      'video/mp4',
+    ];
+    
+    let selectedMimeType = '';
+    for (const mimeType of mimeTypes) {
+      if (MediaRecorder.isTypeSupported(mimeType)) {
+        selectedMimeType = mimeType;
+        break;
+      }
+    }
+
+    if (!selectedMimeType) {
+      throw new Error(`Video es demasiado grande (${formatFileSize(originalSize)}). El límite es 50MB. Por favor graba un video más corto.`);
+    }
+
+    // Calculate target bitrate to stay under 50MB
+    const targetSizeMB = 45; // Target 45MB to have some margin
+    const targetBitrate = Math.floor((targetSizeMB * 1024 * 1024 * 8) / video.duration);
+    
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: selectedMimeType,
+      videoBitsPerSecond: Math.min(targetBitrate, 2500000), // Max 2.5 Mbps
+    });
+
+    const chunks: Blob[] = [];
+    
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunks.push(e.data);
+      }
+    };
+
+    // Start recording
+    mediaRecorder.start(100); // Collect data every 100ms
+
+    // Play video and draw frames to canvas
+    video.currentTime = 0;
+    await video.play();
+
+    const drawFrame = () => {
+      if (video.paused || video.ended) {
+        return;
+      }
+      ctx.drawImage(video, 0, 0, width, height);
+      requestAnimationFrame(drawFrame);
+    };
+
+    drawFrame();
+
+    // Wait for video to finish
+    await new Promise<void>((resolve) => {
+      video.onended = () => {
+        mediaRecorder.stop();
+        resolve();
+      };
+    });
+
+    // Wait for recorder to finish
+    const compressedBlob = await new Promise<Blob>((resolve) => {
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: selectedMimeType });
+        resolve(blob);
+      };
+    });
+
+    // Clean up
+    URL.revokeObjectURL(videoUrl);
+    stream.getTracks().forEach(track => track.stop());
+
+    const compressedSize = compressedBlob.size;
+
+    // Check if compression was successful
+    if (compressedSize > maxBytes) {
+      throw new Error(`No se pudo comprimir el video lo suficiente. Tamaño final: ${formatFileSize(compressedSize)}. Por favor graba un video más corto.`);
+    }
+
+    const compressedFile = new File(
+      [compressedBlob],
+      file.name.replace(/\.[^/.]+$/, '.webm'),
+      { type: selectedMimeType }
+    );
+
+    console.log('✅ Video compressed successfully:', {
+      original: formatFileSize(originalSize),
+      compressed: formatFileSize(compressedSize),
+      ratio: `${calculateCompressionRatio(originalSize, compressedSize).toFixed(1)}%`,
+    });
+
     return {
-      file,
+      file: compressedFile,
       originalSize,
-      compressedSize: originalSize,
-      compressionRatio: 0, // No compression performed
+      compressedSize,
+      compressionRatio: calculateCompressionRatio(originalSize, compressedSize),
     };
   } catch (error) {
-    console.error('Video validation failed:', error);
+    console.error('Video compression failed:', error);
     throw error instanceof Error ? error : new Error('Failed to process video file');
   }
 };

@@ -329,25 +329,56 @@ export default function OrdenDetallePage() {
           }
         } catch (bgError) {
           console.warn('⚠️ Error al actualizar en segundo plano:', bgError);
-          // No mostrar error al usuario, ya tiene datos locales
+          // Intentar via API como último recurso
+          try {
+            console.log('🔄 Intentando cargar via API...');
+            const response = await fetch(`/api/ordenes/${ordenId}`);
+            if (response.ok) {
+              const dataApi = await response.json();
+              if (isMountedRef.current) {
+                setOrden(dataApi);
+                saveOrdenToLocalStorage(dataApi as any);
+                setCurrentStep(calcularStepDesdeOrden(dataApi));
+              }
+            }
+          } catch (apiError) {
+            console.warn('⚠️ Error al cargar via API:', apiError);
+            // No mostrar error al usuario, ya tiene datos locales
+          }
         }
       } else {
         // No existe en localStorage o es otra orden, cargar desde Supabase
         console.log('🌐 Cargando orden desde Supabase');
-        const data = await obtenerOrdenPorId(ordenId);
-        
-        if (isMountedRef.current) {
-          setOrden(data);
-          saveOrdenToLocalStorage(data as any);
+        try {
+          const data = await obtenerOrdenPorId(ordenId);
+          
+          if (isMountedRef.current) {
+            setOrden(data);
+            saveOrdenToLocalStorage(data as any);
 
-          // Determinar step actual respetando fase_anterior en Bodega/Chatarrizado
-          setCurrentStep(calcularStepDesdeOrden(data));
+            // Determinar step actual respetando fase_anterior en Bodega/Chatarrizado
+            setCurrentStep(calcularStepDesdeOrden(data));
+          }
+        } catch (supabaseError) {
+          console.warn('⚠️ Error al cargar desde Supabase, intentando via API...');
+          // Fallback a API si Supabase falla
+          const response = await fetch(`/api/ordenes/${ordenId}`);
+          if (!response.ok) {
+            throw new Error('No se pudo cargar la orden desde ninguna fuente');
+          }
+          const dataApi = await response.json();
+          
+          if (isMountedRef.current) {
+            setOrden(dataApi);
+            saveOrdenToLocalStorage(dataApi as any);
+            setCurrentStep(calcularStepDesdeOrden(dataApi));
+          }
         }
       }
     } catch (err) {
       console.error('❌ Error al cargar orden:', err);
       if (isMountedRef.current) {
-        setError('Error al cargar la orden');
+        setError('No fue posible cargar los detalles de esta orden. Esto puede deberse a:\n\n• Problemas de conexión con el servidor\n• La orden puede haber sido eliminada o modificada\n• Datos locales desincronizados\n\nIntentando...');
         setOrden(null);
       }
     } finally {
@@ -365,7 +396,12 @@ export default function OrdenDetallePage() {
       console.log('🔌 Configurando realtime para orden ID:', ordenId);
 
       const channel = supabase
-        .channel(`orden-${ordenId}`)
+        .channel(`orden-${ordenId}`, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' },
+          },
+        })
         .on(
           'postgres_changes',
           {
@@ -487,10 +523,12 @@ export default function OrdenDetallePage() {
           if (status === 'SUBSCRIBED') {
             console.log('✅ Realtime SUSCRITO exitosamente para orden', ordenId);
           } else if (status === 'CHANNEL_ERROR') {
-            // Usar warn en lugar de error para evitar que el overlay de Next.js bloquee la pantalla por errores transitorios
-            console.warn('⚠️ Error en canal de realtime (posible reconexión):', err);
+            // Usar warn en lugar de error para evitar que el overlay de Next.js bloquee la pantalla
+            console.warn('⚠️ Error en canal de realtime (posible reconexión):', err || 'Sin detalles');
           } else if (status === 'TIMED_OUT') {
-            console.warn('⏱️ Timeout en suscripción de realtime');
+            console.warn('⏱️ Timeout en suscripción de realtime - La aplicación seguirá funcionando sin actualizaciones en tiempo real');
+          } else if (status === 'CLOSED') {
+            console.log('🔌 Canal de realtime cerrado');
           } else {
             console.log('🔔 Estado de realtime:', status);
           }
@@ -500,6 +538,7 @@ export default function OrdenDetallePage() {
       return channel;
     } catch (error) {
       console.error('❌ Error configurando realtime:', error);
+      // No lanzar error, la app puede funcionar sin realtime
       return null;
     }
   };
@@ -1360,16 +1399,42 @@ export default function OrdenDetallePage() {
 
   if (error || !orden) {
     return (
-      <div className="p-6">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
-          {error || 'Orden no encontrada'}
+      <div className="flex items-center justify-center min-h-screen p-6">
+        <div className="max-w-md w-full">
+          <div className={`${theme === 'light' ? 'bg-white' : 'bg-gray-800'} rounded-lg shadow-lg p-6 border ${theme === 'light' ? 'border-gray-200' : 'border-gray-700'}`}>
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
+              <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className={`text-xl font-semibold text-center mb-2 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+              Error al cargar la orden
+            </h2>
+            <p className={`text-sm text-center mb-6 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'} whitespace-pre-line`}>
+              {error || 'No fue posible cargar los detalles de esta orden. Esto puede deberse a:\n\n• Problemas de conexión con el servidor\n• La orden puede haber sido eliminada o modificada\n• Datos locales desincronizados'}
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setError('');
+                  cargarOrden();
+                }}
+                className="w-full px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Reintentar
+              </button>
+              <button
+                onClick={() => router.push('/paneladmin?section=ordenes')}
+                className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${theme === 'light' ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}
+              >
+                Volver a órdenes
+              </button>
+            </div>
+          </div>
         </div>
-        <button
-          onClick={() => router.push('/paneladmin')}
-          className="mt-4 text-yellow-600 hover:text-yellow-700"
-        >
-          Volver al panel
-        </button>
       </div>
     );
   }

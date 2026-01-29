@@ -142,11 +142,15 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
       file.type.startsWith('image/') || file.type.startsWith('video/')
     );
     
-    // Validar tamaño (50MB)
-    const validFiles = mediaFiles.filter(file => file.size <= 50 * 1024 * 1024);
+    // Validar tamaño (500MB para videos, 50MB para imágenes - se comprimirán después)
+    const validFiles = mediaFiles.filter(file => {
+      const isVideo = file.type.startsWith('video/');
+      const maxSize = isVideo ? 500 * 1024 * 1024 : 50 * 1024 * 1024;
+      return file.size <= maxSize;
+    });
 
     if (mediaFiles.length > validFiles.length) {
-      console.warn("Algunos archivos exceden el límite de 50MB y fueron ignorados.");
+      console.warn("Algunos archivos son demasiado grandes y fueron ignorados.");
     }
     
     if (validFiles.length > 0 && onFilesDropped) {
