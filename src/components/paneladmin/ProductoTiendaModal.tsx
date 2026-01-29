@@ -17,7 +17,7 @@ import { obtenerTodasLasMarcas, type Marca } from '@/lib/services/marcaService';
 interface ProductoTiendaModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (producto?: ProductoTienda) => void;
   producto?: ProductoTienda | null;
 }
 
@@ -274,18 +274,21 @@ export default function ProductoTiendaModal({ isOpen, onClose, onSuccess, produc
         activo: formData.activo
       };
 
+      let productoGuardado;
       if (producto) {
         // Actualizar producto existente
-        await actualizarProducto(producto.id, productoData);
+        productoGuardado = await actualizarProducto(producto.id, productoData);
         toast.success('Producto actualizado exitosamente');
       } else {
         // Crear nuevo producto
-        await crearProductoTienda(productoData);
+        productoGuardado = await crearProductoTienda(productoData);
         toast.success('Producto creado exitosamente');
       }
 
-      onSuccess();
+      // Cerrar modal primero
       onClose();
+      // Luego notificar éxito con el producto guardado
+      onSuccess(productoGuardado);
     } catch (err) {
       console.error('Error al guardar producto:', err);
       const errorMsg = err instanceof Error ? err.message : 'Error al guardar el producto';

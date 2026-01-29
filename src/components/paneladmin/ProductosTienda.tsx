@@ -673,9 +673,23 @@ export default function ProductosTienda() {
           setIsModalOpen(false);
           setSelectedProducto(null);
         }}
-        onSuccess={() => {
-          cargarProductos();
-          setIsModalOpen(false);
+        onSuccess={(productoGuardado) => {
+          // Actualizar el estado local sin recargar toda la página
+          if (productoGuardado) {
+            if (selectedProducto) {
+              // Actualizar producto existente en el estado
+              setProductos(prev => prev.map(p => 
+                p.id === productoGuardado.id ? productoGuardado : p
+              ));
+              setFilteredProductos(prev => prev.map(p => 
+                p.id === productoGuardado.id ? productoGuardado : p
+              ));
+            } else {
+              // Agregar nuevo producto al estado
+              setProductos(prev => [productoGuardado, ...prev]);
+              setFilteredProductos(prev => [productoGuardado, ...prev]);
+            }
+          }
           setSelectedProducto(null);
         }}
         producto={selectedProducto}
