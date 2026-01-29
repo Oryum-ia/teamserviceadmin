@@ -12,15 +12,26 @@ export default function Desempeno() {
   const toast = useToast();
 
   const [tecnicos, setTecnicos] = useState<DesempenoTecnico[]>([]);
+  const [tecnicosFiltrados, setTecnicosFiltrados] = useState<DesempenoTecnico[]>([]);
   const [resumen, setResumen] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
+  const [tecnicoSeleccionado, setTecnicoSeleccionado] = useState<string>('');
   const [vistaActual, setVistaActual] = useState<'general' | 'tecnicos'>('general');
 
   useEffect(() => {
     cargarDatos();
   }, []);
+
+  useEffect(() => {
+    // Filtrar técnicos cuando cambia la selección
+    if (tecnicoSeleccionado) {
+      setTecnicosFiltrados(tecnicos.filter(t => t.tecnico_id === tecnicoSeleccionado));
+    } else {
+      setTecnicosFiltrados(tecnicos);
+    }
+  }, [tecnicoSeleccionado, tecnicos]);
 
   const cargarDatos = async (inicio?: string, fin?: string) => {
     setIsLoading(true);
@@ -47,6 +58,7 @@ export default function Desempeno() {
   const limpiarFiltros = () => {
     setFechaInicio('');
     setFechaFin('');
+    setTecnicoSeleccionado('');
     cargarDatos();
   };
 
@@ -64,19 +76,6 @@ export default function Desempeno() {
     return 'text-red-600 bg-red-100 dark:bg-red-900/20';
   };
 
-  // Preparar datos para gráficas
-  const dataTiemposPromedio = tecnicos.map(t => ({
-    nombre: t.tecnico_nombre.split(' ')[0], // Solo primer nombre
-    cotizacion: t.tiempo_promedio_cotizacion ? Math.round(t.tiempo_promedio_cotizacion) : 0,
-    reparacion: t.tiempo_promedio_reparacion ? Math.round(t.tiempo_promedio_reparacion) : 0
-  }));
-
-  const dataEficiencia = tecnicos.map(t => ({
-    nombre: t.tecnico_nombre.split(' ')[0],
-    eficiencia: t.eficiencia_score,
-    completadas: t.ordenes_completadas
-  }));
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -84,6 +83,31 @@ export default function Desempeno() {
       </div>
     );
   }
+
+  // Preparar datos para gráficas - usar todos los técnicos en vista general
+  const tecnicosParaGraficas = vistaActual === 'general' ? tecnicos : tecnicosFiltrados;
+  
+  const dataTiemposPromedio = tecnicosParaGraficas.map(t => ({
+    nombre: t.tecnico_nombre.split(' ')[0], // Solo primer nombre
+    diagnostico: t.tiempo_promedio_diagnostico ? Math.round(t.tiempo_promedio_diagnostico) : 0,
+    cotizacion: t.tiempo_promedio_cotizacion ? Math.round(t.tiempo_promedio_cotizacion) : 0,
+    reparacion: t.tiempo_promedio_reparacion ? Math.round(t.tiempo_promedio_reparacion) : 0
+  }));
+
+  const dataProductividad = tecnicosParaGraficas.map(t => {
+    // Calcular tiempo promedio total (suma de todas las fases)
+    const tiempoTotal = (
+      (t.tiempo_promedio_diagnostico || 0) + 
+      (t.tiempo_promedio_cotizacion || 0) + 
+      (t.tiempo_promedio_reparacion || 0)
+    );
+    
+    return {
+      nombre: t.tecnico_nombre.split(' ')[0],
+      ordenes: t.total_ordenes,
+      tiempo_promedio: Math.round(tiempoTotal)
+    };
+  });
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -105,41 +129,67 @@ export default function Desempeno() {
       <div className={`p-4 rounded-lg border ${
         theme === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'
       }`}>
-        <div className="flex flex-col sm:flex-row gap-4 items-end">
-          <div className="flex-1">
-            <label className={`block text-sm font-medium mb-1 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              Fecha Inicio
-            </label>
-            <input
-              type="date"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                theme === 'light'
-                  ? 'border-gray-300 bg-white text-gray-900'
-                  : 'border-gray-600 bg-gray-700 text-gray-100'
-              }`}
-            />
-          </div>
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex-1">
+              <label className={`block text-sm font-medium mb-1 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                Fecha Inicio
+              </label>
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900'
+                    : 'border-gray-600 bg-gray-700 text-gray-100'
+                }`}
+              />
+            </div>
 
-          <div className="flex-1">
-            <label className={`block text-sm font-medium mb-1 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              Fecha Fin
-            </label>
-            <input
-              type="date"
-              value={fechaFin}
-              onChange={(e) => setFechaFin(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
-                theme === 'light'
-                  ? 'border-gray-300 bg-white text-gray-900'
-                  : 'border-gray-600 bg-gray-700 text-gray-100'
-              }`}
-            />
+            <div className="flex-1">
+              <label className={`block text-sm font-medium mb-1 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                Fecha Fin
+              </label>
+              <input
+                type="date"
+                value={fechaFin}
+                onChange={(e) => setFechaFin(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900'
+                    : 'border-gray-600 bg-gray-700 text-gray-100'
+                }`}
+              />
+            </div>
+
+            <div className="flex-1">
+              <label className={`block text-sm font-medium mb-1 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                Técnico
+              </label>
+              <select
+                value={tecnicoSeleccionado}
+                onChange={(e) => setTecnicoSeleccionado(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900'
+                    : 'border-gray-600 bg-gray-700 text-gray-100'
+                }`}
+              >
+                <option value="">Todos los técnicos</option>
+                {tecnicos.map(t => (
+                  <option key={t.tecnico_id} value={t.tecnico_id}>
+                    {t.tecnico_nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex gap-2">
@@ -202,7 +252,7 @@ export default function Desempeno() {
       {vistaActual === 'general' && resumen && (
         <>
           {/* Resumen del Equipo */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className={`p-4 rounded-lg border ${
               theme === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'
             }`}>
@@ -234,6 +284,24 @@ export default function Desempeno() {
                   </p>
                   <p className={`text-2xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
                     {Math.round(resumen.tasa_completacion)}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-lg border ${
+              theme === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-cyan-100 dark:bg-cyan-900/20 rounded-lg">
+                  <Clock className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <div>
+                  <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                    Tiempo Prom. Diagnóstico
+                  </p>
+                  <p className={`text-2xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                    {formatearHoras(resumen.promedio_diagnostico_horas)}
                   </p>
                 </div>
               </div>
@@ -308,23 +376,24 @@ export default function Desempeno() {
                     }}
                   />
                   <Legend />
+                  <Bar dataKey="diagnostico" fill="#06b6d4" name="Diagnóstico" />
                   <Bar dataKey="cotizacion" fill="#eab308" name="Cotización" />
                   <Bar dataKey="reparacion" fill="#8b5cf6" name="Reparación" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Gráfica de Eficiencia */}
+            {/* Gráfica de Productividad */}
             <div className={`p-4 rounded-lg border ${
               theme === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'
             }`}>
               <h3 className={`text-lg font-semibold mb-4 ${
                 theme === 'light' ? 'text-gray-900' : 'text-white'
               }`}>
-                Score de Eficiencia por Técnico
+                Productividad: Órdenes vs Tiempo Promedio Total
               </h3>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={dataEficiencia}>
+                <BarChart data={dataProductividad}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme === 'light' ? '#e5e7eb' : '#374151'} />
                   <XAxis 
                     dataKey="nombre" 
@@ -332,9 +401,17 @@ export default function Desempeno() {
                     style={{ fontSize: '12px' }}
                   />
                   <YAxis 
+                    yAxisId="left"
                     stroke={theme === 'light' ? '#6b7280' : '#9ca3af'}
                     style={{ fontSize: '12px' }}
-                    domain={[0, 100]}
+                    label={{ value: 'Órdenes', angle: -90, position: 'insideLeft' }}
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    stroke={theme === 'light' ? '#6b7280' : '#9ca3af'}
+                    style={{ fontSize: '12px' }}
+                    label={{ value: 'Horas', angle: 90, position: 'insideRight' }}
                   />
                   <Tooltip 
                     contentStyle={{
@@ -345,8 +422,9 @@ export default function Desempeno() {
                     }}
                   />
                   <Legend />
-                  <Line type="monotone" dataKey="eficiencia" stroke="#10b981" name="Eficiencia %" strokeWidth={2} />
-                </LineChart>
+                  <Bar yAxisId="left" dataKey="ordenes" fill="#10b981" name="Total Órdenes" />
+                  <Bar yAxisId="right" dataKey="tiempo_promedio" fill="#f59e0b" name="Tiempo Prom. Total (h)" />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -357,14 +435,14 @@ export default function Desempeno() {
         <>
           {/* Lista de Técnicos */}
           <div className="space-y-4">
-            {tecnicos.map((tecnico) => (
+            {tecnicosFiltrados.map((tecnico) => (
               <div
                 key={tecnico.tecnico_id}
                 className={`p-4 rounded-lg border ${
                   theme === 'light' ? 'bg-white border-gray-200' : 'bg-gray-800 border-gray-700'
                 }`}
               >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex flex-col gap-4">
                   {/* Info del técnico */}
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -380,22 +458,13 @@ export default function Desempeno() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-3">
                       <div>
                         <p className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
                           Total Órdenes
                         </p>
                         <p className={`text-xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
                           {tecnico.total_ordenes}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                          Completadas
-                        </p>
-                        <p className={`text-xl font-bold text-green-600`}>
-                          {tecnico.ordenes_completadas}
                         </p>
                       </div>
 
@@ -410,47 +479,98 @@ export default function Desempeno() {
 
                       <div>
                         <p className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
-                          Tasa Completación
+                          Completadas
                         </p>
-                        <p className={`text-xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                          {tecnico.total_ordenes > 0 
-                            ? Math.round((tecnico.ordenes_completadas / tecnico.total_ordenes) * 100)
-                            : 0}%
+                        <p className={`text-xl font-bold text-green-600`}>
+                          {tecnico.ordenes_completadas}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Tiempos promedio */}
-                  <div className="flex gap-4">
+                  {/* Sección de Diagnóstico */}
+                  {tecnico.ordenes_diagnostico > 0 && (
                     <div className={`p-3 rounded-lg border ${
-                      theme === 'light' ? 'bg-yellow-50 border-yellow-200' : 'bg-yellow-900/20 border-yellow-800'
+                      theme === 'light' ? 'bg-cyan-50 border-cyan-200' : 'bg-cyan-900/20 border-cyan-800'
                     }`}>
-                      <p className={`text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                        Cotización
-                      </p>
-                      <p className={`text-lg font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                        {formatearHoras(tecnico.tiempo_promedio_cotizacion)}
-                      </p>
+                      <h4 className={`text-sm font-semibold mb-2 ${
+                        theme === 'light' ? 'text-gray-900' : 'text-white'
+                      }`}>
+                        Diagnóstico
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Órdenes Diagnosticadas
+                          </p>
+                          <p className={`text-lg font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                            {tecnico.ordenes_diagnostico}
+                          </p>
+                        </div>
+                        <div>
+                          <p className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Tiempo Promedio
+                          </p>
+                          <p className={`text-lg font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                            {formatearHoras(tecnico.tiempo_promedio_diagnostico)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
+                  )}
 
+                  {/* Sección de Reparación */}
+                  {tecnico.ordenes_reparacion > 0 && (
                     <div className={`p-3 rounded-lg border ${
                       theme === 'light' ? 'bg-purple-50 border-purple-200' : 'bg-purple-900/20 border-purple-800'
                     }`}>
-                      <p className={`text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                      <h4 className={`text-sm font-semibold mb-2 ${
+                        theme === 'light' ? 'text-gray-900' : 'text-white'
+                      }`}>
                         Reparación
-                      </p>
-                      <p className={`text-lg font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                        {formatearHoras(tecnico.tiempo_promedio_reparacion)}
-                      </p>
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Órdenes Reparadas
+                          </p>
+                          <p className={`text-lg font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                            {tecnico.ordenes_reparacion}
+                          </p>
+                        </div>
+                        <div>
+                          <p className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Tiempo Promedio
+                          </p>
+                          <p className={`text-lg font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                            {formatearHoras(tecnico.tiempo_promedio_reparacion)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Tiempos promedio - Solo si tiene cotización */}
+                  {tecnico.tiempo_promedio_cotizacion && (
+                    <div className="flex gap-4">
+                      <div className={`flex-1 p-3 rounded-lg border ${
+                        theme === 'light' ? 'bg-yellow-50 border-yellow-200' : 'bg-yellow-900/20 border-yellow-800'
+                      }`}>
+                        <p className={`text-xs mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                          Tiempo Prom. Cotización
+                        </p>
+                        <p className={`text-lg font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                          {formatearHoras(tecnico.tiempo_promedio_cotizacion)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
 
-          {tecnicos.length === 0 && (
+          {tecnicosFiltrados.length === 0 && (
             <div className={`text-center py-12 rounded-lg border-2 border-dashed ${
               theme === 'light' ? 'border-gray-300 bg-gray-50' : 'border-gray-600 bg-gray-800'
             }`}>

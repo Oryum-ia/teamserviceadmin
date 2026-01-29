@@ -18,10 +18,14 @@ export interface DesempenoTecnico {
   total_ordenes: number;
   ordenes_completadas: number;
   ordenes_en_proceso: number;
+  tiempo_promedio_diagnostico?: number; // en horas
   tiempo_promedio_cotizacion?: number; // en horas
   tiempo_promedio_reparacion?: number; // en horas
+  tiempos_diagnostico: number[];
   tiempos_cotizacion: number[];
   tiempos_reparacion: number[];
+  ordenes_diagnostico: number; // Cantidad de órdenes donde hizo diagnóstico
+  ordenes_reparacion: number; // Cantidad de órdenes donde hizo reparación
   eficiencia_score: number; // 0-100
 }
 
@@ -95,13 +99,50 @@ export async function obtenerDesempenoDetallado(
   const tecnicosMap = new Map<string, {
     nombre: string;
     ordenes: any[];
+    tiempos_diagnostico: number[];
     tiempos_cotizacion: number[];
     tiempos_reparacion: number[];
+    ordenes_diagnostico: Set<string>; // IDs de órdenes donde hizo diagnóstico
+    ordenes_reparacion: Set<string>; // IDs de órdenes donde hizo reparación
   }>();
 
   ordenes?.forEach((orden: any) => {
     // Conjunto para rastrear qué técnicos ya se contaron para esta orden
     const tecnicosEnOrden = new Set<string>();
+
+    // Procesar técnico de diagnóstico
+    if (orden.tecnico_diagnostico && orden.usuario_diagnostico && orden.usuario_diagnostico.rol === 'tecnico') {
+      if (!tecnicosMap.has(orden.tecnico_diagnostico)) {
+        tecnicosMap.set(orden.tecnico_diagnostico, {
+          nombre: orden.usuario_diagnostico.nombre,
+          ordenes: [],
+          tiempos_diagnostico: [],
+          tiempos_cotizacion: [],
+          tiempos_reparacion: [],
+          ordenes_diagnostico: new Set(),
+          ordenes_reparacion: new Set()
+        });
+      }
+
+      const tecnico = tecnicosMap.get(orden.tecnico_diagnostico)!;
+      
+      // Solo contar la orden una vez por técnico
+      if (!tecnicosEnOrden.has(orden.tecnico_diagnostico)) {
+        tecnico.ordenes.push(orden);
+        tecnicosEnOrden.add(orden.tecnico_diagnostico);
+      }
+
+      // Calcular tiempo de diagnóstico
+      if (orden.fecha_inicio_diagnostico && orden.fecha_fin_diagnostico) {
+        const inicio = new Date(orden.fecha_inicio_diagnostico);
+        const fin = new Date(orden.fecha_fin_diagnostico);
+        const horas = (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60);
+        if (horas > 0 && horas < 720) { // Máximo 30 días
+          tecnico.tiempos_diagnostico.push(horas);
+          tecnico.ordenes_diagnostico.add(orden.id);
+        }
+      }
+    }
 
     // Procesar técnico de cotización (prioridad para métricas de cotización)
     // Solo procesar si el usuario es técnico
@@ -110,8 +151,11 @@ export async function obtenerDesempenoDetallado(
         tecnicosMap.set(orden.tecnico_cotiza, {
           nombre: orden.usuario_cotiza.nombre,
           ordenes: [],
+          tiempos_diagnostico: [],
           tiempos_cotizacion: [],
-          tiempos_reparacion: []
+          tiempos_reparacion: [],
+          ordenes_diagnostico: new Set(),
+          ordenes_reparacion: new Set()
         });
       }
 
@@ -141,8 +185,11 @@ export async function obtenerDesempenoDetallado(
         tecnicosMap.set(orden.tecnico_repara, {
           nombre: orden.usuario_repara.nombre,
           ordenes: [],
+          tiempos_diagnostico: [],
           tiempos_cotizacion: [],
-          tiempos_reparacion: []
+          tiempos_reparacion: [],
+          ordenes_diagnostico: new Set(),
+          ordenes_reparacion: new Set()
         });
       }
 
@@ -161,28 +208,8 @@ export async function obtenerDesempenoDetallado(
         const horas = (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60);
         if (horas > 0 && horas < 720) { // Máximo 30 días
           tecnico.tiempos_reparacion.push(horas);
+          tecnico.ordenes_reparacion.add(orden.id);
         }
-      }
-    }
-
-    // Procesar técnico de diagnóstico (solo si no es cotiza ni repara y es técnico)
-    if (orden.tecnico_diagnostico && orden.usuario_diagnostico && 
-        orden.usuario_diagnostico.rol === 'tecnico' &&
-        orden.tecnico_diagnostico !== orden.tecnico_cotiza && 
-        orden.tecnico_diagnostico !== orden.tecnico_repara) {
-      if (!tecnicosMap.has(orden.tecnico_diagnostico)) {
-        tecnicosMap.set(orden.tecnico_diagnostico, {
-          nombre: orden.usuario_diagnostico.nombre,
-          ordenes: [],
-          tiempos_cotizacion: [],
-          tiempos_reparacion: []
-        });
-      }
-      
-      const tecnico = tecnicosMap.get(orden.tecnico_diagnostico)!;
-      if (!tecnicosEnOrden.has(orden.tecnico_diagnostico)) {
-        tecnico.ordenes.push(orden);
-        tecnicosEnOrden.add(orden.tecnico_diagnostico);
       }
     }
   });
@@ -206,6 +233,10 @@ export async function obtenerDesempenoDetallado(
       o.estado_actual?.toLowerCase().includes('cotizacion')
     ).length;
 
+    const tiempo_promedio_diagnostico = data.tiempos_diagnostico.length > 0
+      ? data.tiempos_diagnostico.reduce((a, b) => a + b, 0) / data.tiempos_diagnostico.length
+      : undefined;
+
     const tiempo_promedio_cotizacion = data.tiempos_cotizacion.length > 0
       ? data.tiempos_cotizacion.reduce((a, b) => a + b, 0) / data.tiempos_cotizacion.length
       : undefined;
@@ -220,6 +251,10 @@ export async function obtenerDesempenoDetallado(
       : 0;
     
     // Penalizar tiempos largos
+    const factor_velocidad_diagnostico = tiempo_promedio_diagnostico 
+      ? Math.max(0, 100 - (tiempo_promedio_diagnostico / 24) * 20) // Penalizar si toma más de 5 días
+      : 50;
+
     const factor_velocidad_cotizacion = tiempo_promedio_cotizacion 
       ? Math.max(0, 100 - (tiempo_promedio_cotizacion / 24) * 10) // Penalizar si toma más de 10 días
       : 50;
@@ -228,7 +263,12 @@ export async function obtenerDesempenoDetallado(
       ? Math.max(0, 100 - (tiempo_promedio_reparacion / 48) * 10) // Penalizar si toma más de 20 días
       : 50;
 
-    const eficiencia_score = (tasa_completacion * 0.5 + factor_velocidad_cotizacion * 0.25 + factor_velocidad_reparacion * 0.25);
+    const eficiencia_score = (
+      tasa_completacion * 0.4 + 
+      factor_velocidad_diagnostico * 0.2 + 
+      factor_velocidad_cotizacion * 0.2 + 
+      factor_velocidad_reparacion * 0.2
+    );
 
     return {
       tecnico_id,
@@ -236,10 +276,14 @@ export async function obtenerDesempenoDetallado(
       total_ordenes: data.ordenes.length,
       ordenes_completadas,
       ordenes_en_proceso,
+      tiempo_promedio_diagnostico,
       tiempo_promedio_cotizacion,
       tiempo_promedio_reparacion,
+      tiempos_diagnostico: data.tiempos_diagnostico,
       tiempos_cotizacion: data.tiempos_cotizacion,
       tiempos_reparacion: data.tiempos_reparacion,
+      ordenes_diagnostico: data.ordenes_diagnostico.size,
+      ordenes_reparacion: data.ordenes_reparacion.size,
       eficiencia_score: Math.round(eficiencia_score)
     };
   }).sort((a, b) => b.eficiencia_score - a.eficiencia_score);
@@ -339,8 +383,13 @@ export async function obtenerResumenEquipo(fechaInicio?: string, fechaFin?: stri
   const total_ordenes = desempeno.reduce((acc, t) => acc + t.total_ordenes, 0);
   const total_completadas = desempeno.reduce((acc, t) => acc + t.ordenes_completadas, 0);
 
+  const tiempos_diagnostico = desempeno.flatMap(t => t.tiempos_diagnostico);
   const tiempos_cotizacion = desempeno.flatMap(t => t.tiempos_cotizacion);
   const tiempos_reparacion = desempeno.flatMap(t => t.tiempos_reparacion);
+
+  const promedio_diagnostico = tiempos_diagnostico.length > 0
+    ? tiempos_diagnostico.reduce((a, b) => a + b, 0) / tiempos_diagnostico.length
+    : 0;
 
   const promedio_cotizacion = tiempos_cotizacion.length > 0
     ? tiempos_cotizacion.reduce((a, b) => a + b, 0) / tiempos_cotizacion.length
@@ -359,6 +408,7 @@ export async function obtenerResumenEquipo(fechaInicio?: string, fechaFin?: stri
     total_ordenes,
     total_completadas,
     tasa_completacion: total_ordenes > 0 ? (total_completadas / total_ordenes) * 100 : 0,
+    promedio_diagnostico_horas: Math.round(promedio_diagnostico),
     promedio_cotizacion_horas: Math.round(promedio_cotizacion),
     promedio_reparacion_horas: Math.round(promedio_reparacion),
     eficiencia_promedio: Math.round(eficiencia_promedio)
