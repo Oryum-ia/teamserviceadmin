@@ -50,12 +50,13 @@ export async function obtenerNotificacionesUsuario(
  */
 export async function marcarComoLeida(notificacionId: string): Promise<void> {
   const { supabase } = await import('@/lib/supabaseClient');
+  const { crearTimestampColombia } = await import('@/lib/utils/dateUtils');
   
   const { error } = await supabase
     .from('notificaciones')
     .update({ 
       leida: true,
-      updated_at: new Date().toISOString()
+      updated_at: crearTimestampColombia()
     })
     .eq('id', notificacionId);
   
@@ -70,6 +71,7 @@ export async function marcarComoLeida(notificacionId: string): Promise<void> {
  */
 export async function marcarTodasComoLeidas(): Promise<void> {
   const { supabase } = await import('@/lib/supabaseClient');
+  const { crearTimestampColombia } = await import('@/lib/utils/dateUtils');
   
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -81,7 +83,7 @@ export async function marcarTodasComoLeidas(): Promise<void> {
     .from('notificaciones')
     .update({ 
       leida: true,
-      updated_at: new Date().toISOString()
+      updated_at: crearTimestampColombia()
     })
     .eq('usuario_id', user.id)
     .eq('leida', false);

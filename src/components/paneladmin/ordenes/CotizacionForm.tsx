@@ -382,7 +382,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
           .from('ordenes')
           .update({
             comentarios_cotizacion: comentarios,
-            ultima_actualizacion: new Date().toISOString()
+            ultima_actualizacion: crearTimestampColombia()
           })
           .eq('id', orden.id);
         console.log('✅ Comentarios de cotización guardados automáticamente');
@@ -416,7 +416,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
             valor_revision: formData.valor_revision || 0,
             comentarios_cotizacion: formData.comentarios || '',
             total: calcularTotalesConRepuestos(repuestos).total,
-            ultima_actualizacion: new Date().toISOString()
+            ultima_actualizacion: crearTimestampColombia()
           };
 
           await supabase

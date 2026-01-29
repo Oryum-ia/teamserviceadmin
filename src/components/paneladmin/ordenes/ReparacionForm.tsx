@@ -5,7 +5,7 @@ import { Save, Loader2, Upload, X, Download, MessageCircle } from 'lucide-react'
 import { notificarCambioFaseWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
+import { formatearFechaColombiaLarga, crearTimestampColombia } from '@/lib/utils/dateUtils';
 import { subirMultiplesImagenes, eliminarImagenOrden, descargarImagen, actualizarFotosReparacion } from '@/lib/services/imagenService';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
@@ -97,7 +97,7 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
         const updateData = {
           tecnico_repara: selectedTecnicoId || null,
           comentarios_reparacion: formData.comentarios || '',
-          ultima_actualizacion: new Date().toISOString()
+          ultima_actualizacion: crearTimestampColombia()
         };
         
         await supabase
@@ -138,7 +138,7 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
           .from('ordenes')
           .update({ 
             comentarios_reparacion: comentarios,
-            ultima_actualizacion: new Date().toISOString()
+            ultima_actualizacion: crearTimestampColombia()
           })
           .eq('id', orden.id);
         console.log('✅ Comentarios de reparación guardados automáticamente');

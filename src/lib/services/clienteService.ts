@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { Cliente } from "@/types/database.types";
+import { crearTimestampColombia } from "@/lib/utils/dateUtils";
 
 /**
  * Crear un nuevo cliente (persona natural o jurídica)
@@ -101,7 +102,7 @@ export async function obtenerClientePorIdentificacion(identificacion: string) {
 export async function actualizarCliente(id: string, data: Partial<Omit<Cliente, 'id' | 'created_at' | 'updated_at'>>) {
   const { data: cliente, error } = await supabase
     .from("clientes")
-    .update({ ...data, updated_at: new Date().toISOString() })
+    .update({ ...data, updated_at: crearTimestampColombia() })
     .eq("id", id)
     .select()
     .single();

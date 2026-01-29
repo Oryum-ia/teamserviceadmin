@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { Cupon } from "@/types/database.types";
+import { crearTimestampColombia } from "@/lib/utils/dateUtils";
 
 /**
  * Crear un nuevo cupón de descuento
@@ -182,7 +183,7 @@ export async function marcarCuponComoUsado(id: string) {
     .from("cupones")
     .update({ 
       usado: true,
-      fecha_uso: new Date().toISOString()
+      fecha_uso: crearTimestampColombia()
     })
     .eq("id", id)
     .select()

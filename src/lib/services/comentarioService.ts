@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { Comentario } from "@/types/database.types";
+import { crearTimestampColombia } from "@/lib/utils/dateUtils";
 
 /**
  * Obtener todos los comentarios con información de usuario y orden
@@ -83,7 +84,7 @@ export async function crearComentarioRetroceso(data: {
     estado_nuevo: data.estado_nuevo,
     comentario: data.comentario,
     usuario_id: userId || null,
-    created_at: new Date().toISOString()
+    created_at: crearTimestampColombia()
   };
 
   const { data: comentario, error } = await supabase
@@ -229,7 +230,7 @@ export async function retrocederFaseConComentario(
     .from("ordenes")
     .update({
       estado_actual: estadoNuevo,
-      updated_at: new Date().toISOString()
+      updated_at: crearTimestampColombia()
     })
     .eq("id", ordenId);
 

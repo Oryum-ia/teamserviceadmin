@@ -5,7 +5,7 @@ import { Plus, Save, Trash2, Loader2, Upload, X, Download, MessageCircle } from 
 import { notificarCambioFaseWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
+import { formatearFechaColombiaLarga, crearTimestampColombia } from '@/lib/utils/dateUtils';
 import { actualizarDiagnostico, avanzarACotizacion } from '@/lib/services/ordenService';
 import { obtenerRepuestosDelModelo, guardarRepuestosDiagnostico, obtenerRepuestosDiagnostico } from '@/lib/services/repuestoService';
 import { subirMultiplesImagenes, eliminarImagenOrden, actualizarFotosDiagnostico, descargarImagen } from '@/lib/services/imagenService';
@@ -179,7 +179,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
           .from('ordenes')
           .update({ 
             comentarios_diagnostico: comentarios,
-            ultima_actualizacion: new Date().toISOString()
+            ultima_actualizacion: crearTimestampColombia()
           })
           .eq('id', orden.id);
         console.log('✅ Comentarios de diagnóstico guardados automáticamente');
@@ -343,7 +343,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
           const updateData: any = {
             comentarios_diagnostico: formData.comentarios || '',
             tecnico_diagnostico: selectedTecnicoId || null,
-            ultima_actualizacion: new Date().toISOString()
+            ultima_actualizacion: crearTimestampColombia()
           };
           
           await supabase

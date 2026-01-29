@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseClient';
+import { crearTimestampColombia } from '@/lib/utils/dateUtils';
 
 export async function POST(
   request: Request,
@@ -35,7 +36,7 @@ export async function POST(
       .from('ordenes')
       .update({
         [campoDB]: fotos,
-        updated_at: new Date().toISOString()
+        updated_at: crearTimestampColombia()
       })
       .eq('id', ordenId);
 

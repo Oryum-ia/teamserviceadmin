@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { crearTimestampColombia } from "@/lib/utils/dateUtils";
 
 /**
  * Obtener todos los repuestos
@@ -161,7 +162,7 @@ export async function guardarRepuestosDiagnostico(
     .from("ordenes")
     .update({
       repuestos_diagnostico: repuestos,
-      ultima_actualizacion: new Date().toISOString()
+      ultima_actualizacion: crearTimestampColombia()
     })
     .eq("id", ordenId);
 
@@ -240,7 +241,7 @@ export async function guardarRepuestosCotizacion(
     // Construir el objeto a guardar
     const dataToSave: any = {
       repuestos: repuestos,
-      ultima_actualizacion: new Date().toISOString()
+      ultima_actualizacion: crearTimestampColombia()
     };
 
     // Si se proporcionan totales, incluirlos en el JSON
@@ -257,7 +258,7 @@ export async function guardarRepuestosCotizacion(
       .from("ordenes")
       .update({
         repuestos_cotizacion: dataToSave,
-        ultima_actualizacion: new Date().toISOString()
+        ultima_actualizacion: crearTimestampColombia()
       })
       .eq("id", ordenId);
 
