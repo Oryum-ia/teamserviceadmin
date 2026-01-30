@@ -346,9 +346,22 @@ export default function OrdenDetallePage() {
             // No mostrar error al usuario, ya tiene datos locales
           }
         }
-      } else {
-        // No existe en localStorage o es otra orden, intentar cargar via API primero
-        console.log('🌐 Cargando orden via API');
+        return; // Salir aquí si ya cargamos desde localStorage
+      }
+
+      // No existe en localStorage o es otra orden, intentar cargar desde Supabase primero
+      console.log('🔍 Cargando orden desde Supabase');
+      try {
+        const data = await obtenerOrdenPorId(ordenId);
+        
+        if (isMountedRef.current) {
+          setOrden(data);
+          saveOrdenToLocalStorage(data as any);
+          setCurrentStep(calcularStepDesdeOrden(data));
+        }
+      } catch (supabaseError) {
+        console.warn('⚠️ Error al cargar desde Supabase, intentando via API...', supabaseError);
+        // Fallback a API si Supabase falla
         try {
           const response = await fetch(`/api/ordenes/${ordenId}`);
           if (!response.ok) {
@@ -362,20 +375,8 @@ export default function OrdenDetallePage() {
             setCurrentStep(calcularStepDesdeOrden(dataApi));
           }
         } catch (apiError) {
-          console.warn('⚠️ Error al cargar via API, intentando Supabase directo...', apiError);
-          // Fallback a Supabase si API falla
-          try {
-            const data = await obtenerOrdenPorId(ordenId);
-            
-            if (isMountedRef.current) {
-              setOrden(data);
-              saveOrdenToLocalStorage(data as any);
-              setCurrentStep(calcularStepDesdeOrden(data));
-            }
-          } catch (supabaseError) {
-            console.error('❌ Error al cargar desde Supabase:', supabaseError);
-            throw new Error('No se pudo cargar la orden desde ninguna fuente');
-          }
+          console.error('❌ Error al cargar via API:', apiError);
+          throw new Error('No se pudo cargar la orden desde ninguna fuente');
         }
       }
     } catch (err) {

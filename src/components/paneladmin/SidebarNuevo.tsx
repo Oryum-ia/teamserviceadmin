@@ -23,7 +23,8 @@ import {
   Folder,
   ClipboardCheck,
   MessageCircle,
-  Ticket
+  Ticket,
+  DollarSign,
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { Logo, LogoIcon } from '../Logo';
@@ -117,6 +118,11 @@ const menuItems: SidebarMenuItem[] = [
         name: 'Cupones',
         icon: Ticket,
         key: 'admin-tienda-cupones',
+      },
+      {
+        name: 'Pagos Bold',
+        icon: DollarSign,
+        key: 'pagos',
       },
     ],
   },

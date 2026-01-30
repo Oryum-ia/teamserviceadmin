@@ -21,6 +21,7 @@ import {
   Clipboard,
   BarChart,
   Scale,
+  DollarSign,
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 
@@ -103,6 +104,12 @@ const menuItems = [
     icon: IdCard,
     href: '/paneladmin/hojas-de-vida',
     key: 'hojas-de-vida',
+  },
+  {
+    name: 'Pagos Bold',
+    icon: DollarSign,
+    href: '/paneladmin/pagos',
+    key: 'pagos',
   },
   {
     name: 'Informes',

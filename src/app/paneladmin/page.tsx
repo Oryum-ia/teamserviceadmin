@@ -23,6 +23,7 @@ import Repuestos from '../../components/paneladmin/inventario/Repuestos';
 import EquiposInv from '../../components/paneladmin/inventario/Equipos';
 import Categorias from '../../components/paneladmin/inventario/Categorias';
 import ProductosTienda from '../../components/paneladmin/ProductosTienda';
+import Pagos from '../../components/paneladmin/Pagos';
 import Carrusel from '../../components/paneladmin/Carrusel';
 import Encuestas from '../../components/paneladmin/Encuestas';
 import PQR from '../../components/paneladmin/PQR';
@@ -193,6 +194,8 @@ function PanelAdminContent() {
         return <PQR />;
       case 'admin-tienda-cupones':
         return <Cupones />;
+      case 'pagos':
+        return <Pagos />;
 
       // Estadísticas
       case 'indicadores':
