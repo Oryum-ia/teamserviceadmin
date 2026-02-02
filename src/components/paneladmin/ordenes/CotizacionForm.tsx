@@ -505,7 +505,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       // Solo actualizar si el estado es diferente al actual
       if (nuevoEstado !== estadoAnterior) {
         const { supabase } = await import('@/lib/supabaseClient');
-        const now = new Date().toISOString();
+        const now = crearTimestampColombia();
         const camposActualizacion: any = {
           estado_actual: nuevoEstado,
           ultima_actualizacion: now
@@ -556,7 +556,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
         tecnico_cotiza: tecnicoCotizaId,
         comentarios: formData.comentarios,
         repuestos: repuestos,
-        fecha_cotizacion: new Date().toISOString(),
+        fecha_cotizacion: crearTimestampColombia(),
         ...calcularTotales()
       };
 
@@ -579,7 +579,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     setIsLoading(true);
     try {
       const { supabase } = await import('@/lib/supabaseClient');
-      const now = new Date().toISOString();
+      const now = crearTimestampColombia();
 
       // Preparar datos de actualización
       const updateData: any = {
@@ -624,7 +624,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     setIsLoading(true);
     try {
       const { supabase } = await import('@/lib/supabaseClient');
-      const now = new Date().toISOString();
+      const now = crearTimestampColombia();
 
       console.log('📤 Actualizando orden ID:', orden.id);
 

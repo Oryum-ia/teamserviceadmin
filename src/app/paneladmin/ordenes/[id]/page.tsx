@@ -44,6 +44,7 @@ import {
   updateOrdenFields,
   isOrdenInLocalStorage
 } from '@/lib/ordenLocalStorage';
+import { crearTimestampColombia } from '@/lib/utils/dateUtils';
 
 const FASES = [
   { id: 'recepcion', label: 'Recepción', icon: FileText, step: 0 },
@@ -750,7 +751,7 @@ export default function OrdenDetallePage() {
 
     setIsIniciandoFase(true);
     try {
-      const now = new Date().toISOString();
+      const now = crearTimestampColombia();
       const faseId = mapEstadoAFase(orden.estado_actual);
       const { supabase } = await import('@/lib/supabaseClient');
 
@@ -939,7 +940,7 @@ export default function OrdenDetallePage() {
     try {
       let siguienteFase = FASES[currentPhaseStep + 1];
       const faseActual = FASES[currentPhaseStep].id;
-      const now = new Date().toISOString();
+      const now = crearTimestampColombia();
       const tecnicoId = await obtenerTecnicoActual();
       const { supabase } = await import('@/lib/supabaseClient');
 
@@ -1107,7 +1108,7 @@ export default function OrdenDetallePage() {
 
     setIsAvanzando(true);
     try {
-      const now = new Date().toISOString();
+      const now = crearTimestampColombia();
       const tecnicoId = await obtenerTecnicoActual();
       const { supabase } = await import('@/lib/supabaseClient');
 
@@ -1172,7 +1173,7 @@ export default function OrdenDetallePage() {
     setIsProcesingAction(true);
     setShowAccionesMenu(false);
     try {
-      const now = new Date().toISOString();
+      const now = crearTimestampColombia();
       const { supabase } = await import('@/lib/supabaseClient');
 
       // Guardar la fase anterior antes de cambiar a Bodega
@@ -1227,7 +1228,7 @@ export default function OrdenDetallePage() {
     setIsProcesingAction(true);
     setShowAccionesMenu(false);
     try {
-      const now = new Date().toISOString();
+      const now = crearTimestampColombia();
       const { supabase } = await import('@/lib/supabaseClient');
 
       // Guardar la fase anterior si no existe (puede venir de bodega)
@@ -1284,7 +1285,7 @@ export default function OrdenDetallePage() {
     setIsProcesingAction(true);
     setShowAccionesMenu(false);
     try {
-      const now = new Date().toISOString();
+      const now = crearTimestampColombia();
       const { supabase } = await import('@/lib/supabaseClient');
 
       // Restaurar el estado según la fase anterior

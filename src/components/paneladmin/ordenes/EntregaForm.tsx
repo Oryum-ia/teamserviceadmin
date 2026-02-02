@@ -467,7 +467,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
                   const { supabase } = await import('@/lib/supabaseClient');
                   await supabase
                     .from('ordenes')
-                    .update({ tecnico_entrega: newValue, ultima_actualizacion: new Date().toISOString() })
+                    .update({ tecnico_entrega: newValue, ultima_actualizacion: crearTimestampColombia() })
                     .eq('id', orden.id);
                   toast.success('Usuario de entrega actualizado');
                 } catch (err) {
@@ -507,7 +507,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
                   const iso = convertirDatetimeLocalColombiaAUTC(formData.fecha_entrega);
                   const { error } = await supabase
                     .from('ordenes')
-                    .update({ fecha_entrega: iso, ultima_actualizacion: new Date().toISOString() })
+                    .update({ fecha_entrega: iso, ultima_actualizacion: crearTimestampColombia() })
                     .eq('id', orden.id);
                   if (error) throw error;
                   updateOrdenFields({ fecha_entrega: iso } as any);
@@ -545,7 +545,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
                       .from('ordenes')
                       .update({
                         fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento,
-                        ultima_actualizacion: new Date().toISOString()
+                        ultima_actualizacion: crearTimestampColombia()
                       })
                       .eq('id', orden.id);
                     if (error) throw error;

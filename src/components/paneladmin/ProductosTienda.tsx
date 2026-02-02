@@ -90,12 +90,13 @@ export default function ProductosTienda() {
     let resultado = [...productos];
 
     // Filtro por búsqueda (nombre, descripción y código)
+    // Acepta mayúsculas y minúsculas
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+      const query = searchQuery.trim().toLowerCase();
       resultado = resultado.filter(producto =>
-        producto.nombre?.toLowerCase().includes(query) ||
-        producto.descripcion?.toLowerCase().includes(query) ||
-        producto.codigo?.toLowerCase().includes(query)
+        (producto.nombre?.toLowerCase().includes(query)) ||
+        (producto.descripcion?.toLowerCase().includes(query)) ||
+        (producto.codigo?.toLowerCase().includes(query))
       );
     }
 
@@ -420,7 +421,7 @@ export default function ProductosTienda() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nombre o código..."
+              placeholder="Buscar por nombre, código o descripción..."
               className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                 theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900'
