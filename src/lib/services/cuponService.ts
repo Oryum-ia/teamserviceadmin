@@ -25,6 +25,14 @@ export async function crearCupon(data: Partial<Omit<Cupon, 'id' | 'created_at' |
  * Obtener todos los cupones ordenados por fecha de creación
  */
 export async function obtenerTodosLosCupones() {
+  // Verificar sesión antes de hacer la consulta
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    console.error("❌ No hay sesión activa para obtener cupones");
+    throw new Error("No hay sesión activa");
+  }
+
   const { data, error } = await supabase
     .from("cupones")
     .select("*")

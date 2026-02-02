@@ -350,40 +350,75 @@ export default function OrdenDetallePage() {
         return; // Salir aquí si ya cargamos desde localStorage
       }
 
-      // No existe en localStorage o es otra orden, intentar cargar desde Supabase primero
-      console.log('🔍 Cargando orden desde Supabase');
+      // No existe en localStorage o es otra orden
+      // Estrategia de carga en cascada: API primero (más confiable), luego Supabase
+      console.log('🔍 Cargando orden desde API (método principal)');
+      let ordenCargada = false;
+      
       try {
-        const data = await obtenerOrdenPorId(ordenId);
-        
-        if (isMountedRef.current) {
-          setOrden(data);
-          saveOrdenToLocalStorage(data as any);
-          setCurrentStep(calcularStepDesdeOrden(data));
-        }
-      } catch (supabaseError) {
-        console.warn('⚠️ Error al cargar desde Supabase, intentando via API...', supabaseError);
-        // Fallback a API si Supabase falla
-        try {
-          const response = await fetch(`/api/ordenes/${ordenId}`);
-          if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
+        const response = await fetch(`/api/ordenes/${ordenId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
           }
+        });
+        
+        if (response.ok) {
           const dataApi = await response.json();
           
           if (isMountedRef.current) {
+            console.log('✅ Orden cargada desde API');
             setOrden(dataApi);
             saveOrdenToLocalStorage(dataApi as any);
             setCurrentStep(calcularStepDesdeOrden(dataApi));
+            ordenCargada = true;
           }
-        } catch (apiError) {
-          console.error('❌ Error al cargar via API:', apiError);
+        } else {
+          const errorText = await response.text();
+          console.warn(`⚠️ API respondió con error ${response.status}:`, errorText);
+          throw new Error(`Error HTTP: ${response.status}`);
+        }
+      } catch (apiError) {
+        console.warn('⚠️ Error al cargar desde API, intentando Supabase...', apiError);
+        
+        // Fallback a Supabase si API falla
+        try {
+          const data = await obtenerOrdenPorId(ordenId);
+          
+          if (isMountedRef.current) {
+            console.log('✅ Orden cargada desde Supabase (fallback)');
+            setOrden(data);
+            saveOrdenToLocalStorage(data as any);
+            setCurrentStep(calcularStepDesdeOrden(data));
+            ordenCargada = true;
+          }
+        } catch (supabaseError) {
+          console.error('❌ Error al cargar desde Supabase:', supabaseError);
           throw new Error('No se pudo cargar la orden desde ninguna fuente');
         }
       }
-    } catch (err) {
+
+      if (!ordenCargada && isMountedRef.current) {
+        throw new Error('No se pudo cargar la orden');
+      }
+    } catch (err: any) {
       console.error('❌ Error al cargar orden:', err);
       if (isMountedRef.current) {
-        setError('No fue posible cargar los detalles de esta orden. Esto puede deberse a:\n\n• Problemas de conexión con el servidor\n• La orden puede haber sido eliminada o modificada\n• Datos locales desincronizados');
+        // Mensaje de error más específico según el tipo de error
+        let mensajeError = 'No fue posible cargar los detalles de esta orden.';
+        
+        if (err.message?.includes('HTTP: 404')) {
+          mensajeError += '\n\n• La orden no existe o fue eliminada';
+        } else if (err.message?.includes('HTTP: 401') || err.message?.includes('HTTP: 403')) {
+          mensajeError += '\n\n• No tiene permisos para ver esta orden\n• Su sesión puede haber expirado';
+        } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+          mensajeError += '\n\n• Problemas de conexión con el servidor\n• Verifique su conexión a internet';
+        } else {
+          mensajeError += '\n\n• Problemas de conexión con el servidor\n• La orden puede haber sido eliminada o modificada\n• Datos locales desincronizados';
+        }
+        
+        setError(mensajeError);
         setOrden(null);
       }
     } finally {
@@ -530,8 +565,10 @@ export default function OrdenDetallePage() {
           } else if (status === 'CHANNEL_ERROR') {
             // Usar warn en lugar de error para evitar que el overlay de Next.js bloquee la pantalla
             console.warn('⚠️ Error en canal de realtime (posible reconexión):', err || 'Sin detalles');
+            // No mostrar toast al usuario, es un error interno que no afecta la funcionalidad
           } else if (status === 'TIMED_OUT') {
             console.warn('⏱️ Timeout en suscripción de realtime - La aplicación seguirá funcionando sin actualizaciones en tiempo real');
+            // No mostrar toast, la app funciona sin realtime
           } else if (status === 'CLOSED') {
             console.log('🔌 Canal de realtime cerrado');
           } else {

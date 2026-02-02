@@ -354,3 +354,91 @@ try {
 - Supabase directo es más rápido porque no requiere una llamada HTTP adicional a través de Next.js
 - La API sigue siendo un excelente fallback cuando hay problemas de RLS o sesión
 - Esta configuración ofrece el mejor balance entre velocidad y confiabilidad
+
+## Actualización v3 (Febrero 2026)
+
+### Problema Persistente
+Algunos usuarios seguían reportando el error "Error al cargar la orden" de forma intermitente, especialmente cuando:
+- La sesión de Supabase expiraba
+- Había problemas temporales de red
+- Se navegaba rápidamente entre órdenes
+
+### Mejoras Implementadas (v3.0 - Febrero 2, 2026)
+
+#### 1. Estrategia de Carga Mejorada
+Se cambió nuevamente el orden de fallbacks, priorizando la API como método principal:
+
+**Flujo de carga optimizado (v3.0):**
+1. Si existe en localStorage → Cargar instantáneamente
+2. Actualizar en segundo plano desde Supabase
+3. Si no existe en localStorage → **Intentar API primero** (más confiable)
+4. Si API falla → Fallback a Supabase directo
+
+**Razones del cambio:**
+- La API usa `supabaseAdmin` con Service Role Key, que nunca expira
+- La API hace bypass de RLS, evitando problemas de permisos
+- Supabase directo puede fallar si la sesión del usuario expiró
+- La API es más predecible y confiable en producción
+
+#### 2. Mensajes de Error Más Específicos
+Se agregaron mensajes de error contextuales según el tipo de fallo:
+
+```typescript
+// Detectar tipo de error y mostrar mensaje apropiado
+if (err.message?.includes('HTTP: 404')) {
+  mensajeError += '\n\n• La orden no existe o fue eliminada';
+} else if (err.message?.includes('HTTP: 401') || err.message?.includes('HTTP: 403')) {
+  mensajeError += '\n\n• No tiene permisos para ver esta orden\n• Su sesión puede haber expirado';
+} else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+  mensajeError += '\n\n• Problemas de conexión con el servidor\n• Verifique su conexión a internet';
+}
+```
+
+#### 3. Mejoras en Manejo de Errores de API
+Se agregaron headers y mejor manejo de respuestas:
+
+```typescript
+const response = await fetch(`/api/ordenes/${ordenId}`, {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache'  // Evitar cache de respuestas
+  }
+});
+
+if (response.ok) {
+  const dataApi = await response.json();
+  // ... procesar datos
+} else {
+  const errorText = await response.text();
+  console.warn(`⚠️ API respondió con error ${response.status}:`, errorText);
+  throw new Error(`Error HTTP: ${response.status}`);
+}
+```
+
+#### 4. Logging Mejorado
+Se agregaron más logs para facilitar el debugging:
+
+```typescript
+console.log('🔍 Cargando orden desde API (método principal)');
+console.log('✅ Orden cargada desde API');
+console.log('✅ Orden cargada desde Supabase (fallback)');
+```
+
+### Comparación de Estrategias
+
+| Versión | Método Principal | Fallback | Ventajas | Desventajas |
+|---------|-----------------|----------|----------|-------------|
+| v2.0 | API | Supabase | Bypass RLS | Más lento (HTTP extra) |
+| v2.1 | Supabase | API | Más rápido | Falla si sesión expira |
+| v3.0 | API | Supabase | Más confiable | Ligeramente más lento |
+
+### Resultado Final (v3.0)
+La estrategia actual (v3.0) prioriza **confiabilidad sobre velocidad**:
+- ✅ Funciona incluso si la sesión del usuario expiró
+- ✅ Bypass automático de RLS
+- ✅ Mensajes de error más claros
+- ✅ Mejor logging para debugging
+- ⚠️ Ligeramente más lento que acceso directo a Supabase (diferencia mínima)
+
+Esta configuración es la más robusta para entornos de producción donde la confiabilidad es crítica.

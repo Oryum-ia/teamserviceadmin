@@ -72,6 +72,8 @@ export default function CuponModal({ isOpen, onClose, onSuccess, cupon }: CuponM
         toast.success('Cupón creado exitosamente');
       }
 
+      // Esperar un momento antes de recargar para asegurar que la BD esté actualizada
+      await new Promise(resolve => setTimeout(resolve, 300));
       onSuccess();
     } catch (err: any) {
       console.error('Error al guardar cupón:', err);

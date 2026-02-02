@@ -48,9 +48,17 @@ export default function Cupones() {
       const data = await obtenerTodosLosCupones();
       setCupones(data);
       setFilteredCupones(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error al cargar cupones:', err);
-      toast.error('Error al cargar los cupones');
+      
+      // Manejar error de sesión específicamente
+      if (err.message === "No hay sesión activa") {
+        toast.error('Sesión expirada. Por favor, inicie sesión nuevamente.');
+        // Opcional: redirigir al login
+        // window.location.href = '/';
+      } else {
+        toast.error('Error al cargar los cupones');
+      }
     } finally {
       setIsLoading(false);
     }
