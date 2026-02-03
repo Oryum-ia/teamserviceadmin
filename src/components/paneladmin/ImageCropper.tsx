@@ -10,6 +10,9 @@ interface ImageCropperProps {
   onCropComplete: (croppedImageBlob: Blob) => void;
   onCancel: () => void;
   aspectRatio?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  quality?: number;
 }
 
 interface Area {
@@ -23,7 +26,10 @@ export default function ImageCropper({
   imageSrc, 
   onCropComplete, 
   onCancel,
-  aspectRatio = 16 / 9 
+  aspectRatio = 16 / 9,
+  maxWidth = 1920,
+  maxHeight = 1080,
+  quality = 0.82
 }: ImageCropperProps) {
   const { theme } = useTheme();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -31,6 +37,8 @@ export default function ImageCropper({
   const [rotation, setRotation] = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [compressionQuality, setCompressionQuality] = useState(quality);
+  const [estimatedSize, setEstimatedSize] = useState<string>('');
 
   const onCropChange = useCallback((crop: { x: number; y: number }) => {
     setCrop(crop);
@@ -59,7 +67,8 @@ export default function ImageCropper({
   const getCroppedImg = async (
     imageSrc: string,
     pixelCrop: Area,
-    rotation = 0
+    rotation = 0,
+    quality = 0.82
   ): Promise<Blob> => {
     const image = await createImage(imageSrc);
     const canvas = document.createElement('canvas');
@@ -87,13 +96,77 @@ export default function ImageCropper({
 
     const data = ctx.getImageData(0, 0, safeArea, safeArea);
 
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
+    // Calcular dimensiones finales con límite máximo
+    const MAX_WIDTH = 1920;
+    const MAX_HEIGHT = 1080;
+    
+    let finalWidth = pixelCrop.width;
+    let finalHeight = pixelCrop.height;
 
-    ctx.putImageData(
-      data,
-      Math.round(0 - safeArea / 2 + image.width * 0.5 - pixelCrop.x),
-      Math.round(0 - safeArea / 2 + image.height * 0.5 - pixelCrop.y)
+    // Redimensionar si excede los límites
+    if (finalWidth > MAX_WIDTH || finalHeight > MAX_HEIGHT) {
+      const ratio = Math.min(MAX_WIDTH / finalWidth, MAX_HEIGHT / finalHeight);
+      finalWidth = Math.round(finalWidth * ratio);
+      finalHeight = Math.round(finalHeight * ratio);
+    }
+
+    canvas.width = finalWidth;
+    canvas.height = finalHeight;
+
+    // Aplicar suavizado para mejor calidad al redimensionar
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Dibujar la imagen recortada y redimensionada
+    ctx.drawImage(
+      canvas,
+      Math.round(safeArea / 2 - image.width * 0.5 - pixelCrop.x),
+      Math.round(safeArea / 2 - image.height * 0.5 - pixelCrop.y),
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      finalWidth,
+      finalHeight
+    );
+
+    // Crear un canvas temporal para el recorte
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    if (!tempCtx) {
+      throw new Error('No se pudo obtener el contexto del canvas temporal');
+    }
+
+    tempCanvas.width = safeArea;
+    tempCanvas.height = safeArea;
+
+    tempCtx.translate(safeArea / 2, safeArea / 2);
+    tempCtx.rotate((rotation * Math.PI) / 180);
+    tempCtx.translate(-safeArea / 2, -safeArea / 2);
+
+    tempCtx.drawImage(
+      image,
+      safeArea / 2 - image.width * 0.5,
+      safeArea / 2 - image.height * 0.5
+    );
+
+    canvas.width = finalWidth;
+    canvas.height = finalHeight;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.drawImage(
+      tempCanvas,
+      Math.round(safeArea / 2 - image.width * 0.5 - pixelCrop.x),
+      Math.round(safeArea / 2 - image.height * 0.5 - pixelCrop.y),
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      finalWidth,
+      finalHeight
     );
 
     return new Promise((resolve, reject) => {
@@ -103,7 +176,7 @@ export default function ImageCropper({
         } else {
           reject(new Error('Error al crear el blob de la imagen'));
         }
-      }, 'image/jpeg', 0.95);
+      }, 'image/jpeg', quality);
     });
   };
 
@@ -115,7 +188,8 @@ export default function ImageCropper({
       const croppedImageBlob = await getCroppedImg(
         imageSrc,
         croppedAreaPixels,
-        rotation
+        rotation,
+        compressionQuality
       );
       onCropComplete(croppedImageBlob);
     } catch (error) {
@@ -128,6 +202,40 @@ export default function ImageCropper({
   const handleRotate = () => {
     setRotation((prev) => (prev + 90) % 360);
   };
+
+  // Calcular tamaño estimado cuando cambia la calidad o el área de recorte
+  const updateEstimatedSize = async () => {
+    if (!croppedAreaPixels) return;
+    
+    try {
+      const blob = await getCroppedImg(
+        imageSrc,
+        croppedAreaPixels,
+        rotation,
+        compressionQuality
+      );
+      const sizeInKB = (blob.size / 1024).toFixed(0);
+      const sizeInMB = (blob.size / 1024 / 1024).toFixed(2);
+      
+      if (blob.size > 1024 * 1024) {
+        setEstimatedSize(`${sizeInMB} MB`);
+      } else {
+        setEstimatedSize(`${sizeInKB} KB`);
+      }
+    } catch (error) {
+      console.error('Error al calcular tamaño:', error);
+    }
+  };
+
+  // Actualizar tamaño estimado cuando cambia la calidad
+  React.useEffect(() => {
+    if (croppedAreaPixels) {
+      const timer = setTimeout(() => {
+        updateEstimatedSize();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [compressionQuality, croppedAreaPixels]);
 
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-black">
@@ -178,21 +286,74 @@ export default function ImageCropper({
       }`}>
         {/* Zoom Control */}
         <div className="flex items-center gap-3">
-          <ZoomOut className={`w-5 h-5 ${
+          <ZoomOut className={`w-5 h-5 flex-shrink-0 ${
             theme === 'light' ? 'text-gray-600' : 'text-gray-400'
           }`} />
-          <input
-            type="range"
-            min={1}
-            max={3}
-            step={0.1}
-            value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-          />
-          <ZoomIn className={`w-5 h-5 ${
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-xs font-medium ${
+                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+              }`}>
+                Zoom
+              </span>
+              <span className={`text-xs ${
+                theme === 'light' ? 'text-gray-500' : 'text-gray-500'
+              }`}>
+                {zoom.toFixed(1)}x
+              </span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.1}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+            />
+          </div>
+          <ZoomIn className={`w-5 h-5 flex-shrink-0 ${
             theme === 'light' ? 'text-gray-600' : 'text-gray-400'
           }`} />
+        </div>
+
+        {/* Compression Quality Control */}
+        <div className="flex items-center gap-3">
+          <span className={`text-sm font-medium flex-shrink-0 ${
+            theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+          }`}>
+            Calidad
+          </span>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-xs ${
+                theme === 'light' ? 'text-gray-500' : 'text-gray-500'
+              }`}>
+                {compressionQuality < 0.6 ? 'Baja' : compressionQuality < 0.8 ? 'Media' : 'Alta'}
+              </span>
+              <span className={`text-xs font-medium ${
+                estimatedSize ? (theme === 'light' ? 'text-yellow-600' : 'text-yellow-400') : ''
+              }`}>
+                {estimatedSize || 'Calculando...'}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0.5}
+              max={0.95}
+              step={0.05}
+              value={compressionQuality}
+              onChange={(e) => setCompressionQuality(Number(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+            />
+          </div>
+        </div>
+
+        {/* Info sobre compresión */}
+        <div className={`text-xs p-2 rounded ${
+          theme === 'light' ? 'bg-blue-50 text-blue-700' : 'bg-blue-900/20 text-blue-300'
+        }`}>
+          💡 Menor calidad = archivo más pequeño. Recomendado: 70-85% para web
         </div>
 
         {/* Action Buttons */}
