@@ -105,6 +105,19 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
     return formatted.replace(' ', 'T');
   };
 
+  // Helper para formatear fecha en formato YYYY-MM-DD para input type="date"
+  const formatDateForInput = (date: Date | string | null) => {
+    if (!date) return '';
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    const formatter = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return formatter.format(dateObj);
+  };
+
   const tipoEntregaInicial = orden.entrega?.tipo_entrega
     ? orden.entrega.tipo_entrega
     : orden.aprobado_cliente === true
@@ -114,7 +127,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
   const [formData, setFormData] = useState({
     tipo_entrega: tipoEntregaInicial,
     fecha_entrega: orden.fecha_entrega ? formatForInput(new Date(orden.fecha_entrega)) : formatForInput(new Date()),
-    fecha_proximo_mantenimiento: orden.fecha_proximo_mantenimiento || '',
+    fecha_proximo_mantenimiento: formatDateForInput(orden.fecha_proximo_mantenimiento),
     calificacion: (orden.entrega?.calificacion ?? orden.calificacion) || '',
     comentarios_cliente: (orden.entrega?.comentarios_cliente ?? orden.comentarios_cliente) || ''
   });
@@ -132,7 +145,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
       fecha_entrega: orden.fecha_entrega
         ? formatForInput(new Date(orden.fecha_entrega))
         : prev.fecha_entrega || formatForInput(new Date()),
-      fecha_proximo_mantenimiento: orden.fecha_proximo_mantenimiento || '',
+      fecha_proximo_mantenimiento: formatDateForInput(orden.fecha_proximo_mantenimiento),
       calificacion: (orden.entrega?.calificacion ?? orden.calificacion) || '',
       comentarios_cliente: (orden.entrega?.comentarios_cliente ?? orden.comentarios_cliente) || ''
     }));
@@ -541,10 +554,13 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
                   if (!formData.fecha_proximo_mantenimiento) return;
                   try {
                     const { supabase } = await import('@/lib/supabaseClient');
+                    // Convertir fecha YYYY-MM-DD a ISO timestamp (medianoche en Colombia)
+                    const fechaISO = `${formData.fecha_proximo_mantenimiento}T00:00:00`;
+                    const fechaUTC = convertirDatetimeLocalColombiaAUTC(fechaISO);
                     const { error } = await supabase
                       .from('ordenes')
                       .update({
-                        fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento,
+                        fecha_proximo_mantenimiento: fechaUTC,
                         ultima_actualizacion: crearTimestampColombia()
                       })
                       .eq('id', orden.id);
