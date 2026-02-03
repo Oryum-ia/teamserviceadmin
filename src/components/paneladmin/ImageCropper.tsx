@@ -29,7 +29,7 @@ export default function ImageCropper({
   aspectRatio = 16 / 9,
   maxWidth = 1920,
   maxHeight = 1080,
-  quality = 0.82
+  quality = 0.6
 }: ImageCropperProps) {
   const { theme } = useTheme();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -37,8 +37,6 @@ export default function ImageCropper({
   const [rotation, setRotation] = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [compressionQuality, setCompressionQuality] = useState(quality);
-  const [estimatedSize, setEstimatedSize] = useState<string>('');
 
   const onCropChange = useCallback((crop: { x: number; y: number }) => {
     setCrop(crop);
@@ -71,6 +69,7 @@ export default function ImageCropper({
     quality = 0.82
   ): Promise<Blob> => {
     const image = await createImage(imageSrc);
+    
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
@@ -78,23 +77,32 @@ export default function ImageCropper({
       throw new Error('No se pudo obtener el contexto del canvas');
     }
 
-    const maxSize = Math.max(image.width, image.height);
-    const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
+    const rotRad = (rotation * Math.PI) / 180;
 
-    canvas.width = safeArea;
-    canvas.height = safeArea;
+    // Calcular el tamaño del canvas para la rotación
+    const bBoxWidth = Math.abs(Math.cos(rotRad) * image.width) + Math.abs(Math.sin(rotRad) * image.height);
+    const bBoxHeight = Math.abs(Math.sin(rotRad) * image.width) + Math.abs(Math.cos(rotRad) * image.height);
 
-    ctx.translate(safeArea / 2, safeArea / 2);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.translate(-safeArea / 2, -safeArea / 2);
+    // Configurar canvas para la imagen rotada completa
+    canvas.width = bBoxWidth;
+    canvas.height = bBoxHeight;
 
-    ctx.drawImage(
-      image,
-      safeArea / 2 - image.width * 0.5,
-      safeArea / 2 - image.height * 0.5
-    );
+    // Rotar y dibujar la imagen
+    ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
+    ctx.rotate(rotRad);
+    ctx.translate(-image.width / 2, -image.height / 2);
+    ctx.drawImage(image, 0, 0);
 
-    const data = ctx.getImageData(0, 0, safeArea, safeArea);
+    // Resetear transformaciones
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Extraer el área recortada
+    const croppedCanvas = document.createElement('canvas');
+    const croppedCtx = croppedCanvas.getContext('2d');
+
+    if (!croppedCtx) {
+      throw new Error('No se pudo obtener el contexto del canvas de recorte');
+    }
 
     // Calcular dimensiones finales con límite máximo
     const MAX_WIDTH = 1920;
@@ -110,57 +118,18 @@ export default function ImageCropper({
       finalHeight = Math.round(finalHeight * ratio);
     }
 
-    canvas.width = finalWidth;
-    canvas.height = finalHeight;
+    croppedCanvas.width = finalWidth;
+    croppedCanvas.height = finalHeight;
 
-    // Aplicar suavizado para mejor calidad al redimensionar
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    // Aplicar suavizado para mejor calidad
+    croppedCtx.imageSmoothingEnabled = true;
+    croppedCtx.imageSmoothingQuality = 'high';
 
-    // Dibujar la imagen recortada y redimensionada
-    ctx.drawImage(
+    // Dibujar el área recortada y redimensionada
+    croppedCtx.drawImage(
       canvas,
-      Math.round(safeArea / 2 - image.width * 0.5 - pixelCrop.x),
-      Math.round(safeArea / 2 - image.height * 0.5 - pixelCrop.y),
-      pixelCrop.width,
-      pixelCrop.height,
-      0,
-      0,
-      finalWidth,
-      finalHeight
-    );
-
-    // Crear un canvas temporal para el recorte
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    
-    if (!tempCtx) {
-      throw new Error('No se pudo obtener el contexto del canvas temporal');
-    }
-
-    tempCanvas.width = safeArea;
-    tempCanvas.height = safeArea;
-
-    tempCtx.translate(safeArea / 2, safeArea / 2);
-    tempCtx.rotate((rotation * Math.PI) / 180);
-    tempCtx.translate(-safeArea / 2, -safeArea / 2);
-
-    tempCtx.drawImage(
-      image,
-      safeArea / 2 - image.width * 0.5,
-      safeArea / 2 - image.height * 0.5
-    );
-
-    canvas.width = finalWidth;
-    canvas.height = finalHeight;
-
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    ctx.drawImage(
-      tempCanvas,
-      Math.round(safeArea / 2 - image.width * 0.5 - pixelCrop.x),
-      Math.round(safeArea / 2 - image.height * 0.5 - pixelCrop.y),
+      pixelCrop.x,
+      pixelCrop.y,
       pixelCrop.width,
       pixelCrop.height,
       0,
@@ -170,7 +139,7 @@ export default function ImageCropper({
     );
 
     return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
+      croppedCanvas.toBlob((blob) => {
         if (blob) {
           resolve(blob);
         } else {
@@ -189,7 +158,7 @@ export default function ImageCropper({
         imageSrc,
         croppedAreaPixels,
         rotation,
-        compressionQuality
+        quality
       );
       onCropComplete(croppedImageBlob);
     } catch (error) {
@@ -202,40 +171,6 @@ export default function ImageCropper({
   const handleRotate = () => {
     setRotation((prev) => (prev + 90) % 360);
   };
-
-  // Calcular tamaño estimado cuando cambia la calidad o el área de recorte
-  const updateEstimatedSize = async () => {
-    if (!croppedAreaPixels) return;
-    
-    try {
-      const blob = await getCroppedImg(
-        imageSrc,
-        croppedAreaPixels,
-        rotation,
-        compressionQuality
-      );
-      const sizeInKB = (blob.size / 1024).toFixed(0);
-      const sizeInMB = (blob.size / 1024 / 1024).toFixed(2);
-      
-      if (blob.size > 1024 * 1024) {
-        setEstimatedSize(`${sizeInMB} MB`);
-      } else {
-        setEstimatedSize(`${sizeInKB} KB`);
-      }
-    } catch (error) {
-      console.error('Error al calcular tamaño:', error);
-    }
-  };
-
-  // Actualizar tamaño estimado cuando cambia la calidad
-  React.useEffect(() => {
-    if (croppedAreaPixels) {
-      const timer = setTimeout(() => {
-        updateEstimatedSize();
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [compressionQuality, croppedAreaPixels]);
 
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-black">
@@ -317,43 +252,11 @@ export default function ImageCropper({
           }`} />
         </div>
 
-        {/* Compression Quality Control */}
-        <div className="flex items-center gap-3">
-          <span className={`text-sm font-medium flex-shrink-0 ${
-            theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-          }`}>
-            Calidad
-          </span>
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1">
-              <span className={`text-xs ${
-                theme === 'light' ? 'text-gray-500' : 'text-gray-500'
-              }`}>
-                {compressionQuality < 0.6 ? 'Baja' : compressionQuality < 0.8 ? 'Media' : 'Alta'}
-              </span>
-              <span className={`text-xs font-medium ${
-                estimatedSize ? (theme === 'light' ? 'text-yellow-600' : 'text-yellow-400') : ''
-              }`}>
-                {estimatedSize || 'Calculando...'}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0.5}
-              max={0.95}
-              step={0.05}
-              value={compressionQuality}
-              onChange={(e) => setCompressionQuality(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-            />
-          </div>
-        </div>
-
         {/* Info sobre compresión */}
         <div className={`text-xs p-2 rounded ${
           theme === 'light' ? 'bg-blue-50 text-blue-700' : 'bg-blue-900/20 text-blue-300'
         }`}>
-          💡 Menor calidad = archivo más pequeño. Recomendado: 70-85% para web
+          💡 Las imágenes se optimizan automáticamente para web (calidad 60%)
         </div>
 
         {/* Action Buttons */}
