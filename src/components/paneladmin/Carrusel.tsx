@@ -18,6 +18,7 @@ import {
 } from '@/lib/services/carruselService';
 import DropZoneImagenes from './ordenes/DropZoneImagenes';
 import ImagenViewer from './ordenes/ImagenViewer';
+import ImageCropper from './ImageCropper';
 
 // Definir las secciones disponibles
 const SECCIONES = [
@@ -434,6 +435,8 @@ function CarruselModal({ isOpen, onClose, onSuccess, imagen, ordenActual, seccio
   });
 
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [showCropper, setShowCropper] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string>('');
 
   useEffect(() => {
     if (imagen) {
@@ -483,18 +486,58 @@ function CarruselModal({ isOpen, onClose, onSuccess, imagen, ordenActual, seccio
       return;
     }
 
+    // Si es video, subir directamente sin recortar
+    if (isVideo) {
+      setUploadingImage(true);
+      try {
+        const mediaUrl = await subirImagenCarrusel(file, seccion);
+        setFormData(prev => ({ ...prev, imagen_url: mediaUrl }));
+        setImagePreview(mediaUrl);
+        toast.success('Video cargado exitosamente');
+      } catch (err) {
+        console.error('Error al subir video:', err);
+        toast.error('Error al subir el video');
+      } finally {
+        setUploadingImage(false);
+      }
+      return;
+    }
+
+    // Si es imagen, mostrar el recortador
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageToCrop(reader.result as string);
+      setShowCropper(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = async (croppedImageBlob: Blob) => {
     setUploadingImage(true);
+    setShowCropper(false);
+    
     try {
-      const mediaUrl = await subirImagenCarrusel(file, seccion);
+      // Convertir el blob a File
+      const croppedFile = new File([croppedImageBlob], 'cropped-image.jpg', {
+        type: 'image/jpeg',
+      });
+
+      const mediaUrl = await subirImagenCarrusel(croppedFile, seccion);
       setFormData(prev => ({ ...prev, imagen_url: mediaUrl }));
       setImagePreview(mediaUrl);
-      toast.success(`${isVideo ? 'Video' : 'Imagen'} cargado exitosamente`);
+      toast.success('Imagen recortada y cargada exitosamente');
     } catch (err) {
-      console.error('Error al subir archivo:', err);
-      toast.error(`Error al subir ${isVideo ? 'el video' : 'la imagen'}`);
+      console.error('Error al subir imagen recortada:', err);
+      toast.error('Error al subir la imagen');
     } finally {
       setUploadingImage(false);
+      setImageToCrop('');
     }
+  };
+
+  const handleCropCancel = () => {
+    setShowCropper(false);
+    setImageToCrop('');
   };
 
   const handleEliminarImagen = () => {
@@ -545,6 +588,18 @@ function CarruselModal({ isOpen, onClose, onSuccess, imagen, ordenActual, seccio
   const seccionConfig = SECCIONES.find(s => s.id === seccion);
   const seccionNombre = seccionConfig?.nombre || seccion;
   const esSoloImagen = seccionConfig?.soloImagen ?? false;
+
+  // Mostrar el recortador si está activo
+  if (showCropper && imageToCrop) {
+    return (
+      <ImageCropper
+        imageSrc={imageToCrop}
+        onCropComplete={handleCropComplete}
+        onCancel={handleCropCancel}
+        aspectRatio={16 / 9}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50">
