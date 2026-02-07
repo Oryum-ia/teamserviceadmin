@@ -178,15 +178,39 @@ export async function descargarImagen(url: string, nombreArchivo: string): Promi
  * Helper privado para actualizar fotos vía API cuando RLS falla
  */
 async function actualizarFotosViaApi(ordenId: string, tipo: string, fotos: string[]) {
-  const response = await fetch(`/api/ordenes/${ordenId}/fotos`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tipo, fotos })
-  });
+  const maxIntentos = 3;
+  let ultimoError: Error | null = null;
 
-  if (!response.ok) {
-     const errData = await response.json();
-     throw new Error(errData.error || 'Falló actualización API');
+  for (let intento = 1; intento <= maxIntentos; intento++) {
+    try {
+      console.log(`🔄 Intento ${intento}/${maxIntentos} de actualizar fotos vía API...`);
+      
+      const response = await fetch(`/api/ordenes/${ordenId}/fotos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, fotos })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        throw new Error(errData.error || `HTTP ${response.status}`);
+      }
+
+      console.log(`✅ Fotos de ${tipo} guardadas exitosamente (API - intento ${intento})`);
+      return; // Éxito, salir de la función
+    } catch (error) {
+      ultimoError = error as Error;
+      console.error(`❌ Error en intento ${intento}:`, error);
+      
+      if (intento < maxIntentos) {
+        // Esperar antes de reintentar (backoff exponencial)
+        const espera = Math.min(1000 * Math.pow(2, intento - 1), 5000);
+        console.log(`⏳ Esperando ${espera}ms antes de reintentar...`);
+        await new Promise(resolve => setTimeout(resolve, espera));
+      }
+    }
   }
-  console.log(`✅ Fotos de ${tipo} guardadas exitosamente (API Bypass)`);
+
+  // Si llegamos aquí, todos los intentos fallaron
+  throw new Error(`Falló actualización API después de ${maxIntentos} intentos: ${ultimoError?.message || 'Error desconocido'}`);
 }

@@ -11,6 +11,8 @@ import { obtenerRepuestosDelModelo, guardarRepuestosDiagnostico, obtenerRepuesto
 import { subirMultiplesImagenes, eliminarImagenOrden, actualizarFotosDiagnostico, descargarImagen } from '@/lib/services/imagenService';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
+import { ejecutarConReintentos, validarArchivos, guardarFotosConReintentos } from '@/lib/utils/saveHelpers';
+import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 
 interface Repuesto {
   codigo: string;
@@ -102,9 +104,10 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
   // Sincronizar fotos con incoming orden updates
   React.useEffect(() => {
     if (orden.fotos_diagnostico) {
+      console.log(`📸 Sincronizando ${orden.fotos_diagnostico.length} fotos de diagnóstico desde la orden`);
       setFotos(orden.fotos_diagnostico);
     }
-  }, [orden.fotos_diagnostico]);
+  }, [orden.id, orden.fotos_diagnostico]);
 
   // Cargar repuestos guardados o del modelo
   useEffect(() => {
@@ -250,46 +253,38 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
 
-    // Validar archivos
-    const MAX_SIZE = 300 * 1024 * 1024; // 300MB
-    const archivosValidos: File[] = [];
-    const archivosInvalidos: string[] = [];
+    // Validar archivos con helper
+    const { validos, invalidos } = validarArchivos(files);
 
-    files.forEach(file => {
-      // Validar tipo
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        archivosInvalidos.push(`${file.name} (Tipo no válido)`);
-        return;
-      }
-      
-      // Validar tamaño
-      if (file.size > MAX_SIZE) {
-        archivosInvalidos.push(`${file.name} (Excede 300MB)`);
-        return;
-      }
-
-      archivosValidos.push(file);
-    });
-
-    if (archivosInvalidos.length > 0) {
-      toast.error(`Algunos archivos no se pudieron subir:\n${archivosInvalidos.join('\n')}`);
+    if (invalidos.length > 0) {
+      toast.error(`Algunos archivos no se pudieron subir:\n${invalidos.join('\n')}`);
     }
 
-    if (archivosValidos.length === 0) return;
+    if (validos.length === 0) return;
 
     setSubiendoFotos(true);
+    const fotosAnteriores = [...fotos];
+    
     try {
-      const urls = await subirMultiplesImagenes(orden.id, archivosValidos, 'diagnostico');
+      console.log(`📤 Subiendo ${validos.length} archivo(s) de diagnóstico...`);
+      
+      const urls = await subirMultiplesImagenes(orden.id, validos, 'diagnostico');
+      console.log(`✅ ${urls.length} archivo(s) subido(s) al storage`);
+      
       const nuevasFotos = [...fotos, ...urls];
       setFotos(nuevasFotos);
       
-      // Guardar en la base de datos inmediatamente
-      await actualizarFotosDiagnostico(orden.id, nuevasFotos);
+      // Guardar en BD con reintentos
+      await guardarFotosConReintentos(orden.id, nuevasFotos, 'diagnostico', actualizarFotosDiagnostico);
       
-      toast.success(`${files.length} foto(s) subida(s) exitosamente`);
+      // Actualizar localStorage
+      updateOrdenFields({ fotos_diagnostico: nuevasFotos } as any);
+      
+      toast.success(`${validos.length} archivo(s) subido(s) y guardado(s) exitosamente`);
     } catch (error) {
-      console.error('Error al subir fotos:', error);
-      toast.error('Error al subir las fotos');
+      console.error('❌ Error al subir fotos:', error);
+      toast.error('Error al subir las fotos. Por favor, intente nuevamente.');
+      setFotos(fotosAnteriores);
     } finally {
       setSubiendoFotos(false);
     }
@@ -297,20 +292,31 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
 
   const handleEliminarFoto = async (url: string, index: number) => {
     try {
-      // Eliminar del storage
-      await eliminarImagenOrden(url);
+      console.log(`🗑️ Eliminando foto ${index + 1} de diagnóstico...`);
       
-      // Actualizar estado local
+      const fotosAnteriores = [...fotos];
       const nuevasFotos = fotos.filter((_, i) => i !== index);
       setFotos(nuevasFotos);
       
-      // Actualizar en la base de datos
-      await actualizarFotosDiagnostico(orden.id, nuevasFotos);
+      // Intentar eliminar del storage
+      try {
+        await eliminarImagenOrden(url);
+        console.log('✅ Foto eliminada del storage');
+      } catch (storageError) {
+        console.warn('⚠️ Error al eliminar del storage:', storageError);
+      }
       
-      toast.success('Foto eliminada');
+      // Actualizar en BD con reintentos
+      await guardarFotosConReintentos(orden.id, nuevasFotos, 'diagnostico', actualizarFotosDiagnostico);
+      
+      // Actualizar localStorage
+      updateOrdenFields({ fotos_diagnostico: nuevasFotos } as any);
+      
+      toast.success('Foto eliminada exitosamente');
     } catch (error) {
-      console.error('Error al eliminar foto:', error);
-      toast.error('Error al eliminar la foto');
+      console.error('❌ Error al eliminar foto:', error);
+      toast.error('Error al eliminar la foto. Por favor, intente nuevamente.');
+      setFotos(fotosAnteriores);
     }
   };
 
@@ -332,34 +338,53 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
     if (orden && typeof window !== 'undefined') {
       (window as any).guardarDatosDiagnostico = async () => {
         try {
+          console.log('💾 Guardando datos de diagnóstico...');
+          
           // Cancelar debounce pendiente
           if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
           }
           
+          // Guardar fotos si hay cambios
+          if (fotos.length > 0) {
+            console.log(`📸 Verificando guardado de ${fotos.length} fotos de diagnóstico`);
+            await guardarFotosConReintentos(orden.id, fotos, 'diagnostico', actualizarFotosDiagnostico);
+          }
+          
           const { supabase } = await import('@/lib/supabaseClient');
           
-          // Guardar datos básicos de la orden (sin validaciones)
+          // Guardar datos básicos de la orden con reintentos
           const updateData: any = {
             comentarios_diagnostico: formData.comentarios || '',
             tecnico_diagnostico: selectedTecnicoId || null,
             ultima_actualizacion: crearTimestampColombia()
           };
           
-          await supabase
-            .from('ordenes')
-            .update(updateData)
-            .eq('id', orden.id);
+          await ejecutarConReintentos(
+            async () => {
+              const { error } = await supabase
+                .from('ordenes')
+                .update(updateData)
+                .eq('id', orden.id);
+              if (error) throw error;
+            },
+            3,
+            'guardar datos de diagnóstico'
+          );
           
-          // Guardar repuestos inmediatamente
-          await guardarRepuestosDiagnostico(orden.id, repuestos);
+          // Guardar repuestos con reintentos
+          await ejecutarConReintentos(
+            () => guardarRepuestosDiagnostico(orden.id, repuestos),
+            3,
+            'guardar repuestos de diagnóstico'
+          );
           
-          console.log('✅ Datos de diagnóstico guardados (sin validaciones):', updateData);
+          console.log('✅ Datos de diagnóstico guardados exitosamente');
           console.log('✅ Repuestos guardados:', repuestos.length);
           
           return updateData;
         } catch (error) {
-          console.error('Error al guardar datos de diagnóstico:', error);
+          console.error('❌ Error al guardar datos de diagnóstico:', error);
           throw error;
         }
       };
@@ -371,7 +396,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
         delete (window as any).guardarDatosDiagnostico;
       }
     };
-  }, [formData.comentarios, orden?.id, selectedTecnicoId, repuestos]);
+  }, [formData.comentarios, orden?.id, selectedTecnicoId, repuestos, fotos]);
 
   const puedeEditar = orden.estado_actual === 'Diagnóstico' && faseIniciada;
 

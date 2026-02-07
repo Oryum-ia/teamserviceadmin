@@ -10,6 +10,7 @@ import DropZoneImagenes from './DropZoneImagenes';
 import { FirmaDisplay } from '@/components/FirmaPad';
 import { crearTimestampColombia, formatearFechaColombiaLarga } from '@/lib/utils/dateUtils';
 import { notificarOrdenCreadaWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
+import { ejecutarConReintentos, validarArchivos, guardarFotosConReintentos } from '@/lib/utils/saveHelpers';
 
 interface RecepcionFormProps {
   orden: any;
@@ -52,9 +53,10 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
   // Sincronizar fotos con incoming orden updates (socket/http)
   React.useEffect(() => {
     if (orden.fotos_recepcion) {
+      console.log(`📸 Sincronizando ${orden.fotos_recepcion.length} fotos de recepción desde la orden`);
       setFotos(orden.fotos_recepcion);
     }
-  }, [orden.fotos_recepcion]);
+  }, [orden.id, orden.fotos_recepcion]);
 
   // Cargar accesorios del modelo al montar el componente
   React.useEffect(() => {
@@ -130,34 +132,73 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
   const guardarAccesorios = async (items: Accesorio[], options?: { showToast?: boolean }) => {
     try {
       const { supabase } = await import('@/lib/supabaseClient');
-      const { error } = await supabase
-        .from('ordenes')
-        .update({ esta_accesorios: items, updated_at: crearTimestampColombia() })
-        .eq('id', orden.id);
-      if (error) throw error;
+      
+      await ejecutarConReintentos(
+        async () => {
+          const { error } = await supabase
+            .from('ordenes')
+            .update({ esta_accesorios: items, updated_at: crearTimestampColombia() })
+            .eq('id', orden.id);
+          if (error) throw error;
+        },
+        3,
+        'guardar accesorios'
+      );
+      
       updateOrdenFields({ esta_accesorios: items });
+      
       if (options?.showToast !== false) {
         toast.success('Accesorios guardados');
       }
     } catch (e) {
-      console.error(e);
-      toast.error('Error al guardar accesorios');
+      console.error('❌ Error al guardar accesorios:', e);
+      toast.error('Error al guardar accesorios. Por favor, intente nuevamente.');
     }
   };
 
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
+
+    // Validar archivos
+    const { validos, invalidos } = validarArchivos(files);
+
+    if (invalidos.length > 0) {
+      toast.error(`Algunos archivos no se pudieron subir:\n${invalidos.join('\n')}`);
+    }
+
+    if (validos.length === 0) return;
+
     setSubiendoFotos(true);
+    
+    // Guardar estado anterior por si necesitamos revertir
+    const fotosAnteriores = [...fotos];
+    
     try {
+      console.log(`📤 Subiendo ${validos.length} archivo(s) de recepción...`);
+      
       const { subirMultiplesImagenes, actualizarFotosRecepcion } = await import('@/lib/services/imagenService');
-      const urls = await subirMultiplesImagenes(orden.id, files, 'recepcion');
+      
+      // Subir archivos al storage
+      const urls = await subirMultiplesImagenes(orden.id, validos, 'recepcion');
+      console.log(`✅ ${urls.length} archivo(s) subido(s) al storage`);
+      
+      // Actualizar estado local
       const nuevas = [...fotos, ...urls];
       setFotos(nuevas);
-      await actualizarFotosRecepcion(orden.id, nuevas);
-      toast.success(`${files.length} foto(s) subida(s)`);
+
+      // Guardar en BD con reintentos
+      await guardarFotosConReintentos(orden.id, nuevas, 'recepcion', actualizarFotosRecepcion);
+      
+      // Actualizar localStorage
+      updateOrdenFields({ fotos_recepcion: nuevas } as any);
+
+      toast.success(`${validos.length} archivo(s) subido(s) y guardado(s) exitosamente`);
     } catch (err) {
-      console.error(err);
-      toast.error('Error al subir fotos');
+      console.error('❌ Error al subir fotos:', err);
+      toast.error('Error al subir las fotos. Por favor, intente nuevamente.');
+      
+      // Revertir cambios en el estado local si falló
+      setFotos(fotosAnteriores);
     } finally {
       setSubiendoFotos(false);
     }
@@ -475,15 +516,38 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
             imagenes={fotos}
             onEliminar={puedeEditar ? async (url, index) => {
               try {
-                const { eliminarImagenOrden, actualizarFotosRecepcion } = await import('@/lib/services/imagenService');
-                await eliminarImagenOrden(url);
+                console.log(`🗑️ Eliminando foto ${index + 1} de recepción...`);
+                
+                // Guardar estado anterior por si necesitamos revertir
+                const fotosAnteriores = [...fotos];
+                
+                // Actualizar estado local primero (optimistic update)
                 const nuevas = fotos.filter((_, i) => i !== index);
                 setFotos(nuevas);
-                await actualizarFotosRecepcion(orden.id, nuevas);
-                toast.success('Foto eliminada');
+
+                const { eliminarImagenOrden, actualizarFotosRecepcion } = await import('@/lib/services/imagenService');
+                
+                // Intentar eliminar del storage
+                try {
+                  await eliminarImagenOrden(url);
+                  console.log('✅ Foto eliminada del storage');
+                } catch (storageError) {
+                  console.warn('⚠️ Error al eliminar del storage (puede que ya no exista):', storageError);
+                }
+
+                // Actualizar en BD con reintentos
+                await guardarFotosConReintentos(orden.id, nuevas, 'recepcion', actualizarFotosRecepcion);
+                
+                // Actualizar localStorage
+                updateOrdenFields({ fotos_recepcion: nuevas } as any);
+
+                toast.success('Foto eliminada exitosamente');
               } catch (e) {
-                console.error(e);
-                toast.error('Error al eliminar foto');
+                console.error('❌ Error al eliminar foto:', e);
+                toast.error('Error al eliminar la foto. Por favor, intente nuevamente.');
+                
+                // Revertir cambios si falló
+                setFotos(fotos);
               }
             } : undefined}
             onDescargar={async (url, index) => {

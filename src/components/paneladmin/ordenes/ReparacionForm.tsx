@@ -9,6 +9,8 @@ import { formatearFechaColombiaLarga, crearTimestampColombia } from '@/lib/utils
 import { subirMultiplesImagenes, eliminarImagenOrden, descargarImagen, actualizarFotosReparacion } from '@/lib/services/imagenService';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
+import { ejecutarConReintentos, validarArchivos, guardarFotosConReintentos } from '@/lib/utils/saveHelpers';
+import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 
 interface ReparacionFormProps {
   orden: any;

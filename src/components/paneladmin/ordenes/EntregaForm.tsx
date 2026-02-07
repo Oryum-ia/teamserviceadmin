@@ -5,7 +5,7 @@ import { Upload, AlertCircle, MessageCircle } from 'lucide-react';
 import { notificarCambioFaseWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { convertirDatetimeLocalColombiaAUTC } from '@/lib/utils/dateUtils';
+import { convertirDatetimeLocalColombiaAUTC, crearTimestampColombia } from '@/lib/utils/dateUtils';
 import { subirMultiplesImagenes, eliminarImagenOrden, descargarImagen, actualizarFotosEntrega } from '@/lib/services/imagenService';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
@@ -25,6 +25,14 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
   // Fotos de entrega
   const [fotos, setFotos] = useState<string[]>(orden.fotos_entrega || []);
   const [subiendoFotos, setSubiendoFotos] = useState(false);
+
+  // Sincronizar fotos cuando cambia la orden
+  useEffect(() => {
+    if (orden.fotos_entrega) {
+      console.log(`📸 Sincronizando ${orden.fotos_entrega.length} fotos de entrega desde la orden`);
+      setFotos(orden.fotos_entrega);
+    }
+  }, [orden.id, orden.fotos_entrega]);
 
   // ID del técnico que entrega (inicializado con el de la orden o null)
   const [tecnicoEntregaId, setTecnicoEntregaId] = useState<string>(orden.tecnico_entrega || '');
@@ -164,21 +172,59 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
   // Exponer función para guardar datos desde el padre
   React.useEffect(() => {
     (window as any).guardarDatosEntrega = async () => {
-      // Los datos de entrega se guardan automáticamente con onBlur en los campos
-      // Esta función solo confirma que todo está guardado
-      console.log('✅ Datos de entrega confirmados (guardado automático)');
-      return {
-        tipo_entrega: formData.tipo_entrega,
-        fecha_entrega: formData.fecha_entrega,
-        fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento,
-        tecnico_entrega: tecnicoEntregaId
-      };
+      try {
+        console.log('💾 Guardando datos de entrega...');
+        
+        // Guardar fotos si hay cambios pendientes
+        if (fotos.length > 0) {
+          console.log(`📸 Verificando guardado de ${fotos.length} fotos de entrega`);
+          await actualizarFotosEntrega(orden.id, fotos);
+        }
+
+        // Guardar campos de fecha y técnico
+        const { supabase } = await import('@/lib/supabaseClient');
+        const camposActualizacion: any = {
+          tecnico_entrega: tecnicoEntregaId,
+          ultima_actualizacion: crearTimestampColombia()
+        };
+
+        // Solo actualizar fechas si tienen valores
+        if (formData.fecha_entrega) {
+          const iso = convertirDatetimeLocalColombiaAUTC(formData.fecha_entrega);
+          camposActualizacion.fecha_entrega = iso;
+        }
+
+        if (formData.fecha_proximo_mantenimiento) {
+          const fechaISO = `${formData.fecha_proximo_mantenimiento}T00:00:00`;
+          const fechaUTC = convertirDatetimeLocalColombiaAUTC(fechaISO);
+          camposActualizacion.fecha_proximo_mantenimiento = fechaUTC;
+        }
+
+        const { error } = await supabase
+          .from('ordenes')
+          .update(camposActualizacion)
+          .eq('id', orden.id);
+
+        if (error) throw error;
+
+        console.log('✅ Datos de entrega guardados exitosamente');
+        
+        return {
+          tipo_entrega: formData.tipo_entrega,
+          fecha_entrega: formData.fecha_entrega,
+          fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento,
+          tecnico_entrega: tecnicoEntregaId
+        };
+      } catch (error) {
+        console.error('❌ Error al guardar datos de entrega:', error);
+        throw error;
+      }
     };
 
     return () => {
       delete (window as any).guardarDatosEntrega;
     };
-  }, [formData, tecnicoEntregaId]);
+  }, [formData, tecnicoEntregaId, fotos, orden.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -217,17 +263,54 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
 
     setSubiendoFotos(true);
     try {
+      console.log(`📤 Subiendo ${archivosValidos.length} archivo(s)...`);
+      
+      // Subir archivos al storage
       const urls = await subirMultiplesImagenes(orden.id, archivosValidos, 'entrega');
+      console.log(`✅ ${urls.length} archivo(s) subido(s) al storage`);
+      
+      // Actualizar estado local
       const nuevasFotos = [...fotos, ...urls];
       setFotos(nuevasFotos);
 
-      // Guardar en la base de datos inmediatamente
-      await actualizarFotosEntrega(orden.id, nuevasFotos);
+      // Guardar en la base de datos con reintentos
+      let intentos = 0;
+      const maxIntentos = 3;
+      let guardadoExitoso = false;
 
-      toast.success(`${files.length} foto(s) subida(s) exitosamente`);
+      while (intentos < maxIntentos && !guardadoExitoso) {
+        try {
+          intentos++;
+          console.log(`💾 Intento ${intentos}/${maxIntentos} de guardar fotos en BD...`);
+          
+          await actualizarFotosEntrega(orden.id, nuevasFotos);
+          guardadoExitoso = true;
+          console.log('✅ Fotos guardadas en BD exitosamente');
+        } catch (error) {
+          console.error(`❌ Error en intento ${intentos}:`, error);
+          
+          if (intentos < maxIntentos) {
+            // Esperar antes de reintentar (backoff exponencial)
+            const espera = Math.min(1000 * Math.pow(2, intentos - 1), 5000);
+            console.log(`⏳ Esperando ${espera}ms antes de reintentar...`);
+            await new Promise(resolve => setTimeout(resolve, espera));
+          } else {
+            throw new Error('No se pudo guardar las fotos después de varios intentos');
+          }
+        }
+      }
+
+      // Actualizar localStorage
+      updateOrdenFields({ fotos_entrega: nuevasFotos } as any);
+
+      toast.success(`${archivosValidos.length} archivo(s) subido(s) y guardado(s) exitosamente`);
     } catch (error) {
-      console.error('Error al subir fotos:', error);
-      toast.error('Error al subir las fotos');
+      console.error('❌ Error al subir fotos:', error);
+      toast.error('Error al subir las fotos. Por favor, intente nuevamente.');
+      
+      // Revertir cambios en el estado local si falló el guardado
+      // (las fotos ya están en storage pero no en BD)
+      setFotos(fotos);
     } finally {
       setSubiendoFotos(false);
     }
@@ -235,20 +318,58 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
 
   const handleEliminarFoto = async (url: string, index: number) => {
     try {
-      // Eliminar del storage
-      await eliminarImagenOrden(url);
-
-      // Actualizar estado local
+      console.log(`🗑️ Eliminando foto ${index + 1}...`);
+      
+      // Guardar estado anterior por si necesitamos revertir
+      const fotosAnteriores = [...fotos];
+      
+      // Actualizar estado local primero (optimistic update)
       const nuevasFotos = fotos.filter((_, i) => i !== index);
       setFotos(nuevasFotos);
 
-      // Actualizar en la base de datos
-      await actualizarFotosEntrega(orden.id, nuevasFotos);
+      // Intentar eliminar del storage
+      try {
+        await eliminarImagenOrden(url);
+        console.log('✅ Foto eliminada del storage');
+      } catch (storageError) {
+        console.warn('⚠️ Error al eliminar del storage (puede que ya no exista):', storageError);
+        // Continuar de todos modos para actualizar la BD
+      }
 
-      toast.success('Foto eliminada');
+      // Actualizar en la base de datos con reintentos
+      let intentos = 0;
+      const maxIntentos = 3;
+      let guardadoExitoso = false;
+
+      while (intentos < maxIntentos && !guardadoExitoso) {
+        try {
+          intentos++;
+          console.log(`💾 Intento ${intentos}/${maxIntentos} de actualizar BD...`);
+          
+          await actualizarFotosEntrega(orden.id, nuevasFotos);
+          guardadoExitoso = true;
+          console.log('✅ BD actualizada exitosamente');
+        } catch (error) {
+          console.error(`❌ Error en intento ${intentos}:`, error);
+          
+          if (intentos < maxIntentos) {
+            const espera = Math.min(1000 * Math.pow(2, intentos - 1), 5000);
+            await new Promise(resolve => setTimeout(resolve, espera));
+          } else {
+            // Si falló después de todos los intentos, revertir cambios
+            setFotos(fotosAnteriores);
+            throw new Error('No se pudo actualizar la base de datos');
+          }
+        }
+      }
+
+      // Actualizar localStorage
+      updateOrdenFields({ fotos_entrega: nuevasFotos } as any);
+
+      toast.success('Foto eliminada exitosamente');
     } catch (error) {
-      console.error('Error al eliminar foto:', error);
-      toast.error('Error al eliminar la foto');
+      console.error('❌ Error al eliminar foto:', error);
+      toast.error('Error al eliminar la foto. Por favor, intente nuevamente.');
     }
   };
 

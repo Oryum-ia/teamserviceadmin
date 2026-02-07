@@ -108,14 +108,17 @@ export default function Encuestas() {
     a.click();
   };
 
-  const renderEstrellas = (valor: number) => {
+  const renderEstrellas = (valor: number, mostrarDecimales: boolean = false) => {
+    const valorRedondeado = Math.round(valor);
+    const valorMostrar = mostrarDecimales ? valor.toFixed(1) : valor;
+    
     return (
       <div className="flex items-center gap-1">
         {[1, 2, 3, 4, 5].map(i => (
           <Star
             key={i}
             className={`w-4 h-4 ${
-              i <= valor 
+              i <= valorRedondeado 
                 ? 'fill-yellow-400 text-yellow-400' 
                 : 'text-gray-300'
             }`}
@@ -124,7 +127,7 @@ export default function Encuestas() {
         <span className={`ml-2 text-sm font-medium ${
           theme === 'light' ? 'text-gray-700' : 'text-gray-300'
         }`}>
-          {valor}/5
+          {valorMostrar}/5
         </span>
       </div>
     );
@@ -171,7 +174,7 @@ export default function Encuestas() {
     {
       key: 'promedio',
       label: 'Promedio',
-      render: (encuesta) => renderEstrellas(Number(calcularPromedioGeneral(encuesta))),
+      render: (encuesta) => renderEstrellas(Number(calcularPromedioGeneral(encuesta)), true),
     },
     {
       key: 'nps',
