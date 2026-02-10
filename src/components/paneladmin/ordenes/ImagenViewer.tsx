@@ -383,22 +383,34 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
           )}
 
           {/* Imagen o video principal */}
-          <div className="flex items-center justify-center p-4 max-h-[85vh]">
+          <div className="flex items-center justify-center p-4 w-full h-full">
             {isVideo(imagenes[currentIndex]) ? (
               <video
                 src={imagenes[currentIndex]}
                 controls
                 autoPlay
-                className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg"
-                style={{ width: 'auto', height: 'auto' }}
+                className="rounded-lg"
+                style={{ 
+                  maxWidth: '85vw', 
+                  maxHeight: '70vh',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain'
+                }}
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <img
                 src={getPreviewUrl(imagenes[currentIndex])}
                 alt={`Foto ${currentIndex + 1}`}
-                className="max-w-[90vw] max-h-[80vh] rounded-lg shadow-2xl"
-                style={{ width: 'auto', height: 'auto', objectFit: 'contain' }}
+                className="rounded-lg shadow-2xl"
+                style={{ 
+                  maxWidth: '85vw', 
+                  maxHeight: '70vh',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain'
+                }}
                 onClick={(e) => e.stopPropagation()}
               />
             )}

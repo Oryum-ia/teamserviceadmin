@@ -99,7 +99,7 @@ Guarda este mensaje, ya que tu ID de orden será necesario para futuras consulta
 Te notificaremos automáticamente cada vez que tu equipo cambie de estado.
 
 Team Service Costa S.A.S.
-Centro de Servicio Autorizado Kärcher & Distribuidor Makita`;
+Centro de Servicio Autorizado KÄRCHER & Distribuidor MAKITA`;
 }
 
 /**
@@ -139,7 +139,7 @@ ${trackingUrl}estado-producto?codigo=${ordenId}
 Si tienes alguna pregunta, estamos disponibles para ayudarte.
 
 Team Service Costa S.A.S.
-Centro Autorizado Kärcher & Distribuidor Makita`;
+Centro Autorizado KÄRCHER & Distribuidor MAKITA`;
 }
 
 /**
@@ -164,7 +164,7 @@ Por favor ingresa al enlace para revisar la cotización y seleccionar si deseas 
 Tu decisión actualizará el estado de tu orden automáticamente.
 
 Team Service Costa S.A.S.
-Centro Autorizado Kärcher & Distribuidor Makita`;
+Centro Autorizado KÄRCHER & Distribuidor MAKITA`;
 }
 
 /**

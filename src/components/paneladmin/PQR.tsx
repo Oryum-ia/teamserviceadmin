@@ -36,6 +36,18 @@ export default function PQRComponent() {
   const [respuestaTexto, setRespuestaTexto] = useState('');
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
 
+  // Helper para formatear el tipo de solicitud
+  const formatTipoSolicitud = (tipo: TipoSolicitudPQR): string => {
+    const formatos: Record<TipoSolicitudPQR, string> = {
+      'peticion': 'Petición',
+      'queja': 'Queja',
+      'reclamo': 'Reclamo',
+      'sugerencia': 'Sugerencia',
+      'felicitacion': 'Felicitación'
+    };
+    return formatos[tipo] || tipo;
+  };
+
   useEffect(() => {
     cargarPQRs();
   }, []);
@@ -144,7 +156,7 @@ export default function PQRComponent() {
             clienteEmail: selectedPQR.email,
             clienteNombre: selectedPQR.nombre_completo,
             pqrId: selectedPQR.radicado,
-            tipoPQR: selectedPQR.tipo_solicitud,
+            tipoPQR: formatTipoSolicitud(selectedPQR.tipo_solicitud),
             respuesta: respuestaTexto,
             fechaRespuesta: new Date(fechaRespuesta).toLocaleDateString('es-ES', {
               year: 'numeric',
@@ -224,7 +236,7 @@ export default function PQRComponent() {
       label: 'Tipo',
       render: (pqr) => (
         <span className={theme === 'light' ? 'text-gray-700' : 'text-gray-300'}>
-          {pqr.tipo_solicitud}
+          {formatTipoSolicitud(pqr.tipo_solicitud)}
         </span>
       ),
       hideOnMobile: true,
@@ -415,11 +427,11 @@ export default function PQRComponent() {
             }`}
           >
             <option value="">Todos los tipos</option>
-            <option value="Petición">Petición</option>
-            <option value="Queja">Queja</option>
-            <option value="Reclamo">Reclamo</option>
-            <option value="Sugerencia">Sugerencia</option>
-            <option value="Felicitación">Felicitación</option>
+            <option value="peticion">Petición</option>
+            <option value="queja">Queja</option>
+            <option value="reclamo">Reclamo</option>
+            <option value="sugerencia">Sugerencia</option>
+            <option value="felicitacion">Felicitación</option>
           </select>
 
           <select
@@ -479,7 +491,7 @@ export default function PQRComponent() {
                 <h2 className={`text-xl font-bold ${
                   theme === 'light' ? 'text-gray-900' : 'text-white'
                 }`}>
-                  {selectedPQR.tipo_solicitud} - #{selectedPQR.radicado}
+                  {formatTipoSolicitud(selectedPQR.tipo_solicitud)} - #{selectedPQR.radicado}
                 </h2>
                 <div className="flex gap-2 mt-2">
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getEstadoBadge(selectedPQR.estado)}`}>
@@ -672,7 +684,7 @@ export default function PQRComponent() {
                   Para: {selectedPQR.email}
                 </p>
                 <p className={`text-sm mb-4 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                  Asunto: Respuesta a tu {selectedPQR.tipo_solicitud} - Radicado: {selectedPQR.radicado}
+                  Asunto: Respuesta a tu {formatTipoSolicitud(selectedPQR.tipo_solicitud)} - Radicado: {selectedPQR.radicado}
                 </p>
               </div>
 

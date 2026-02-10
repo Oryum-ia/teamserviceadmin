@@ -19,7 +19,7 @@ export interface Encuesta {
 }
 
 // Tipos para PQR
-export type TipoSolicitudPQR = 'Petición' | 'Queja' | 'Reclamo' | 'Sugerencia' | 'Felicitación';
+export type TipoSolicitudPQR = 'peticion' | 'queja' | 'reclamo' | 'sugerencia' | 'felicitacion';
 export type EstadoPQR = 'recibido' | 'en_proceso' | 'resuelto' | 'cerrado';
 export type PrioridadPQR = 'baja' | 'media' | 'alta' | 'urgente';
 

@@ -282,11 +282,6 @@ export async function obtenerOrdenesPaginadas({
      query = query.or(`razon_social.ilike.%${filters.cliente}%,nombre_comercial.ilike.%${filters.cliente}%`, { foreignTable: 'clientes' });
   }
 
-  if (filters.serial) {
-    console.log('🔎 Aplicando filtro serial:', filters.serial);
-      query = query.ilike('equipo.serial', `%${filters.serial}%`);
-  }
-
   // Filtro de fase
   if (filters.fase) {
     console.log('🔎 Aplicando filtro fase:', filters.fase);
@@ -311,19 +306,6 @@ export async function obtenerOrdenesPaginadas({
       query = query.in('estado_actual', estadosDB);
     }
   }
-
-  if (filters.marca) {
-    // Esto es muy anidado (equipo->modelo->marca).
-    // Supabase filtering deep relationships tiene limitaciones.
-    // Lo más seguro es filtrar esto en cliente si es muy complejo, 
-    // pero intentaremos hacerlo server side si es crucial.
-    // filter: equipo.modelo.marca.nombre
-    // Lamentablemente PostgREST no soporta deep filtering de 3 niveles fácilmente en la URL root.
-    // Vamos a omitirlo server-side por ahora para evitar errores, o usar un search manual si es crítico.
-    // Dejaremos marca, modelo y equipo como filtros "client-side post-fetch" o ignorados si queremos velocidad pura,
-    // pero dado que paginamos, filtrar en cliente sobre una página es malo.
-    // Solución: No aplicar filtro marca/modelo en servidor por ahora para no romper query.
-  }
   
   if (filters.sede) {
       query = query.ilike('sede', `%${filters.sede}%`);
@@ -341,11 +323,42 @@ export async function obtenerOrdenesPaginadas({
   
   const sedesPorEmail: Record<string, string> = {};
   
-  const processedData = data?.map(orden => processOrderData(orden, sedesPorEmail));
+  let processedData = data?.map(orden => processOrderData(orden, sedesPorEmail)) || [];
+  
+  // Aplicar filtros client-side para campos anidados (serial, marca, modelo, equipo)
+  // Esto es necesario porque PostgREST no soporta filtros en relaciones anidadas profundas
+  if (filters.serial || filters.marca || filters.modelo || filters.equipo) {
+    console.log('🔎 Aplicando filtros client-side para campos anidados');
+    processedData = processedData.filter(orden => {
+      let matches = true;
+      
+      if (filters.serial && matches) {
+        const serial = orden.serial?.toLowerCase() || '';
+        matches = serial.includes(filters.serial.toLowerCase());
+      }
+      
+      if (filters.marca && matches) {
+        const marca = orden.marca?.toLowerCase() || '';
+        matches = marca.includes(filters.marca.toLowerCase());
+      }
+      
+      if (filters.modelo && matches) {
+        const modelo = orden.modelo?.toLowerCase() || '';
+        matches = modelo.includes(filters.modelo.toLowerCase());
+      }
+      
+      if (filters.equipo && matches) {
+        const equipo = orden.tipo_producto?.toLowerCase() || '';
+        matches = equipo.includes(filters.equipo.toLowerCase());
+      }
+      
+      return matches;
+    });
+  }
   
   return { 
-    data: processedData || [], 
-    count: count || 0 
+    data: processedData, 
+    count: processedData.length // Ajustar count si se filtra client-side
   };
 }
 
