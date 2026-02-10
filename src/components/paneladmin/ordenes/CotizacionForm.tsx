@@ -104,6 +104,10 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     comentarios_garantia: orden.aprobacion_marca?.comentarios_garantia || ''
   });
 
+  // Estado temporal para el input de valor de revisión (mientras se edita)
+  const [valorRevisionInput, setValorRevisionInput] = React.useState('');
+  const [editandoValorRevision, setEditandoValorRevision] = React.useState(false);
+
   // Sincronizar con cambios en la orden (cuando vuelves de otra fase)
   // NOTA: No incluir valor_revision en las dependencias para evitar que se borre mientras se edita
   useEffect(() => {
@@ -150,10 +154,6 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   // Estado temporal para el input de precio de envío (mientras se edita)
   const [precioEnvioInput, setPrecioEnvioInput] = React.useState('');
   const [editandoPrecioEnvio, setEditandoPrecioEnvio] = React.useState(false);
-
-  // Estado temporal para el input de valor de revisión (mientras se edita)
-  const [valorRevisionInput, setValorRevisionInput] = React.useState('');
-  const [editandoValorRevision, setEditandoValorRevision] = React.useState(false);
 
   // Lista de técnicos (con caché)
   const [tecnicos, setTecnicos] = useState<any[]>(() => {
