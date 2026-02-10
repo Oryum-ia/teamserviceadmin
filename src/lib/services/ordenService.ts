@@ -249,17 +249,20 @@ export async function obtenerOrdenesPaginadas({
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Iniciar query
+  // Determinar si necesitamos hacer la relación equipo como inner join
+  const needsEquipoInner = !!(filters.serial || filters.marca || filters.modelo || filters.equipo);
+
+  // Iniciar query con o sin inner join en equipo según los filtros
   let query = supabase
     .from("ordenes")
     .select(`
       *,
       cliente:clientes!inner(*), 
-      equipo:equipos(
+      equipo:equipos${needsEquipoInner ? '!inner' : ''}(
         *,
-        modelo:modelos(
+        modelo:modelos${(filters.marca || filters.modelo) ? '!inner' : ''}(
           *,
-          marca:marcas(*)
+          marca:marcas${filters.marca ? '!inner' : ''}(*)
         )
       )
     `, { count: 'exact' });
@@ -273,13 +276,34 @@ export async function obtenerOrdenesPaginadas({
   if (filters.identificacion) {
     console.log('🔎 Aplicando filtro identificacion:', filters.identificacion);
     // Filtrar por ID de cliente en relación
-     query = query.ilike('cliente.identificacion', `%${filters.identificacion}%`);
+     query = query.ilike('clientes.identificacion', `%${filters.identificacion}%`);
   }
   
   if (filters.cliente) {
     console.log('🔎 Aplicando filtro cliente:', filters.cliente);
      // Filtro en tabla relacionada clientes
      query = query.or(`razon_social.ilike.%${filters.cliente}%,nombre_comercial.ilike.%${filters.cliente}%`, { foreignTable: 'clientes' });
+  }
+
+  // Filtros en tabla equipos - usar foreignTable para evitar conflictos con aliases
+  if (filters.serial) {
+    console.log('🔎 Aplicando filtro serial:', filters.serial);
+    query = query.ilike('equipos.serie_pieza', `%${filters.serial}%`);
+  }
+
+  if (filters.equipo) {
+    console.log('🔎 Aplicando filtro equipo (tipo):', filters.equipo);
+    query = query.ilike('equipos.tipo_equipo', `%${filters.equipo}%`);
+  }
+
+  if (filters.modelo) {
+    console.log('🔎 Aplicando filtro modelo:', filters.modelo);
+    query = query.ilike('equipos.modelos.equipo', `%${filters.modelo}%`);
+  }
+
+  if (filters.marca) {
+    console.log('🔎 Aplicando filtro marca:', filters.marca);
+    query = query.ilike('equipos.modelos.marcas.nombre', `%${filters.marca}%`);
   }
 
   // Filtro de fase
@@ -323,42 +347,11 @@ export async function obtenerOrdenesPaginadas({
   
   const sedesPorEmail: Record<string, string> = {};
   
-  let processedData = data?.map(orden => processOrderData(orden, sedesPorEmail)) || [];
-  
-  // Aplicar filtros client-side para campos anidados (serial, marca, modelo, equipo)
-  // Esto es necesario porque PostgREST no soporta filtros en relaciones anidadas profundas
-  if (filters.serial || filters.marca || filters.modelo || filters.equipo) {
-    console.log('🔎 Aplicando filtros client-side para campos anidados');
-    processedData = processedData.filter(orden => {
-      let matches = true;
-      
-      if (filters.serial && matches) {
-        const serial = orden.serial?.toLowerCase() || '';
-        matches = serial.includes(filters.serial.toLowerCase());
-      }
-      
-      if (filters.marca && matches) {
-        const marca = orden.marca?.toLowerCase() || '';
-        matches = marca.includes(filters.marca.toLowerCase());
-      }
-      
-      if (filters.modelo && matches) {
-        const modelo = orden.modelo?.toLowerCase() || '';
-        matches = modelo.includes(filters.modelo.toLowerCase());
-      }
-      
-      if (filters.equipo && matches) {
-        const equipo = orden.tipo_producto?.toLowerCase() || '';
-        matches = equipo.includes(filters.equipo.toLowerCase());
-      }
-      
-      return matches;
-    });
-  }
+  const processedData = data?.map(orden => processOrderData(orden, sedesPorEmail)) || [];
   
   return { 
     data: processedData, 
-    count: processedData.length // Ajustar count si se filtra client-side
+    count: count || 0
   };
 }
 

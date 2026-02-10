@@ -888,7 +888,7 @@ export default function OrdenesNuevo() {
           </div>
 
           {/* Paginación */}
-          {totalPages > 1 && (
+          {totalPages >= 1 && (
             <div className="mt-6 flex items-center justify-between">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}

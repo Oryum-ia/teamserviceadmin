@@ -105,6 +105,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   });
 
   // Sincronizar con cambios en la orden (cuando vuelves de otra fase)
+  // NOTA: No incluir valor_revision en las dependencias para evitar que se borre mientras se edita
   useEffect(() => {
     console.log('🔄 Sincronizando CotizacionForm con orden:', {
       tipo_orden: orden.tipo_orden,
@@ -113,14 +114,16 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       ultima_actualizacion: orden.ultima_actualizacion
     });
 
-    setFormData({
+    setFormData(prev => ({
+      ...prev,
       tipo: orden.cotizacion?.tipo || orden.tipo_orden || 'Reparación',
       comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
       tecnico_reparacion_id: orden.tecnico_repara || '',
       precio_envio: orden.precio_envio || 0,
-      valor_revision: orden.valor_revision || 0
-    });
-  }, [orden.tipo_orden, orden.tecnico_repara, orden.precio_envio, orden.valor_revision, orden.ultima_actualizacion, orden.comentarios_cotizacion]);
+      // Solo actualizar valor_revision si no está siendo editado
+      valor_revision: editandoValorRevision ? prev.valor_revision : (orden.valor_revision || 0)
+    }));
+  }, [orden.tipo_orden, orden.tecnico_repara, orden.precio_envio, orden.ultima_actualizacion, orden.comentarios_cotizacion, editandoValorRevision]);
 
   // ============================================================================
   // FORCE FRESH DATA ON ORDER CHANGE (F5 refresh)
