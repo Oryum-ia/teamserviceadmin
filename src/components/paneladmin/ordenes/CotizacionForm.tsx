@@ -108,6 +108,28 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   const [valorRevisionInput, setValorRevisionInput] = React.useState('');
   const [editandoValorRevision, setEditandoValorRevision] = React.useState(false);
 
+  // Guardar valor_revision y precio_envio automáticamente en BD al cambiar
+  const guardarCampoOrden = async (campo: string, valor: number) => {
+    try {
+      const { supabase } = await import('@/lib/supabaseClient');
+      const { error } = await supabase
+        .from('ordenes')
+        .update({
+          [campo]: valor,
+          ultima_actualizacion: crearTimestampColombia()
+        })
+        .eq('id', orden.id);
+      if (error) {
+        console.error(`❌ Error al guardar ${campo}:`, error);
+      } else {
+        console.log(`✅ ${campo} guardado automáticamente:`, valor);
+        updateOrdenFields({ [campo]: valor });
+      }
+    } catch (error) {
+      console.error(`Error al guardar ${campo}:`, error);
+    }
+  };
+
   // Sincronizar con cambios en la orden (cuando vuelves de otra fase)
   // SOLO sincronizar campos que NO se editan localmente con debounce
   // NO incluir ultima_actualizacion para evitar sobreescribir datos mientras se editan
@@ -1267,6 +1289,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                         setFormData({ ...formData, valor_revision: valor });
                         setEditandoValorRevision(false);
                         setValorRevisionInput('');
+                        guardarCampoOrden('valor_revision', valor);
                       }}
                       disabled={!puedeEditarCamposCotizacion}
                       placeholder="$0"
@@ -1300,6 +1323,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                         setFormData({ ...formData, precio_envio: valor });
                         setEditandoPrecioEnvio(false);
                         setPrecioEnvioInput('');
+                        guardarCampoOrden('precio_envio', valor);
                       }}
                       disabled={!puedeEditarCamposCotizacion}
                       placeholder="$0"
@@ -1370,6 +1394,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                         setFormData({ ...formData, valor_revision: valor });
                         setEditandoValorRevision(false);
                         setValorRevisionInput('');
+                        guardarCampoOrden('valor_revision', valor);
                       }}
                       disabled={!puedeEditarCamposCotizacion}
                       placeholder="$0"
@@ -1402,6 +1427,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                         setFormData({ ...formData, precio_envio: valor });
                         setEditandoPrecioEnvio(false);
                         setPrecioEnvioInput('');
+                        guardarCampoOrden('precio_envio', valor);
                       }}
                       disabled={!puedeEditarCamposCotizacion}
                       placeholder="$0"

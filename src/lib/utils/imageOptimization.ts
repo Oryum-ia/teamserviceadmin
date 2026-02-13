@@ -1,6 +1,6 @@
 /**
  * Utilidades para optimización de imágenes de Supabase Storage
- * Usa la API de transformación de imágenes de Supabase
+ * Usa el proxy /api/storage/imagen-thumb que comprime con sharp en el servidor
  */
 
 interface ImageTransformOptions {
@@ -11,10 +11,11 @@ interface ImageTransformOptions {
 }
 
 /**
- * Transforma una URL de Supabase Storage para usar renderizado optimizado
- * Ejemplo:
- * - Original: https://xxx.supabase.co/storage/v1/object/public/bucket/path.jpg
- * - Optimizada: https://xxx.supabase.co/storage/v1/render/image/public/bucket/path.jpg?width=400&quality=75
+ * Genera URL optimizada usando el proxy del servidor con sharp.
+ * El proxy descarga la imagen original, la redimensiona y comprime a WebP.
+ * Resultado: imágenes de 3-15KB en vez de 400KB+.
+ * 
+ * Si la URL no es de Supabase o es un video, devuelve sin cambios.
  */
 export function optimizeSupabaseImageUrl(
   url: string,
@@ -23,7 +24,7 @@ export function optimizeSupabaseImageUrl(
   if (!url) return url;
 
   // Si no es una URL de Supabase Storage, devolver sin cambios
-  if (!url.includes('supabase.co/storage/v1/object/public/')) {
+  if (!url.includes('supabase') && !url.includes('storage')) {
     return url;
   }
 
@@ -33,77 +34,45 @@ export function optimizeSupabaseImageUrl(
   }
 
   try {
-    // Convertir de /object/public/ a /render/image/public/
-    const optimizedUrl = url.replace(
-      '/storage/v1/object/public/',
-      '/storage/v1/render/image/public/'
-    );
-
-    // Construir query params
-    const params = new URLSearchParams();
-
-    if (options.width) {
-      params.append('width', options.width.toString());
-    }
-
-    if (options.height) {
-      params.append('height', options.height.toString());
-    }
-
-    if (options.quality) {
-      params.append('quality', options.quality.toString());
-    }
-
-    if (options.format) {
-      params.append('format', options.format);
-    }
-
-    // Si no hay parámetros, devolver URL sin transformar
-    if (params.toString() === '') {
-      return url;
-    }
-
-    // Agregar parámetros a la URL
-    return `${optimizedUrl}?${params.toString()}`;
+    const w = options.width || 400;
+    const q = options.quality || 60;
+    return `/api/storage/imagen-thumb?url=${encodeURIComponent(url)}&w=${w}&q=${q}`;
   } catch (error) {
     console.error('Error al optimizar URL de imagen:', error);
-    return url; // Fallback a URL original
+    return url;
   }
 }
 
 /**
  * Genera URL optimizada para miniaturas (thumbnails)
- * Usada en grids y listas
+ * Usada en grids y listas — 400px, calidad 50
  */
 export function getThumbnailUrl(url: string): string {
   return optimizeSupabaseImageUrl(url, {
     width: 400,
-    quality: 75,
-    format: 'webp'
+    quality: 50,
   });
 }
 
 /**
  * Genera URL optimizada para vista previa (medium)
- * Usada en lightbox en móvil
+ * Usada en lightbox en móvil — 800px, calidad 70
  */
 export function getPreviewUrl(url: string): string {
   return optimizeSupabaseImageUrl(url, {
-    width: 1280,
-    quality: 85,
-    format: 'webp'
+    width: 800,
+    quality: 70,
   });
 }
 
 /**
  * Genera URL optimizada para vista completa (large)
- * Usada en lightbox en desktop
+ * Usada en lightbox en desktop — 1200px, calidad 80
  */
 export function getFullUrl(url: string): string {
   return optimizeSupabaseImageUrl(url, {
-    width: 1920,
-    quality: 90,
-    format: 'webp'
+    width: 1200,
+    quality: 80,
   });
 }
 

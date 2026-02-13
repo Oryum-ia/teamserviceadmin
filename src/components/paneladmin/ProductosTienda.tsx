@@ -10,6 +10,7 @@ import { obtenerTodasLasCategorias, type Categoria } from '@/lib/services/catego
 import { obtenerTodasLasMarcas, type Marca } from '@/lib/services/marcaService';
 import ProductoTiendaModal from './ProductoTiendaModal';
 import ResponsiveTable, { TableColumn, TableAction } from './ResponsiveTable';
+import { getThumbnailUrl } from '@/lib/utils/imageOptimization';
 
 export default function ProductosTienda() {
   const { theme } = useTheme();
@@ -190,7 +191,7 @@ export default function ProductosTienda() {
         return primeraImagen ? (
           <div className="relative">
             <img
-              src={primeraImagen}
+              src={getThumbnailUrl(primeraImagen)}
               alt={producto.nombre}
               className="w-16 h-16 object-cover rounded-lg"
             />
