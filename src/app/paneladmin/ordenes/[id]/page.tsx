@@ -45,6 +45,8 @@ import {
   isOrdenInLocalStorage
 } from '@/lib/ordenLocalStorage';
 import { crearTimestampColombia } from '@/lib/utils/dateUtils';
+import { generarPDFOrden, ProgressCallback } from '@/lib/services/pdfOrdenService';
+import { FileDown } from 'lucide-react';
 
 const FASES = [
   { id: 'recepcion', label: 'Recepción', icon: FileText, step: 0 },
@@ -76,6 +78,9 @@ export default function OrdenDetallePage() {
   const [isProcesingAction, setIsProcesingAction] = useState(false);
   const [isIniciandoFase, setIsIniciandoFase] = useState(false);
   const [isGuardando, setIsGuardando] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState<{ visible: boolean; mensaje: string; porcentaje: number }>({
+    visible: false, mensaje: '', porcentaje: 0
+  });
 
   // Obtener ID del técnico actual
   const obtenerTecnicoActual = async () => {
@@ -1569,6 +1574,36 @@ export default function OrdenDetallePage() {
                             : 'bg-gray-800 border-gray-700'
                             }`}>
                             <div className="py-1">
+                              {/* Generar PDF */}
+                              <button
+                                onClick={async () => {
+                                  setShowAccionesMenu(false);
+                                  setPdfProgress({ visible: true, mensaje: 'Iniciando...', porcentaje: 0 });
+                                  try {
+                                    const onProgress: ProgressCallback = (mensaje, porcentaje) => {
+                                      setPdfProgress({ visible: true, mensaje, porcentaje });
+                                    };
+                                    await generarPDFOrden(orden, onProgress);
+                                    toast.success('PDF generado exitosamente');
+                                  } catch (error) {
+                                    console.error('Error al generar PDF:', error);
+                                    toast.error('Error al generar el PDF. Revisa la consola para más detalles.');
+                                  } finally {
+                                    setTimeout(() => setPdfProgress({ visible: false, mensaje: '', porcentaje: 0 }), 1500);
+                                  }
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${theme === 'light'
+                                  ? 'hover:bg-blue-50 text-blue-700'
+                                  : 'hover:bg-blue-900/20 text-blue-400'
+                                  }`}
+                              >
+                                <FileDown className="w-4 h-4" />
+                                Generar PDF
+                              </button>
+
+                              <div className={`my-1 border-t ${theme === 'light' ? 'border-gray-200' : 'border-gray-700'
+                                }`} />
+
                               {/* Retroceder fase */}
                               {puedeRetroceder() && (
                                 <button
@@ -2100,6 +2135,29 @@ export default function OrdenDetallePage() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de progreso PDF */}
+      {pdfProgress.visible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className={`w-80 rounded-xl shadow-2xl p-6 ${theme === 'light' ? 'bg-white' : 'bg-gray-800'}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className={`w-5 h-5 animate-spin ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`} />
+              <h3 className={`text-sm font-semibold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                Generando PDF
+              </h3>
+            </div>
+            <div className={`w-full h-2 rounded-full overflow-hidden mb-3 ${theme === 'light' ? 'bg-gray-200' : 'bg-gray-700'}`}>
+              <div
+                className="h-full rounded-full bg-blue-500 transition-all duration-300 ease-out"
+                style={{ width: `${pdfProgress.porcentaje}%` }}
+              />
+            </div>
+            <p className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+              {pdfProgress.mensaje}
+            </p>
           </div>
         </div>
       )}

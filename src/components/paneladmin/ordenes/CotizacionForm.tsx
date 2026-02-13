@@ -109,25 +109,34 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   const [editandoValorRevision, setEditandoValorRevision] = React.useState(false);
 
   // Sincronizar con cambios en la orden (cuando vuelves de otra fase)
-  // NOTA: No incluir valor_revision en las dependencias para evitar que se borre mientras se edita
+  // SOLO sincronizar campos que NO se editan localmente con debounce
+  // NO incluir ultima_actualizacion para evitar sobreescribir datos mientras se editan
   useEffect(() => {
-    console.log('🔄 Sincronizando CotizacionForm con orden:', {
+    console.log('🔄 Sincronizando CotizacionForm con orden (solo campos no-editables localmente):', {
       tipo_orden: orden.tipo_orden,
       tecnico_repara: orden.tecnico_repara,
-      precio_envio: orden.precio_envio,
-      ultima_actualizacion: orden.ultima_actualizacion
     });
 
     setFormData(prev => ({
       ...prev,
       tipo: orden.cotizacion?.tipo || orden.tipo_orden || 'Reparación',
-      comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
       tecnico_reparacion_id: orden.tecnico_repara || '',
-      precio_envio: orden.precio_envio || 0,
-      // Solo actualizar valor_revision si no está siendo editado
-      valor_revision: editandoValorRevision ? prev.valor_revision : (orden.valor_revision || 0)
     }));
-  }, [orden.tipo_orden, orden.tecnico_repara, orden.precio_envio, orden.ultima_actualizacion, orden.comentarios_cotizacion, editandoValorRevision]);
+  }, [orden.tipo_orden, orden.tecnico_repara]);
+
+  // Sincronizar comentarios SOLO cuando cambia el ID de la orden (navegación entre órdenes)
+  const prevOrdenIdRef = React.useRef(orden.id);
+  useEffect(() => {
+    if (prevOrdenIdRef.current !== orden.id) {
+      prevOrdenIdRef.current = orden.id;
+      setFormData(prev => ({
+        ...prev,
+        comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
+        precio_envio: orden.precio_envio || 0,
+        valor_revision: orden.valor_revision || 0,
+      }));
+    }
+  }, [orden.id, orden.comentarios_cotizacion, orden.precio_envio, orden.valor_revision]);
 
   // ============================================================================
   // FORCE FRESH DATA ON ORDER CHANGE (F5 refresh)
@@ -150,6 +159,19 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const comentariosTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [guardandoComentarios, setGuardandoComentarios] = React.useState(false);
+
+  // ============================================================================
+  // REFS para evitar stale closures en debounce y cleanup
+  // ============================================================================
+  const repuestosRef = React.useRef<Repuesto[]>(repuestos);
+  const formDataRef = React.useRef(formData);
+  const tecnicoCotizaIdRef = React.useRef(tecnicoCotizaId);
+  const isSavingRef = React.useRef(false);
+  const hasPendingSaveRef = React.useRef(false);
+
+  React.useEffect(() => { repuestosRef.current = repuestos; }, [repuestos]);
+  React.useEffect(() => { formDataRef.current = formData; }, [formData]);
+  React.useEffect(() => { tecnicoCotizaIdRef.current = tecnicoCotizaId; }, [tecnicoCotizaId]);
 
   // Estado temporal para el input de precio de envío (mientras se edita)
   const [precioEnvioInput, setPrecioEnvioInput] = React.useState('');
@@ -342,36 +364,82 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   // ============================================================================
 
   /**
-   * Saves spare parts to database with 5-second debounce
+   * Saves spare parts to database with 3-second debounce
+   * Uses refs to always access the latest state
    * NO localStorage to ensure data consistency across users
    */
   const guardarConDebounce = (nuevosRepuestos: Repuesto[]) => {
+    hasPendingSaveRef.current = true;
     // Limpiar timeout anterior
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // Crear nuevo timeout de 5 segundos
+    // Crear nuevo timeout de 3 segundos
     saveTimeoutRef.current = setTimeout(async () => {
-      const totalesCalculados = calcularTotalesConRepuestos(nuevosRepuestos);
-      await guardarRepuestosCotizacion(orden.id, nuevosRepuestos, totalesCalculados);
-      console.log('💾 Repuestos guardados en BD (sin caché local)');
-    }, 5000);
+      await flushRepuestos();
+    }, 3000);
   };
 
-  // Limpiar timeouts al desmontar
+  /**
+   * Flush: guarda repuestos inmediatamente usando refs (nunca stale)
+   */
+  const flushRepuestos = async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    try {
+      const currentRepuestos = repuestosRef.current;
+      const totalesCalculados = calcularTotalesConRepuestos(currentRepuestos);
+      await guardarRepuestosCotizacion(orden.id, currentRepuestos, totalesCalculados);
+      hasPendingSaveRef.current = false;
+      console.log('💾 Repuestos guardados en BD (flush)');
+    } catch (error) {
+      console.error('❌ Error al guardar repuestos (flush):', error);
+    } finally {
+      isSavingRef.current = false;
+    }
+  };
+
+  // Flush de datos pendientes y limpiar timeouts al desmontar
   React.useEffect(() => {
     return () => {
+      // Flush repuestos pendientes
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
+      if (hasPendingSaveRef.current) {
+        const currentRepuestos = repuestosRef.current;
+        const totalesCalculados = calcularTotalesConRepuestos(currentRepuestos);
+        guardarRepuestosCotizacion(orden.id, currentRepuestos, totalesCalculados)
+          .then(() => console.log('💾 Flush de repuestos al desmontar'))
+          .catch(err => console.error('❌ Error flush repuestos al desmontar:', err));
+      }
+      // Flush comentarios pendientes
       if (comentariosTimeoutRef.current) {
         clearTimeout(comentariosTimeoutRef.current);
+        const currentComentarios = formDataRef.current.comentarios;
+        if (currentComentarios !== undefined) {
+          (async () => {
+            try {
+              const { supabase } = await import('@/lib/supabaseClient');
+              await supabase
+                .from('ordenes')
+                .update({
+                  comentarios_cotizacion: currentComentarios,
+                  ultima_actualizacion: crearTimestampColombia()
+                })
+                .eq('id', orden.id);
+              console.log('💾 Flush de comentarios al desmontar');
+            } catch (err) {
+              console.error('❌ Error flush comentarios al desmontar:', err);
+            }
+          })();
+        }
       }
     };
-  }, []);
+  }, [orden.id]);
 
-  // Guardar comentarios con debounce de 3 segundos
+  // Guardar comentarios con debounce de 2 segundos (usa ref para valor actual)
   const guardarComentariosConDebounce = (comentarios: string) => {
     if (comentariosTimeoutRef.current) {
       clearTimeout(comentariosTimeoutRef.current);
@@ -380,26 +448,39 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     comentariosTimeoutRef.current = setTimeout(async () => {
       try {
         setGuardandoComentarios(true);
+        const currentComentarios = formDataRef.current.comentarios;
         const { supabase } = await import('@/lib/supabaseClient');
-        await supabase
+        const { error } = await supabase
           .from('ordenes')
           .update({
-            comentarios_cotizacion: comentarios,
+            comentarios_cotizacion: currentComentarios,
             ultima_actualizacion: crearTimestampColombia()
           })
           .eq('id', orden.id);
+        if (error) {
+          console.error('❌ Error al guardar comentarios:', error);
+          // Reintento una vez
+          await new Promise(r => setTimeout(r, 1000));
+          await supabase
+            .from('ordenes')
+            .update({
+              comentarios_cotizacion: formDataRef.current.comentarios,
+              ultima_actualizacion: crearTimestampColombia()
+            })
+            .eq('id', orden.id);
+        }
         console.log('✅ Comentarios de cotización guardados automáticamente');
       } catch (error) {
         console.error('Error al guardar comentarios:', error);
       } finally {
         setGuardandoComentarios(false);
       }
-    }, 3000);
+    }, 2000);
   };
 
   // Guardar datos sin validaciones (solo para botón Guardar)
+  // Usa REFS para siempre tener los datos más actuales (sin stale closures)
   React.useEffect(() => {
-    // Agregar función al objeto orden para que pueda ser llamada desde page.tsx
     if (orden && typeof window !== 'undefined') {
       (window as any).guardarDatosCotizacion = async () => {
         try {
@@ -407,35 +488,48 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
           if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
           }
+          if (comentariosTimeoutRef.current) {
+            clearTimeout(comentariosTimeoutRef.current);
+          }
+
+          const currentFormData = formDataRef.current;
+          const currentRepuestos = repuestosRef.current;
+          const currentTecnicoCotiza = tecnicoCotizaIdRef.current;
 
           const { supabase } = await import('@/lib/supabaseClient');
 
-          // Guardar datos básicos de la orden (sin validaciones)
           const updateData: any = {
-            tipo_orden: formData.tipo || 'Reparación',
-            tecnico_repara: formData.tecnico_reparacion_id || null,
-            tecnico_cotiza: tecnicoCotizaId || null,
-            precio_envio: formData.precio_envio || 0,
-            valor_revision: formData.valor_revision || 0,
-            comentarios_cotizacion: formData.comentarios || '',
-            total: calcularTotalesConRepuestos(repuestos).total,
+            tipo_orden: currentFormData.tipo || 'Reparación',
+            tecnico_repara: currentFormData.tecnico_reparacion_id || null,
+            tecnico_cotiza: currentTecnicoCotiza || null,
+            precio_envio: currentFormData.precio_envio || 0,
+            valor_revision: currentFormData.valor_revision || 0,
+            comentarios_cotizacion: currentFormData.comentarios || '',
+            total: calcularTotalesConRepuestos(currentRepuestos).total,
             ultima_actualizacion: crearTimestampColombia()
           };
 
-          await supabase
+          const { error } = await supabase
             .from('ordenes')
             .update(updateData)
             .eq('id', orden.id);
 
-          // Guardar repuestos inmediatamente en BD (sin caché)
-          const totalesCalculados = calcularTotalesConRepuestos(repuestos);
-          await guardarRepuestosCotizacion(orden.id, repuestos, totalesCalculados);
+          if (error) {
+            console.error('❌ Error al guardar orden, reintentando...', error);
+            await new Promise(r => setTimeout(r, 1000));
+            await supabase.from('ordenes').update(updateData).eq('id', orden.id);
+          }
+
+          // Guardar repuestos inmediatamente en BD
+          const totalesCalculados = calcularTotalesConRepuestos(currentRepuestos);
+          await guardarRepuestosCotizacion(orden.id, currentRepuestos, totalesCalculados);
 
           // Actualizar localStorage de orden
           updateOrdenFields(updateData);
+          hasPendingSaveRef.current = false;
 
           console.log('✅ Datos de cotización guardados (sin validaciones):', updateData);
-          console.log('✅ Repuestos guardados:', repuestos.length);
+          console.log('✅ Repuestos guardados:', currentRepuestos.length);
 
           return updateData;
         } catch (error) {
@@ -445,13 +539,12 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       };
     }
 
-    // Cleanup: eliminar la función de window al desmontar
     return () => {
       if (typeof window !== 'undefined') {
         delete (window as any).guardarDatosCotizacion;
       }
     };
-  }, [formData, orden?.id, repuestos, tecnicoCotizaId]);
+  }, [orden?.id]);
 
   const agregarRepuesto = () => {
     const nuevosRepuestos = [...repuestos, {
