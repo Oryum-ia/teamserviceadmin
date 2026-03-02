@@ -1498,6 +1498,13 @@ export default function OrdenDetallePage() {
     );
   }
 
+  const productoNombre = (() => {
+    const marca = orden?.equipo?.modelo?.marca?.nombre || '';
+    const modelo = orden?.equipo?.modelo?.equipo || '';
+    const nombreCompleto = `${marca} ${modelo}`.trim();
+    return nombreCompleto || orden?.tipo_producto || 'No especificado';
+  })();
+
   const faseId = mapEstadoAFase(orden.estado_actual);
   const currentPhaseStep = FASES.find(f => f.id === faseId)?.step || 0;
 
@@ -1730,7 +1737,7 @@ export default function OrdenDetallePage() {
               <span className={`text-gray-400`}>•</span>
               <p className={`truncate max-w-[200px] sm:max-w-none ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                 }`}>
-                <span className="font-medium">Producto:</span> <span className="font-semibold">{orden.equipo?.modelo ? `${orden.equipo.modelo.marca?.nombre || ''} ${orden.equipo.modelo.equipo}` : orden.tipo_producto || 'No especificado'}</span>
+                <span className="font-medium">Producto:</span> <span className="font-semibold">{productoNombre}</span>
               </p>
               <span className={`text-gray-400`}>•</span>
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${orden.estado_actual === 'Bodega'
