@@ -319,12 +319,12 @@ export default function Pagos() {
           <h1 className={`text-2xl sm:text-3xl font-bold mb-2 ${
             theme === 'light' ? 'text-gray-900' : 'text-white'
           }`}>
-            Pagos Bold
+            Pedidos
           </h1>
           <p className={`text-sm ${
             theme === 'light' ? 'text-gray-600' : 'text-gray-400'
           }`}>
-            Gestiona las órdenes de pago de la tienda online
+            Gestiona los pedidos de compra de la tienda online
           </p>
         </div>
 
@@ -518,7 +518,7 @@ export default function Pagos() {
         actions={getActions}
         onRowClick={handleRowClick}
         isLoading={isLoading}
-        emptyMessage="No se encontraron órdenes de pago"
+        emptyMessage="No se encontraron pedidos"
       />
 
       {/* Paginación */}

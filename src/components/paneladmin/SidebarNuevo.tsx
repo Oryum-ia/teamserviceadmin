@@ -120,7 +120,7 @@ const menuItems: SidebarMenuItem[] = [
         key: 'admin-tienda-cupones',
       },
       {
-        name: 'Pagos Bold',
+        name: 'Pedidos',
         icon: DollarSign,
         key: 'pagos',
       },

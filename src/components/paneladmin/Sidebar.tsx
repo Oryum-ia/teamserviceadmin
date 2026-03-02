@@ -106,7 +106,7 @@ const menuItems = [
     key: 'hojas-de-vida',
   },
   {
-    name: 'Pagos Bold',
+    name: 'Pedidos',
     icon: DollarSign,
     href: '/paneladmin/pagos',
     key: 'pagos',

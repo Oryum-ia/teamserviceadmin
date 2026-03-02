@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Store, BellRing, CheckCheck } from 'lucide-react';
+import { Store, Bell, BellRing } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext'; // Use same context for now?
 import { NotificationModal } from './NotificationModal';
 import { NotificationListModal } from './NotificationListModal';
@@ -74,7 +74,11 @@ export function StoreNotificationBell() {
                         }`}
                     title="Notificaciones de Tienda"
                 >
-                    <Store className="h-6 w-6" />
+                    {hasUnread ? (
+                        <BellRing className="h-6 w-6" />
+                    ) : (
+                        <Bell className="h-6 w-6" />
+                    )}
 
                     {hasUnread && (
                         <span className="absolute -top-1 -right-1 h-5 w-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-bounce">
