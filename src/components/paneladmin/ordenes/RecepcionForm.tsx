@@ -30,6 +30,12 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
 
   const [fotos, setFotos] = useState<string[]>(orden.fotos_recepcion || []);
   const [subiendoFotos, setSubiendoFotos] = useState(false);
+
+  const accesoriosRef = React.useRef<Accesorio[]>(accesorios);
+  const fotosRef = React.useRef<string[]>(fotos);
+
+  React.useEffect(() => { accesoriosRef.current = accesorios; }, [accesorios]);
+  React.useEffect(() => { fotosRef.current = fotos; }, [fotos]);
   
   // Sincronizar con cambios en la orden (para actualizar términos y firma en tiempo real)
   const [terminosAceptados, setTerminosAceptados] = useState(orden.terminos_aceptados || false);
@@ -57,6 +63,60 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
       setFotos(orden.fotos_recepcion);
     }
   }, [orden.id, orden.fotos_recepcion]);
+
+  // Exponer función global de guardado explícito (botón Guardar en barra superior)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    (window as any).guardarDatosRecepcion = async () => {
+      try {
+        const { supabase } = await import('@/lib/supabaseClient');
+        const { actualizarFotosRecepcion } = await import('@/lib/services/imagenService');
+
+        const accesoriosActuales = accesoriosRef.current;
+        const fotosActuales = fotosRef.current;
+        const now = crearTimestampColombia();
+
+        await ejecutarConReintentos(
+          async () => {
+            const { error } = await supabase
+              .from('ordenes')
+              .update({
+                esta_accesorios: accesoriosActuales,
+                ultima_actualizacion: now
+              })
+              .eq('id', orden.id);
+
+            if (error) throw error;
+          },
+          3,
+          'guardar recepción (accesorios)'
+        );
+
+        await guardarFotosConReintentos(orden.id, fotosActuales, 'recepcion', actualizarFotosRecepcion);
+
+        updateOrdenFields({
+          esta_accesorios: accesoriosActuales,
+          fotos_recepcion: fotosActuales,
+          ultima_actualizacion: now
+        } as any);
+
+        console.log('✅ Recepción guardada exitosamente');
+        return {
+          esta_accesorios: accesoriosActuales,
+          fotos_recepcion: fotosActuales,
+          ultima_actualizacion: now
+        };
+      } catch (error) {
+        console.error('❌ Error al guardar recepción:', error);
+        throw error;
+      }
+    };
+
+    return () => {
+      delete (window as any).guardarDatosRecepcion;
+    };
+  }, [orden.id]);
 
   // Cargar accesorios del modelo al montar el componente
   React.useEffect(() => {

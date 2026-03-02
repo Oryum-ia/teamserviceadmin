@@ -268,7 +268,7 @@ export default function ComentarioModal({ isOpen, onClose, onSuccess, comentario
                 <p className={`text-xs mt-1 ${
                   theme === 'light' ? 'text-gray-500' : 'text-gray-500'
                 }`}>
-                  {new Date(comentario.created_at).toLocaleString('es-CO')}
+                  {new Date(comentario.created_at).toLocaleString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             )}

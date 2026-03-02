@@ -21,6 +21,23 @@ interface Repuesto {
   pieza_causante: string;
 }
 
+const normalizarRepuesto = (item: any): Repuesto => ({
+  codigo: typeof item?.codigo === 'string' ? item.codigo : '',
+  descripcion: typeof item?.descripcion === 'string' ? item.descripcion : '',
+  cantidad:
+    typeof item?.cantidad === 'number' || typeof item?.cantidad === 'string'
+      ? item.cantidad
+      : '1',
+  pieza_causante: typeof item?.pieza_causante === 'string' ? item.pieza_causante : ''
+});
+
+const normalizarListaRepuestos = (items: unknown): Repuesto[] => {
+  if (!Array.isArray(items)) return [];
+  return items
+    .filter(item => item && typeof item === 'object')
+    .map(normalizarRepuesto);
+};
+
 interface DiagnosticoFormProps {
   orden: any;
   onSuccess: () => void;
@@ -134,7 +151,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       
       try {
         // Primero intentar cargar repuestos guardados
-        const repuestosGuardados = await obtenerRepuestosDiagnostico(orden.id);
+        const repuestosGuardados = normalizarListaRepuestos(await obtenerRepuestosDiagnostico(orden.id));
         
         if (repuestosGuardados && repuestosGuardados.length > 0) {
           console.log('✅ Repuestos guardados encontrados:', repuestosGuardados.length);
@@ -155,12 +172,12 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
         console.log('✅ Repuestos del modelo recibidos:', repuestosModelo);
         
         if (repuestosModelo && repuestosModelo.length > 0) {
-          const repuestosMapeados = repuestosModelo.map((r: any) => ({
+          const repuestosMapeados = normalizarListaRepuestos(repuestosModelo.map((r: any) => ({
             codigo: r.codigo || '',
             descripcion: r.descripcion || '',
             cantidad: r.cantidad || 1,
             pieza_causante: r.causante || ''
-          }));
+          })));
           setRepuestos(repuestosMapeados);
           // Guardar inmediatamente los repuestos del modelo
           await guardarRepuestosDiagnostico(orden.id, repuestosMapeados);
@@ -338,6 +355,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
   };
 
   const actualizarRepuesto = (index: number, campo: keyof Repuesto, valor: any) => {
+    if (!repuestosRef.current[index]) return;
     const nuevosRepuestos = [...repuestosRef.current];
     nuevosRepuestos[index] = { ...nuevosRepuestos[index], [campo]: valor };
     setRepuestos(nuevosRepuestos);
@@ -357,7 +375,8 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
     if (validos.length === 0) return;
 
     setSubiendoFotos(true);
-    const fotosAnteriores = [...fotos];
+    const fotosActuales = [...fotosRef.current];
+    const fotosAnteriores = [...fotosActuales];
     
     try {
       console.log(`📤 Subiendo ${validos.length} archivo(s) de diagnóstico...`);
@@ -365,8 +384,9 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       const urls = await subirMultiplesImagenes(orden.id, validos, 'diagnostico');
       console.log(`✅ ${urls.length} archivo(s) subido(s) al storage`);
       
-      const nuevasFotos = [...fotos, ...urls];
+      const nuevasFotos = [...fotosActuales, ...urls];
       setFotos(nuevasFotos);
+      fotosRef.current = nuevasFotos;
       
       // Guardar en BD con reintentos
       await guardarFotosConReintentos(orden.id, nuevasFotos, 'diagnostico', actualizarFotosDiagnostico);
@@ -379,18 +399,21 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       console.error('❌ Error al subir fotos:', error);
       toast.error('Error al subir las fotos. Por favor, intente nuevamente.');
       setFotos(fotosAnteriores);
+      fotosRef.current = fotosAnteriores;
     } finally {
       setSubiendoFotos(false);
     }
   };
 
   const handleEliminarFoto = async (url: string, index: number) => {
-    const fotosAnteriores = [...fotos];
+    const fotosActuales = [...fotosRef.current];
+    const fotosAnteriores = [...fotosActuales];
     try {
       console.log(`🗑️ Eliminando foto ${index + 1} de diagnóstico...`);
       
-      const nuevasFotos = fotos.filter((_, i) => i !== index);
+      const nuevasFotos = fotosActuales.filter((_, i) => i !== index);
       setFotos(nuevasFotos);
+      fotosRef.current = nuevasFotos;
       
       // Intentar eliminar del storage
       try {
@@ -411,6 +434,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       console.error('❌ Error al eliminar foto:', error);
       toast.error('Error al eliminar la foto. Por favor, intente nuevamente.');
       setFotos(fotosAnteriores);
+      fotosRef.current = fotosAnteriores;
     }
   };
 

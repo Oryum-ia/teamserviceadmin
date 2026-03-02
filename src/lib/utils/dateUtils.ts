@@ -88,7 +88,7 @@ export function formatearFechaColombiaCorta(date: Date | string): string {
 }
 
 /**
- * Formato largo: "21 de noviembre de 2025, 3:30:00 PM"
+ * Formato largo: "21 de noviembre de 2025, 3:30 PM"
  */
 export function formatearFechaColombiaLarga(date: Date | string): string {
   return formatearFechaColombia(date, {
@@ -96,8 +96,7 @@ export function formatearFechaColombiaLarga(date: Date | string): string {
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
+    minute: '2-digit'
   });
 }
 

@@ -1,6 +1,32 @@
 import { supabase } from "@/lib/supabaseClient";
 import { crearTimestampColombia } from "@/lib/utils/dateUtils";
 
+type RepuestoDiagnostico = {
+  codigo: string;
+  descripcion: string;
+  cantidad: string | number;
+  pieza_causante?: string;
+};
+
+function normalizarRepuestoDiagnostico(item: any): RepuestoDiagnostico {
+  return {
+    codigo: typeof item?.codigo === 'string' ? item.codigo : '',
+    descripcion: typeof item?.descripcion === 'string' ? item.descripcion : '',
+    cantidad:
+      typeof item?.cantidad === 'number' || typeof item?.cantidad === 'string'
+        ? item.cantidad
+        : '1',
+    pieza_causante: typeof item?.pieza_causante === 'string' ? item.pieza_causante : ''
+  };
+}
+
+function normalizarListaRepuestosDiagnostico(repuestos: unknown): RepuestoDiagnostico[] {
+  if (!Array.isArray(repuestos)) return [];
+  return repuestos
+    .filter(item => item && typeof item === 'object')
+    .map(normalizarRepuestoDiagnostico);
+}
+
 /**
  * Obtener todos los repuestos
  */
@@ -151,17 +177,14 @@ export async function eliminarRepuesto(id: string) {
  */
 export async function guardarRepuestosDiagnostico(
   ordenId: string,
-  repuestos: Array<{
-    codigo: string;
-    descripcion: string;
-    cantidad: string | number;
-    pieza_causante?: string;
-  }>
+  repuestos: RepuestoDiagnostico[]
 ) {
+  const repuestosNormalizados = normalizarListaRepuestosDiagnostico(repuestos);
+
   const { error } = await supabase
     .from("ordenes")
     .update({
-      repuestos_diagnostico: repuestos,
+      repuestos_diagnostico: repuestosNormalizados,
       ultima_actualizacion: crearTimestampColombia()
     })
     .eq("id", ordenId);
@@ -171,7 +194,7 @@ export async function guardarRepuestosDiagnostico(
     throw error;
   }
 
-  console.log("✅ Repuestos de diagnóstico guardados");
+  console.log("✅ Repuestos de diagnóstico guardados", repuestosNormalizados.length);
   return true;
 }
 
@@ -202,7 +225,15 @@ export async function obtenerRepuestosDiagnostico(ordenId: string | number) {
       return [];
     }
 
-    return data?.repuestos_diagnostico || [];
+    const repuestosCrudos = data?.repuestos_diagnostico;
+
+    // Tolerar payloads inesperados para evitar romper el formulario en cliente
+    if (repuestosCrudos && !Array.isArray(repuestosCrudos)) {
+      console.warn("⚠️ repuestos_diagnostico con formato inválido. Se normaliza a array vacío.");
+      return [];
+    }
+
+    return normalizarListaRepuestosDiagnostico(repuestosCrudos);
   } catch (err) {
     console.error("❌ Error inesperado al obtener repuestos de diagnóstico:", err);
     return [];

@@ -261,12 +261,12 @@ export default function CuponModal({ isOpen, onClose, onSuccess, cupon }: CuponM
                     {cupon.fecha_uso && (
                       <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
                         <span className="font-medium">Fecha de uso:</span>{' '}
-                        {new Date(cupon.fecha_uso).toLocaleString('es-CO')}
+                        {new Date(cupon.fecha_uso).toLocaleString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                     <p className={theme === 'light' ? 'text-gray-600' : 'text-gray-400'}>
                       <span className="font-medium">Creado:</span>{' '}
-                      {new Date(cupon.created_at).toLocaleString('es-CO')}
+                      {new Date(cupon.created_at).toLocaleString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>

@@ -11,6 +11,7 @@ import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
 import { FirmaDisplay } from '@/components/FirmaPad';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
+import { ejecutarConReintentos, guardarFotosConReintentos, validarArchivos } from '@/lib/utils/saveHelpers';
 
 interface EntregaFormProps {
   orden: any;
@@ -25,6 +26,11 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
   // Fotos de entrega
   const [fotos, setFotos] = useState<string[]>(orden.fotos_entrega || []);
   const [subiendoFotos, setSubiendoFotos] = useState(false);
+  const fotosRef = React.useRef<string[]>(fotos);
+
+  React.useEffect(() => {
+    fotosRef.current = fotos;
+  }, [fotos]);
 
   // Sincronizar fotos cuando cambia la orden
   useEffect(() => {
@@ -140,6 +146,17 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
     comentarios_cliente: (orden.entrega?.comentarios_cliente ?? orden.comentarios_cliente) || ''
   });
 
+  const formDataRef = React.useRef(formData);
+  const tecnicoEntregaIdRef = React.useRef(tecnicoEntregaId);
+
+  React.useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
+  React.useEffect(() => {
+    tecnicoEntregaIdRef.current = tecnicoEntregaId;
+  }, [tecnicoEntregaId]);
+
   useEffect(() => {
     const tipoEntrega = orden.entrega?.tipo_entrega
       ? orden.entrega.tipo_entrega
@@ -174,46 +191,58 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
     (window as any).guardarDatosEntrega = async () => {
       try {
         console.log('💾 Guardando datos de entrega...');
-        
+
+        const currentFotos = fotosRef.current;
+        const currentFormData = formDataRef.current;
+        const currentTecnicoEntregaId = tecnicoEntregaIdRef.current;
+
         // Guardar fotos si hay cambios pendientes
-        if (fotos.length > 0) {
-          console.log(`📸 Verificando guardado de ${fotos.length} fotos de entrega`);
-          await actualizarFotosEntrega(orden.id, fotos);
-        }
+        console.log(`📸 Verificando guardado de ${currentFotos.length} fotos de entrega`);
+        await guardarFotosConReintentos(orden.id, currentFotos, 'entrega', actualizarFotosEntrega);
 
         // Guardar campos de fecha y técnico
         const { supabase } = await import('@/lib/supabaseClient');
         const camposActualizacion: any = {
-          tecnico_entrega: tecnicoEntregaId,
+          tecnico_entrega: currentTecnicoEntregaId || null,
           ultima_actualizacion: crearTimestampColombia()
         };
 
         // Solo actualizar fechas si tienen valores
-        if (formData.fecha_entrega) {
-          const iso = convertirDatetimeLocalColombiaAUTC(formData.fecha_entrega);
+        if (currentFormData.fecha_entrega) {
+          const iso = convertirDatetimeLocalColombiaAUTC(currentFormData.fecha_entrega);
           camposActualizacion.fecha_entrega = iso;
         }
 
-        if (formData.fecha_proximo_mantenimiento) {
-          const fechaISO = `${formData.fecha_proximo_mantenimiento}T00:00:00`;
+        if (currentFormData.fecha_proximo_mantenimiento) {
+          const fechaISO = `${currentFormData.fecha_proximo_mantenimiento}T00:00:00`;
           const fechaUTC = convertirDatetimeLocalColombiaAUTC(fechaISO);
           camposActualizacion.fecha_proximo_mantenimiento = fechaUTC;
         }
 
-        const { error } = await supabase
-          .from('ordenes')
-          .update(camposActualizacion)
-          .eq('id', orden.id);
+        await ejecutarConReintentos(
+          async () => {
+            const { error } = await supabase
+              .from('ordenes')
+              .update(camposActualizacion)
+              .eq('id', orden.id);
+            if (error) throw error;
+          },
+          3,
+          'guardar campos de entrega'
+        );
 
-        if (error) throw error;
+        updateOrdenFields({
+          ...camposActualizacion,
+          fotos_entrega: currentFotos
+        } as any);
 
         console.log('✅ Datos de entrega guardados exitosamente');
         
         return {
-          tipo_entrega: formData.tipo_entrega,
-          fecha_entrega: formData.fecha_entrega,
-          fecha_proximo_mantenimiento: formData.fecha_proximo_mantenimiento,
-          tecnico_entrega: tecnicoEntregaId
+          tipo_entrega: currentFormData.tipo_entrega,
+          fecha_entrega: currentFormData.fecha_entrega,
+          fecha_proximo_mantenimiento: currentFormData.fecha_proximo_mantenimiento,
+          tecnico_entrega: currentTecnicoEntregaId
         };
       } catch (error) {
         console.error('❌ Error al guardar datos de entrega:', error);
@@ -224,7 +253,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
     return () => {
       delete (window as any).guardarDatosEntrega;
     };
-  }, [formData, tecnicoEntregaId, fotos, orden.id]);
+  }, [orden.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -234,26 +263,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
 
-    // Validar archivos
-    const MAX_SIZE = 300 * 1024 * 1024; // 300MB
-    const archivosValidos: File[] = [];
-    const archivosInvalidos: string[] = [];
-
-    files.forEach(file => {
-      // Validar tipo
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        archivosInvalidos.push(`${file.name} (Tipo no válido)`);
-        return;
-      }
-      
-      // Validar tamaño
-      if (file.size > MAX_SIZE) {
-        archivosInvalidos.push(`${file.name} (Excede 300MB)`);
-        return;
-      }
-
-      archivosValidos.push(file);
-    });
+    const { validos: archivosValidos, invalidos: archivosInvalidos } = validarArchivos(files);
 
     if (archivosInvalidos.length > 0) {
       toast.error(`Algunos archivos no se pudieron subir:\n${archivosInvalidos.join('\n')}`);
@@ -262,6 +272,8 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
     if (archivosValidos.length === 0) return;
 
     setSubiendoFotos(true);
+    const fotosActuales = [...fotosRef.current];
+    const fotosAnteriores = [...fotosActuales];
     try {
       console.log(`📤 Subiendo ${archivosValidos.length} archivo(s)...`);
       
@@ -270,35 +282,11 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
       console.log(`✅ ${urls.length} archivo(s) subido(s) al storage`);
       
       // Actualizar estado local
-      const nuevasFotos = [...fotos, ...urls];
+      const nuevasFotos = [...fotosActuales, ...urls];
       setFotos(nuevasFotos);
+      fotosRef.current = nuevasFotos;
 
-      // Guardar en la base de datos con reintentos
-      let intentos = 0;
-      const maxIntentos = 3;
-      let guardadoExitoso = false;
-
-      while (intentos < maxIntentos && !guardadoExitoso) {
-        try {
-          intentos++;
-          console.log(`💾 Intento ${intentos}/${maxIntentos} de guardar fotos en BD...`);
-          
-          await actualizarFotosEntrega(orden.id, nuevasFotos);
-          guardadoExitoso = true;
-          console.log('✅ Fotos guardadas en BD exitosamente');
-        } catch (error) {
-          console.error(`❌ Error en intento ${intentos}:`, error);
-          
-          if (intentos < maxIntentos) {
-            // Esperar antes de reintentar (backoff exponencial)
-            const espera = Math.min(1000 * Math.pow(2, intentos - 1), 5000);
-            console.log(`⏳ Esperando ${espera}ms antes de reintentar...`);
-            await new Promise(resolve => setTimeout(resolve, espera));
-          } else {
-            throw new Error('No se pudo guardar las fotos después de varios intentos');
-          }
-        }
-      }
+      await guardarFotosConReintentos(orden.id, nuevasFotos, 'entrega', actualizarFotosEntrega);
 
       // Actualizar localStorage
       updateOrdenFields({ fotos_entrega: nuevasFotos } as any);
@@ -310,22 +298,23 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
       
       // Revertir cambios en el estado local si falló el guardado
       // (las fotos ya están en storage pero no en BD)
-      setFotos(fotos);
+      setFotos(fotosAnteriores);
+      fotosRef.current = fotosAnteriores;
     } finally {
       setSubiendoFotos(false);
     }
   };
 
   const handleEliminarFoto = async (url: string, index: number) => {
+    const fotosActuales = [...fotosRef.current];
+    const fotosAnteriores = [...fotosActuales];
     try {
       console.log(`🗑️ Eliminando foto ${index + 1}...`);
       
-      // Guardar estado anterior por si necesitamos revertir
-      const fotosAnteriores = [...fotos];
-      
       // Actualizar estado local primero (optimistic update)
-      const nuevasFotos = fotos.filter((_, i) => i !== index);
+      const nuevasFotos = fotosActuales.filter((_, i) => i !== index);
       setFotos(nuevasFotos);
+      fotosRef.current = nuevasFotos;
 
       // Intentar eliminar del storage
       try {
@@ -336,32 +325,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
         // Continuar de todos modos para actualizar la BD
       }
 
-      // Actualizar en la base de datos con reintentos
-      let intentos = 0;
-      const maxIntentos = 3;
-      let guardadoExitoso = false;
-
-      while (intentos < maxIntentos && !guardadoExitoso) {
-        try {
-          intentos++;
-          console.log(`💾 Intento ${intentos}/${maxIntentos} de actualizar BD...`);
-          
-          await actualizarFotosEntrega(orden.id, nuevasFotos);
-          guardadoExitoso = true;
-          console.log('✅ BD actualizada exitosamente');
-        } catch (error) {
-          console.error(`❌ Error en intento ${intentos}:`, error);
-          
-          if (intentos < maxIntentos) {
-            const espera = Math.min(1000 * Math.pow(2, intentos - 1), 5000);
-            await new Promise(resolve => setTimeout(resolve, espera));
-          } else {
-            // Si falló después de todos los intentos, revertir cambios
-            setFotos(fotosAnteriores);
-            throw new Error('No se pudo actualizar la base de datos');
-          }
-        }
-      }
+      await guardarFotosConReintentos(orden.id, nuevasFotos, 'entrega', actualizarFotosEntrega);
 
       // Actualizar localStorage
       updateOrdenFields({ fotos_entrega: nuevasFotos } as any);
@@ -370,6 +334,8 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
     } catch (error) {
       console.error('❌ Error al eliminar foto:', error);
       toast.error('Error al eliminar la foto. Por favor, intente nuevamente.');
+      setFotos(fotosAnteriores);
+      fotosRef.current = fotosAnteriores;
     }
   };
 
@@ -801,7 +767,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
               {fechaFirmaEntrega && (
                 <p className={`text-sm mt-2 ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'
                   }`}>
-                  Fecha de firma: {new Date(fechaFirmaEntrega).toLocaleString('es-CO')}
+                  Fecha de firma: {new Date(fechaFirmaEntrega).toLocaleString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </p>
               )}
             </div>

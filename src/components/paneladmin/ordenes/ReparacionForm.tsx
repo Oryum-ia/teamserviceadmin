@@ -84,6 +84,21 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
     comentarios: orden.comentarios_reparacion || ''
   });
 
+  const formDataRef = React.useRef(formData);
+  const selectedTecnicoIdRef = React.useRef(selectedTecnicoId);
+  const fotosRef = React.useRef(fotos);
+
+  React.useEffect(() => { formDataRef.current = formData; }, [formData]);
+  React.useEffect(() => { selectedTecnicoIdRef.current = selectedTecnicoId; }, [selectedTecnicoId]);
+  React.useEffect(() => { fotosRef.current = fotos; }, [fotos]);
+
+  // Sincronizar estado local cuando llegan cambios remotos/locales de la orden
+  React.useEffect(() => {
+    setFormData({ comentarios: orden.comentarios_reparacion || '' });
+    setFotos(Array.isArray(orden.fotos_reparacion) ? orden.fotos_reparacion : []);
+    setSelectedTecnicoId(orden.tecnico_repara || '');
+  }, [orden.id, orden.comentarios_reparacion, orden.fotos_reparacion, orden.tecnico_repara]);
+
   // Guardar datos sin validaciones (solo para botón Guardar)
   React.useEffect(() => {
     (window as any).guardarDatosReparacion = async () => {
@@ -95,17 +110,31 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
         
         const { supabase } = await import('@/lib/supabaseClient');
         
+        const currentFormData = formDataRef.current;
+        const currentTecnicoId = selectedTecnicoIdRef.current;
+        const currentFotos = fotosRef.current;
+
         // Guardar datos básicos (sin validaciones)
         const updateData = {
-          tecnico_repara: selectedTecnicoId || null,
-          comentarios_reparacion: formData.comentarios || '',
+          tecnico_repara: currentTecnicoId || null,
+          comentarios_reparacion: currentFormData.comentarios || '',
           ultima_actualizacion: crearTimestampColombia()
         };
-        
-        await supabase
-          .from('ordenes')
-          .update(updateData)
-          .eq('id', orden.id);
+
+        await ejecutarConReintentos(
+          async () => {
+            const { error } = await supabase
+              .from('ordenes')
+              .update(updateData)
+              .eq('id', orden.id);
+            if (error) throw error;
+          },
+          3,
+          'guardar datos de reparación'
+        );
+
+        await guardarFotosConReintentos(orden.id, currentFotos, 'reparacion', actualizarFotosReparacion);
+        updateOrdenFields({ ...updateData, fotos_reparacion: currentFotos } as any);
         
         console.log('✅ Datos de reparación guardados (sin validaciones):', updateData);
         
@@ -119,7 +148,7 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
     return () => {
       delete (window as any).guardarDatosReparacion;
     };
-  }, [selectedTecnicoId, formData.comentarios, orden.id]);
+  }, [orden.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -136,13 +165,21 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
       try {
         setGuardandoComentarios(true);
         const { supabase } = await import('@/lib/supabaseClient');
-        await supabase
-          .from('ordenes')
-          .update({ 
-            comentarios_reparacion: comentarios,
-            ultima_actualizacion: crearTimestampColombia()
-          })
-          .eq('id', orden.id);
+        const comentarioActual = formDataRef.current.comentarios;
+        await ejecutarConReintentos(
+          async () => {
+            const { error } = await supabase
+              .from('ordenes')
+              .update({
+                comentarios_reparacion: comentarioActual,
+                ultima_actualizacion: crearTimestampColombia()
+              })
+              .eq('id', orden.id);
+            if (error) throw error;
+          },
+          3,
+          'autoguardado comentarios reparación'
+        );
         console.log('✅ Comentarios de reparación guardados automáticamente');
       } catch (error) {
         console.error('Error al guardar comentarios:', error);
@@ -157,9 +194,27 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
     return () => {
       if (comentariosTimeoutRef.current) {
         clearTimeout(comentariosTimeoutRef.current);
+        const currentComentarios = formDataRef.current.comentarios;
+        if (currentComentarios !== undefined) {
+          (async () => {
+            try {
+              const { supabase } = await import('@/lib/supabaseClient');
+              await supabase
+                .from('ordenes')
+                .update({
+                  comentarios_reparacion: currentComentarios,
+                  ultima_actualizacion: crearTimestampColombia()
+                })
+                .eq('id', orden.id);
+              console.log('💾 Flush de comentarios reparación al desmontar');
+            } catch (err) {
+              console.error('❌ Error flush comentarios reparación al desmontar:', err);
+            }
+          })();
+        }
       }
     };
-  }, []);
+  }, [orden.id]);
 
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
@@ -192,39 +247,51 @@ export default function ReparacionForm({ orden, onSuccess, faseIniciada = true }
     if (archivosValidos.length === 0) return;
 
     setSubiendoFotos(true);
+    const fotosActuales = [...fotosRef.current];
+    const fotosAnteriores = [...fotosActuales];
     try {
       const urls = await subirMultiplesImagenes(orden.id, archivosValidos, 'reparacion');
-      const nuevasFotos = [...fotos, ...urls];
+      const nuevasFotos = [...fotosActuales, ...urls];
       setFotos(nuevasFotos);
+      fotosRef.current = nuevasFotos;
 
-      // Guardar en la base de datos inmediatamente
-      await actualizarFotosReparacion(orden.id, nuevasFotos);
+      // Guardar en la base de datos inmediatamente con reintentos
+      await guardarFotosConReintentos(orden.id, nuevasFotos, 'reparacion', actualizarFotosReparacion);
+      updateOrdenFields({ fotos_reparacion: nuevasFotos } as any);
 
       toast.success(`${archivosValidos.length} archivo(s) subido(s) exitosamente`);
     } catch (error) {
       console.error('Error al subir archivos:', error);
       toast.error('Error al subir los archivos. Verifique su conexión.');
+      setFotos(fotosAnteriores);
+      fotosRef.current = fotosAnteriores;
     } finally {
       setSubiendoFotos(false);
     }
   };
 
   const handleEliminarFoto = async (url: string, index: number) => {
+    const fotosActuales = [...fotosRef.current];
+    const fotosAnteriores = [...fotosActuales];
     try {
       // Eliminar del storage
       await eliminarImagenOrden(url);
 
       // Actualizar estado local
-      const nuevasFotos = fotos.filter((_, i) => i !== index);
+      const nuevasFotos = fotosActuales.filter((_, i) => i !== index);
       setFotos(nuevasFotos);
+      fotosRef.current = nuevasFotos;
 
-      // Actualizar en la base de datos
-      await actualizarFotosReparacion(orden.id, nuevasFotos);
+      // Actualizar en la base de datos con reintentos
+      await guardarFotosConReintentos(orden.id, nuevasFotos, 'reparacion', actualizarFotosReparacion);
+      updateOrdenFields({ fotos_reparacion: nuevasFotos } as any);
 
       toast.success('Foto eliminada');
     } catch (error) {
       console.error('Error al eliminar foto:', error);
       toast.error('Error al eliminar la foto');
+      setFotos(fotosAnteriores);
+      fotosRef.current = fotosAnteriores;
     }
   };
 

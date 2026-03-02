@@ -874,40 +874,52 @@ export default function OrdenDetallePage() {
     setIsGuardando(true);
     try {
       const faseActual = FASES[currentStep].id;
+      let seGuardoEnFase = false;
 
       // Llamar a la función de guardar correspondiente según la fase
       switch (faseActual) {
         case 'recepcion':
-          // En recepción, los datos (accesorios y fotos) se guardan automáticamente
-          // Solo mostramos un mensaje de confirmación
+          if (typeof (window as any).guardarDatosRecepcion === 'function') {
+            await (window as any).guardarDatosRecepcion();
+            seGuardoEnFase = true;
+          }
           toast.success('Datos de recepción guardados');
           break;
         case 'diagnostico':
           if (typeof (window as any).guardarDatosDiagnostico === 'function') {
             await (window as any).guardarDatosDiagnostico();
+            seGuardoEnFase = true;
             toast.success('Datos de diagnóstico guardados');
           }
           break;
         case 'cotizacion':
           if (typeof (window as any).guardarDatosCotizacion === 'function') {
             await (window as any).guardarDatosCotizacion();
+            seGuardoEnFase = true;
             toast.success('Datos de cotización guardados');
           }
           break;
         case 'reparacion':
           if (typeof (window as any).guardarDatosReparacion === 'function') {
             await (window as any).guardarDatosReparacion();
+            seGuardoEnFase = true;
             toast.success('Datos de reparación guardados');
           }
           break;
         case 'entrega':
           if (typeof (window as any).guardarDatosEntrega === 'function') {
             await (window as any).guardarDatosEntrega();
+            seGuardoEnFase = true;
             toast.success('Datos de entrega guardados');
           }
           break;
         default:
           toast.info('No hay datos para guardar en esta fase');
+      }
+
+      if (seGuardoEnFase) {
+        // Refrescar siempre desde DB para que al cambiar de pestaña no se pierda el estado visual
+        await cargarOrden();
       }
     } catch (error) {
       console.error('Error al guardar datos de la fase:', error);

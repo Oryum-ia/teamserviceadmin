@@ -96,7 +96,7 @@ export default function Encuestas() {
       e.satisfaccion_general,
       e.recomendacion_puntuacion,
       e.comentarios || '',
-      new Date(e.fecha_creacion).toLocaleString()
+      new Date(e.fecha_creacion).toLocaleString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
     ]);
 
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
@@ -408,7 +408,7 @@ export default function Encuestas() {
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-gray-500" />
                     <span className={theme === 'light' ? 'text-gray-700' : 'text-gray-300'}>
-                      {new Date(selectedEncuesta.fecha_creacion).toLocaleString('es-ES')}
+                      {new Date(selectedEncuesta.fecha_creacion).toLocaleString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                 </div>

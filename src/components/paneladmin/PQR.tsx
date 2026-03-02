@@ -550,7 +550,7 @@ export default function PQRComponent() {
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-gray-500" />
                     <span className={theme === 'light' ? 'text-gray-700' : 'text-gray-300'}>
-                      {new Date(selectedPQR.fecha_creacion).toLocaleString('es-ES')}
+                      {new Date(selectedPQR.fecha_creacion).toLocaleString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                 </div>
@@ -597,7 +597,7 @@ export default function PQRComponent() {
                     <div className="flex items-center gap-2 mb-2">
                       <CheckCircle className="w-4 h-4 text-green-600" />
                       <span className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                        Respondido el {selectedPQR.fecha_respuesta && new Date(selectedPQR.fecha_respuesta).toLocaleString('es-ES')}
+                        Respondido el {selectedPQR.fecha_respuesta && new Date(selectedPQR.fecha_respuesta).toLocaleString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                     <p className={`whitespace-pre-wrap ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>

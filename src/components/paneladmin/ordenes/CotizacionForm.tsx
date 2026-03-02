@@ -131,34 +131,35 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   };
 
   // Sincronizar con cambios en la orden (cuando vuelves de otra fase)
-  // SOLO sincronizar campos que NO se editan localmente con debounce
-  // NO incluir ultima_actualizacion para evitar sobreescribir datos mientras se editan
+  // Incluye campos persistidos para evitar que desaparezcan visualmente al remount del formulario.
   useEffect(() => {
-    console.log('🔄 Sincronizando CotizacionForm con orden (solo campos no-editables localmente):', {
+    console.log('🔄 Sincronizando CotizacionForm con orden:', {
       tipo_orden: orden.tipo_orden,
+      comentarios_cotizacion: orden.comentarios_cotizacion,
       tecnico_repara: orden.tecnico_repara,
+      tecnico_cotiza: orden.tecnico_cotiza,
+      precio_envio: orden.precio_envio,
+      valor_revision: orden.valor_revision,
     });
 
     setFormData(prev => ({
       ...prev,
       tipo: orden.cotizacion?.tipo || orden.tipo_orden || 'Reparación',
+      comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
       tecnico_reparacion_id: orden.tecnico_repara || '',
+      precio_envio: orden.precio_envio || 0,
+      valor_revision: orden.valor_revision || 0,
     }));
-  }, [orden.tipo_orden, orden.tecnico_repara]);
-
-  // Sincronizar comentarios SOLO cuando cambia el ID de la orden (navegación entre órdenes)
-  const prevOrdenIdRef = React.useRef(orden.id);
-  useEffect(() => {
-    if (prevOrdenIdRef.current !== orden.id) {
-      prevOrdenIdRef.current = orden.id;
-      setFormData(prev => ({
-        ...prev,
-        comentarios: orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '',
-        precio_envio: orden.precio_envio || 0,
-        valor_revision: orden.valor_revision || 0,
-      }));
-    }
-  }, [orden.id, orden.comentarios_cotizacion, orden.precio_envio, orden.valor_revision]);
+    setTecnicoCotizaId(orden.tecnico_cotiza || '');
+  }, [
+    orden.tipo_orden,
+    orden.comentarios_cotizacion,
+    orden.cotizacion?.comentarios,
+    orden.tecnico_repara,
+    orden.tecnico_cotiza,
+    orden.precio_envio,
+    orden.valor_revision
+  ]);
 
   // ============================================================================
   // FORCE FRESH DATA ON ORDER CHANGE (F5 refresh)
@@ -699,6 +700,14 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       const { supabase } = await import('@/lib/supabaseClient');
       const now = crearTimestampColombia();
 
+      // Cancelar debounces pendientes para asegurar persistencia inmediata
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      if (comentariosTimeoutRef.current) {
+        clearTimeout(comentariosTimeoutRef.current);
+      }
+
       // Preparar datos de actualización
       const updateData: any = {
         tipo_orden: formData.tipo,
@@ -716,6 +725,11 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
         .from('ordenes')
         .update(updateData)
         .eq('id', orden.id);
+
+      // Guardar repuestos inmediatamente para no perder cambios al navegar entre fases
+      const totalesCalculados = calcularTotalesConRepuestos(repuestosRef.current);
+      await guardarRepuestosCotizacion(orden.id, repuestosRef.current, totalesCalculados);
+      hasPendingSaveRef.current = false;
 
       // Actualizar localStorage
       updateOrdenFields(updateData);
