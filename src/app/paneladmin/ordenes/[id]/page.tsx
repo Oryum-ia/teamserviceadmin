@@ -82,6 +82,9 @@ export default function OrdenDetallePage() {
     visible: false, mensaje: '', porcentaje: 0
   });
 
+  // Ref para saber si la carga inicial ya se completó (evita pantallas de error en recargas)
+  const isInitialLoadDoneRef = React.useRef(false);
+
   // Obtener ID del técnico actual
   const obtenerTecnicoActual = async () => {
     try {
@@ -220,6 +223,26 @@ export default function OrdenDetallePage() {
     return FASES.find((f) => f.id === faseId)?.step || 0;
   };
 
+  // ============================================================================
+  // HELPERS: Actualización local sin recarga de DB
+  // ============================================================================
+
+  // Refresco silencioso en segundo plano: NUNCA muestra loading ni pantalla de error
+  const refrescarOrdenSilencioso = React.useCallback(async () => {
+    const id = lastOrdenIdRef.current;
+    if (!id || !isMountedRef.current) return;
+    try {
+      const data = await obtenerOrdenPorId(id);
+      if (isMountedRef.current && data) {
+        setOrden(data);
+        saveOrdenToLocalStorage(data as any);
+        setCurrentStep(calcularStepDesdeOrden(data));
+      }
+    } catch (err) {
+      console.warn('⚠️ Refresco silencioso falló, se conservan datos locales:', err);
+    }
+  }, []);
+
   // Obtener el step máximo navegable basado en fase_anterior o estado_actual
   const getMaxStepNavegable = () => {
     if (!orden) return 0;
@@ -294,6 +317,12 @@ export default function OrdenDetallePage() {
 
   const cargarOrden = async () => {
     if (!ordenId) {
+      // Si ya tenemos una orden cargada, evitar romper la vista por un estado transitorio del parámetro
+      if (orden) {
+        console.warn('⚠️ ordenId no disponible temporalmente; se conserva la orden actual en pantalla');
+        setIsLoading(false);
+        return;
+      }
       setError('ID de orden inválido');
       setIsLoading(false);
       return;
@@ -319,6 +348,7 @@ export default function OrdenDetallePage() {
         setCurrentStep(calcularStepDesdeOrden(ordenLocal as any));
 
         setIsLoading(false);
+        isInitialLoadDoneRef.current = true;
 
         // Cargar desde Supabase en segundo plano para validar
         try {
@@ -378,6 +408,7 @@ export default function OrdenDetallePage() {
             saveOrdenToLocalStorage(dataApi as any);
             setCurrentStep(calcularStepDesdeOrden(dataApi));
             ordenCargada = true;
+            isInitialLoadDoneRef.current = true;
           }
         } else {
           const errorText = await response.text();
@@ -397,6 +428,7 @@ export default function OrdenDetallePage() {
             saveOrdenToLocalStorage(data as any);
             setCurrentStep(calcularStepDesdeOrden(data));
             ordenCargada = true;
+            isInitialLoadDoneRef.current = true;
           }
         } catch (supabaseError) {
           console.error('❌ Error al cargar desde Supabase:', supabaseError);
@@ -410,6 +442,13 @@ export default function OrdenDetallePage() {
     } catch (err: any) {
       console.error('❌ Error al cargar orden:', err);
       if (isMountedRef.current) {
+        // Si ya hay datos renderizados, mantenerlos y evitar pantalla de error por fallas temporales de recarga
+        if (orden) {
+          console.warn('⚠️ Se mantiene la orden en memoria tras fallo de recarga');
+          toast.warning('No se pudo refrescar la orden en este momento. Se conservan los datos actuales.');
+          return;
+        }
+
         // Mensaje de error más específico según el tipo de error
         let mensajeError = 'No fue posible cargar los detalles de esta orden.';
         
@@ -520,47 +559,31 @@ export default function OrdenDetallePage() {
             // Verificar nuevamente antes de recargar (operación async)
             if (!isMountedRef.current) return;
 
-            // Recargar la orden completa con todas las relaciones
-            try {
-              const ordenCompleta = await obtenerOrdenPorId(ordenId);
-              
-              // Verificar si sigue montado después de la operación async
-              if (!isMountedRef.current) {
-                console.log('⏭️ Ignorando actualización - componente desmontado');
-                return;
-              }
-
-              console.log('✅ Orden completa recargada:', {
-                id: ordenCompleta.id,
-                estado_actual: ordenCompleta.estado_actual,
-                aprobado_cliente: ordenCompleta.aprobado_cliente,
-                terminos_aceptados: ordenCompleta.terminos_aceptados,
-                firma_cliente: ordenCompleta.firma_cliente ? 'Sí tiene' : 'No tiene',
-                fecha_aceptacion: ordenCompleta.fecha_aceptacion_terminos,
-                fecha_firma: ordenCompleta.fecha_firma_cliente
-              });
-
-              // Actualizar estado de la orden
-              setOrden(ordenCompleta);
-              saveOrdenToLocalStorage(ordenCompleta);
-
-              // Actualizar el paso actual según el nuevo estado, respetando fase_anterior
-              const nuevoStep = calcularStepDesdeOrden(ordenCompleta);
-              setCurrentStep(nuevoStep);
-
-              console.log('📍 Vista actualizada al paso:', nuevoStep, '(', ordenCompleta.estado_actual, ')');
-            } catch (error) {
-              console.error('❌ Error recargando orden:', error);
-              // Fallback: usar solo los datos del payload
-              if (payload.new && isMountedRef.current) {
-                const nuevaOrden = payload.new as any;
-                setOrden(nuevaOrden);
-                saveOrdenToLocalStorage(nuevaOrden);
-
-                // Actualizar el paso actual respetando fase_anterior
-                const nuevoStep = calcularStepDesdeOrden(nuevaOrden);
+            // 1. Merge inmediato de los campos del payload (sin llamada de red)
+            if (payload.new && isMountedRef.current) {
+              setOrden((prev: any) => {
+                if (!prev) return prev;
+                const merged = { ...prev, ...payload.new };
+                saveOrdenToLocalStorage(merged);
+                const nuevoStep = calcularStepDesdeOrden(merged);
                 setCurrentStep(nuevoStep);
+                console.log('📍 Orden actualizada via realtime (merge):', merged.estado_actual);
+                return merged;
+              });
+            }
+
+            // 2. Refresco silencioso de fondo para obtener relaciones actualizadas
+            try {
+              const id = lastOrdenIdRef.current;
+              if (!id || !isMountedRef.current) return;
+              const ordenCompleta = await obtenerOrdenPorId(id);
+              if (isMountedRef.current && ordenCompleta) {
+                setOrden(ordenCompleta);
+                saveOrdenToLocalStorage(ordenCompleta as any);
+                setCurrentStep(calcularStepDesdeOrden(ordenCompleta));
               }
+            } catch (err) {
+              console.warn('⚠️ Refresco post-realtime falló, se conservan datos mergeados:', err);
             }
           }
         )
@@ -918,8 +941,12 @@ export default function OrdenDetallePage() {
       }
 
       if (seGuardoEnFase) {
-        // Refrescar siempre desde DB para que al cambiar de pestaña no se pierda el estado visual
-        await cargarOrden();
+        // Sincronizar estado React con localStorage (ya actualizado por los formularios)
+        // No hacemos recarga de DB para evitar errores transitorios
+        const ordenLocal = getOrdenFromLocalStorage();
+        if (ordenLocal && String(ordenLocal.id) === String(ordenId)) {
+          setOrden(ordenLocal);
+        }
       }
     } catch (error) {
       console.error('Error al guardar datos de la fase:', error);
@@ -1434,15 +1461,15 @@ export default function OrdenDetallePage() {
     // Los componentes usan useEffect para sincronizarse con los cambios de orden
     switch (FASES[currentStep].id) {
       case 'recepcion':
-        return <RecepcionForm orden={orden} onSuccess={cargarOrden} />;
+        return <RecepcionForm orden={orden} onSuccess={refrescarOrdenSilencioso} />;
       case 'diagnostico':
-        return <DiagnosticoForm orden={orden} onSuccess={cargarOrden} faseIniciada={faseIniciada} />;
+        return <DiagnosticoForm orden={orden} onSuccess={refrescarOrdenSilencioso} faseIniciada={faseIniciada} />;
       case 'cotizacion':
-        return <CotizacionForm orden={orden} onSuccess={cargarOrden} faseIniciada={faseIniciada} />;
+        return <CotizacionForm orden={orden} onSuccess={refrescarOrdenSilencioso} faseIniciada={faseIniciada} />;
       case 'reparacion':
-        return <ReparacionForm orden={orden} onSuccess={cargarOrden} faseIniciada={faseIniciada} />;
+        return <ReparacionForm orden={orden} onSuccess={refrescarOrdenSilencioso} faseIniciada={faseIniciada} />;
       case 'entrega':
-        return <EntregaForm orden={orden} onSuccess={cargarOrden} faseIniciada={faseIniciada} />;
+        return <EntregaForm orden={orden} onSuccess={refrescarOrdenSilencioso} faseIniciada={faseIniciada} />;
       default:
         return null;
     }

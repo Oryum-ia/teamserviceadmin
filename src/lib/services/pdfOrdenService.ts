@@ -687,7 +687,6 @@ function dibujarSeccionDiagnostico(doc: jsPDF, orden: OrdenPDF, y: number, image
     y += 5;
 
     const repuestosData = repuestosDiag.map(r => [
-      r.codigo || '-',
       r.descripcion || '-',
       String(r.cantidad || 1),
       r.pieza_causante || '-',
@@ -695,7 +694,7 @@ function dibujarSeccionDiagnostico(doc: jsPDF, orden: OrdenPDF, y: number, image
 
     autoTable(doc, {
       startY: y,
-      head: [['Código', 'Descripción', 'Cant.', 'Justificación']],
+      head: [['Descripción', 'Cant.', 'Justificación']],
       body: repuestosData,
       margin: { left: MARGIN, right: MARGIN },
       styles: { fontSize: 8, cellPadding: 2 },
@@ -707,8 +706,7 @@ function dibujarSeccionDiagnostico(doc: jsPDF, orden: OrdenPDF, y: number, image
       },
       alternateRowStyles: { fillColor: COLORS.rowAlt },
       columnStyles: {
-        0: { cellWidth: 25 },
-        2: { cellWidth: 15, halign: 'center' },
+        1: { cellWidth: 15, halign: 'center' },
       },
     });
 
