@@ -61,7 +61,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           orderInfo: {
             orderId: datosAdicionales.orden_id || '',
             orderNumber: datosAdicionales.numero_orden || '',
-            status: 'pending',
+            status: 'pending' as const,
             date: new Date(),
             description: `Términos aceptados por ${datosAdicionales.cliente_nombre || 'Cliente'}`
           },
@@ -76,7 +76,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           orderInfo: {
             orderId: datosAdicionales.orden_id || '',
             orderNumber: datosAdicionales.numero_orden || '',
-            status: 'completed',
+            status: 'completed' as const,
             date: new Date(),
             description: datosAdicionales.tecnico_nombre 
               ? `Completado por ${datosAdicionales.tecnico_nombre}`
@@ -85,6 +85,27 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           customerInfo: {
             customerId: '',
             name: datosAdicionales.cliente_nombre || '',
+          }
+        };
+      case 'pedido_nuevo':
+      case 'stock_bajo':
+      case 'producto_agotado':
+        return {
+          orderInfo: {
+            orderId: datosAdicionales.order_id || '',
+            orderNumber: datosAdicionales.order_id || '',
+            status: 'pending' as const,
+            amount: parseFloat(datosAdicionales.total) || 0,
+            currency: 'COP',
+            date: new Date(),
+            description: `Pedido de ${datosAdicionales.cliente_nombre || 'Cliente'}`
+          },
+          customerInfo: {
+            customerId: '',
+            name: datosAdicionales.cliente_nombre || '',
+            email: datosAdicionales.cliente_email || '',
+            phone: datosAdicionales.cliente_telefono || '',
+            address: datosAdicionales.ciudad || ''
           }
         };
       default:
