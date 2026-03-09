@@ -152,89 +152,28 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     loadNotifications();
 
-    // Suscribirse a cambios en tiempo real
-    // Suscribirse a cambios en tiempo real (COMENTADO POR PROBLEMAS DE WSS EN SERVIDOR)
-    /*
-    const channel = supabase
-      .channel('notificaciones_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notificaciones',
-        },
-        (payload) => {
-          const newNotification = mapSupabaseNotification(payload.new as any);
-          setNotifications((prev) => [newNotification, ...prev]);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notificaciones',
-        },
-        (payload) => {
-          const updatedNotification = mapSupabaseNotification(payload.new as any);
-          setNotifications((prev) => {
-            const exists = prev.some((notif) => notif.id === updatedNotification.id);
-            if (!exists) {
-              return [updatedNotification, ...prev];
-            }
+    const refreshNotifications = () => {
+      loadNotifications();
+    };
 
-            return prev.map((notif) =>
-              notif.id === updatedNotification.id ? updatedNotification : notif
-            );
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'notificaciones',
-        },
-        (payload) => {
-          const deletedId = (payload.old as any)?.id;
-          if (!deletedId) return;
-          setNotifications((prev) => prev.filter((notif) => notif.id !== deletedId));
-        }
-      )
-      .subscribe();
+    const intervalId = window.setInterval(refreshNotifications, 15000);
 
-    const ordenesChannel = supabase
-      .channel('ordenes_notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'ordenes',
-        },
-        (payload) => {
-          const newItem = payload.new as any;
-          const oldItem = payload.old as any;
+    window.addEventListener('focus', refreshNotifications);
 
-          if (newItem.terminos_aceptados === true && oldItem.terminos_aceptados !== true) {
-            console.log('🔔 Términos aceptados detectados en realtime - orden:', newItem.codigo);
-          }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshNotifications();
+      }
+    };
 
-          if (newItem.aprobado_cliente === false && oldItem.aprobado_cliente !== false) {
-            console.log('🔔 Rechazo de cotización detectado en realtime - orden:', newItem.codigo);
-          }
-        }
-      )
-      .subscribe();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(ordenesChannel);
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshNotifications);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-    */
-  }, [loadNotifications, mapSupabaseNotification]);
+  }, [loadNotifications]);
 
   const addNotification = useCallback((notificationData: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => {
     const newNotification: Notification = {
