@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Search, Eye, Trash2, Loader2, ChevronLeft, ChevronRight, Filter, DollarSign } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
@@ -16,6 +17,7 @@ import OrdenPagoModal from '@/components/paneladmin/OrdenPagoModal';
 export default function Pagos() {
   const { theme } = useTheme();
   const toast = useToast();
+  const searchParams = useSearchParams();
 
   
   // Estados de datos
@@ -51,6 +53,31 @@ export default function Pagos() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, filtroEstado, filtroMetodo]);
+
+  useEffect(() => {
+    const orderIdFromQuery = searchParams.get('orderId');
+
+    if (!orderIdFromQuery || ordenes.length === 0) {
+      return;
+    }
+
+    const ordenEncontrada = ordenes.find((orden) =>
+      orden.order_id === orderIdFromQuery || orden.id === orderIdFromQuery
+    );
+
+    if (!ordenEncontrada) {
+      return;
+    }
+
+    setSelectedOrden((prev) => {
+      if (prev?.id === ordenEncontrada.id) {
+        return prev;
+      }
+
+      return ordenEncontrada;
+    });
+    setIsModalOpen(true);
+  }, [ordenes, searchParams]);
 
   const cargarOrdenes = async () => {
     setIsLoading(true);

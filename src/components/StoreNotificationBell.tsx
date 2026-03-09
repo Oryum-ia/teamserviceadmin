@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { Store, Bell, BellRing } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Store, ShoppingCart } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext'; // Use same context for now?
 import { NotificationModal } from './NotificationModal';
 import { NotificationListModal } from './NotificationListModal';
@@ -12,6 +13,7 @@ import { useTheme } from './ThemeProvider';
 const STORE_NOTIFICATION_TYPES = ['pedido_nuevo', 'stock_bajo', 'producto_agotado'];
 
 export function StoreNotificationBell() {
+    const router = useRouter();
     const { notifications, getUnreadCount, markAsRead, markAllAsRead } = useNotifications();
     const { theme } = useTheme();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,8 +31,38 @@ export function StoreNotificationBell() {
     const unreadCount = storeNotifications.filter(n => !n.isRead).length;
     const hasUnread = unreadCount > 0;
 
+    const getOrderIdFromNotification = (notification: Notification) => {
+        return notification.data?.orderInfo?.orderId
+            || notification.referenciaId
+            || undefined;
+    };
+
+    const buildStoreActionButton = (notification: Notification) => {
+        if (notification.type !== 'pedido_nuevo') {
+            return notification.actionButton;
+        }
+
+        const orderId = getOrderIdFromNotification(notification);
+
+        return {
+            text: 'Ver pedido',
+            action: () => {
+                const params = new URLSearchParams({ section: 'pagos' });
+
+                if (orderId) {
+                    params.set('orderId', orderId);
+                }
+
+                router.push(`/paneladmin?${params.toString()}`);
+            }
+        };
+    };
+
     const handleNotificationClick = (notification: Notification) => {
-        setSelectedNotification(notification);
+        setSelectedNotification({
+            ...notification,
+            actionButton: buildStoreActionButton(notification)
+        });
         setIsModalOpen(true);
         setShowDropdown(false);
     };
@@ -75,9 +107,9 @@ export function StoreNotificationBell() {
                     title="Notificaciones de Tienda"
                 >
                     {hasUnread ? (
-                        <BellRing className="h-6 w-6" />
+                        <ShoppingCart className="h-6 w-6" />
                     ) : (
-                        <Bell className="h-6 w-6" />
+                        <ShoppingCart className="h-6 w-6" />
                     )}
 
                     {hasUnread && (

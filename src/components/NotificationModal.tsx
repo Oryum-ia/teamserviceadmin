@@ -90,8 +90,8 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead 
         ? 'border-purple-200 bg-purple-50' 
         : 'border-purple-800 bg-purple-900/20',
       default: theme === 'light' 
-        ? 'border-blue-200 bg-blue-50' 
-        : 'border-blue-800 bg-blue-900/20'
+        ? 'border-blue-200 bg-blue-50/80 backdrop-blur-md' 
+        : 'border-blue-500/30 bg-gray-900/60 backdrop-blur-md shadow-[0_0_15px_rgba(59,130,246,0.15)]'
     };
     
     return colorMap[type as keyof typeof colorMap] || colorMap.default;
@@ -122,10 +122,10 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead 
         }}
       >
         <div className={`
-          rounded-2xl border-2 shadow-2xl backdrop-blur-xl p-4 sm:p-6
+          rounded-2xl border shadow-2xl p-4 sm:p-6
           max-h-[80vh] overflow-y-auto
           ${getNotificationColor(notification.type)}
-          ${theme === 'light' ? '' : 'bg-dark-bg-secondary/95 text-white border-lime-400/20'}
+          ${theme === 'light' ? '' : 'text-white'}
         `}>
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
@@ -707,16 +707,16 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead 
 
           {/* Action Button */}
           {notification.actionButton && (
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-center w-full">
               <button
                 onClick={() => {
                   notification.actionButton?.action();
                   handleClose();
                 }}
-                className={`px-6 py-2 font-medium rounded-lg transition-colors ${
+                className={`w-full sm:w-auto px-8 py-3 font-semibold rounded-xl shadow-md transition-all duration-200 transform hover:scale-[1.02] ${
                   theme === 'light'
-                    ? 'bg-mint-600 hover:bg-mint-700 text-white'
-                    : 'bg-lime-400 hover:bg-lime-500 text-black font-bold'
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-900/50'
                 }`}
               >
                 {notification.actionButton.text}
@@ -725,13 +725,13 @@ export function NotificationModal({ notification, isOpen, onClose, onMarkAsRead 
           )}
 
           {/* Close button */}
-          <div className="mt-6 flex justify-center">
+          <div className="mt-4 flex justify-center">
             <button
               onClick={handleClose}
-              className={`px-8 py-2 font-medium rounded-lg transition-colors ${
+              className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${
                 theme === 'light'
-                  ? 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                  : 'bg-dark-bg-tertiary hover:bg-lime-400/10 text-white border border-lime-400/30 hover:border-lime-400/50'
+                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
               }`}
             >
               Cerrar

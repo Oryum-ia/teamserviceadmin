@@ -1,30 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY');
-  }
-
-  return createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-}
 
 /**
  * API Endpoint para notificar una compra de tienda
- * - Crea notificación de tipo 'pedido_nuevo' para la campanita de tienda
  * - Envía correo de confirmación al comprador
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabaseAdmin = getSupabaseAdmin();
     const data = await request.json();
 
     // Validar datos requeridos
@@ -39,43 +20,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🛒 Procesando notificación de compra:', data.orderId);
-
-    // 1. Crear notificación de pedido nuevo
-    const productosTexto = data.productos.map((p: any) => 
-      `${p.name} (x${p.quantity})`
-    ).join(', ');
-
-    const totalFormateado = new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0
-    }).format(data.total);
-
-    const { error: notifError } = await supabaseAdmin
-      .from('notificaciones')
-      .insert({
-        tipo: 'pedido_nuevo',
-        titulo: `🛒 Nuevo Pedido - ${data.orderId}`,
-        mensaje: `${data.clienteNombre} ha realizado un pedido por ${totalFormateado}. Productos: ${productosTexto}`,
-        leida: false,
-        referencia_id: data.ordenDbId || null,
-        referencia_tipo: 'orden_pago',
-        datos_adicionales: {
-          order_id: data.orderId,
-          cliente_nombre: data.clienteNombre,
-          cliente_email: data.clienteEmail,
-          cliente_telefono: data.clienteTelefono || '',
-          ciudad: data.ciudad || '',
-          total: data.total,
-          productos: data.productos
-        }
-      });
-
-    if (notifError) {
-      console.error('❌ Error creando notificación:', notifError);
-    } else {
-      console.log('✅ Notificación de pedido nuevo creada');
-    }
 
     // 2. Enviar correo de confirmación al comprador
     let emailSent = false;
@@ -103,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      notificationCreated: !notifError,
+      notificationCreated: false,
       emailSent
     });
 
