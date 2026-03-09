@@ -1,6 +1,18 @@
 import { supabase } from "@/lib/supabaseClient";
+import { compressMedia } from "@/lib/utils/media-compression.utils";
 
 const BUCKET_NAME = "ordenes-imagenes"; // Bucket para imágenes de órdenes
+const MAX_UPLOAD_CONCURRENCY = 2;
+const IMAGE_UPLOAD_COMPRESSION = {
+  maxSizeMB: 2.5,
+  maxWidthOrHeight: 1600,
+  quality: 0.72,
+} as const;
+const VIDEO_UPLOAD_COMPRESSION = {
+  maxSizeMB: 45,
+  maxWidthOrHeight: 1280,
+  quality: 0.75,
+} as const;
 
 function obtenerExtensionSegura(file: File): string {
   const nombre = file.name || "";
@@ -33,6 +45,24 @@ function obtenerExtensionSegura(file: File): string {
   return 'bin';
 }
 
+async function prepararArchivoParaSubida(file: File): Promise<File> {
+  if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+    return file;
+  }
+
+  try {
+    const options = file.type.startsWith('image/')
+      ? IMAGE_UPLOAD_COMPRESSION
+      : VIDEO_UPLOAD_COMPRESSION;
+
+    const { file: archivoOptimizado } = await compressMedia(file, options);
+    return archivoOptimizado;
+  } catch (error) {
+    console.warn("⚠️ No se pudo optimizar el archivo antes de subirlo. Se subirá el original.", error);
+    return file;
+  }
+}
+
 /**
  * Subir imagen de orden
  */
@@ -41,12 +71,13 @@ export async function subirImagenOrden(
   file: File,
   tipo: "recepcion" | "diagnostico" | "reparacion" | "entrega" = "diagnostico"
 ): Promise<string> {
-  const fileExt = obtenerExtensionSegura(file);
+  const fileToUpload = await prepararArchivoParaSubida(file);
+  const fileExt = obtenerExtensionSegura(fileToUpload);
   const fileName = `${ordenId}/${tipo}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
   const { data, error } = await supabase.storage
     .from(BUCKET_NAME)
-    .upload(fileName, file, {
+    .upload(fileName, fileToUpload, {
       cacheControl: "3600",
       upsert: false,
     });
@@ -56,7 +87,7 @@ export async function subirImagenOrden(
     
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileToUpload);
       formData.append('bucket', BUCKET_NAME);
       formData.append('path', fileName);
 
@@ -98,11 +129,17 @@ export async function subirMultiplesImagenes(
   files: File[],
   tipo: "recepcion" | "diagnostico" | "reparacion" | "entrega" = "diagnostico"
 ): Promise<string[]> {
-  const uploadPromises = files.map((file) =>
-    subirImagenOrden(ordenId, file, tipo)
-  );
+  const urls: string[] = [];
 
-  const urls = await Promise.all(uploadPromises);
+  for (let index = 0; index < files.length; index += MAX_UPLOAD_CONCURRENCY) {
+    const lote = files.slice(index, index + MAX_UPLOAD_CONCURRENCY);
+    const loteUrls = await Promise.all(
+      lote.map((file) => subirImagenOrden(ordenId, file, tipo))
+    );
+
+    urls.push(...loteUrls);
+  }
+
   return urls;
 }
 

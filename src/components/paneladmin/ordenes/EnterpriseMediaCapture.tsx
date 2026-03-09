@@ -129,11 +129,21 @@ export default function EnterpriseMediaCapture({
       // Compress if enabled
       if (autoCompress) {
         updateState({ isCompressing: true });
+
+        const compressionOptions = isVideo
+          ? {
+              maxSizeMB,
+              maxWidthOrHeight: capabilities?.isMobile ? 1280 : 1920,
+              quality: 0.8,
+            }
+          : {
+              maxSizeMB: capabilities?.isMobile ? 2.5 : Math.min(maxSizeMB, 4),
+              maxWidthOrHeight: capabilities?.isMobile ? 1600 : 1920,
+              quality: capabilities?.isMobile ? 0.72 : 0.78,
+            };
         
         compressionInfo = await compressMedia(file, {
-          maxSizeMB,
-          maxWidthOrHeight: capabilities?.isMobile ? 1280 : 1920,
-          quality: 0.8,
+          ...compressionOptions,
         });
 
         finalFile = compressionInfo.file;
