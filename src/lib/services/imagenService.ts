@@ -2,6 +2,37 @@ import { supabase } from "@/lib/supabaseClient";
 
 const BUCKET_NAME = "ordenes-imagenes"; // Bucket para imágenes de órdenes
 
+function obtenerExtensionSegura(file: File): string {
+  const nombre = file.name || "";
+  const indicePunto = nombre.lastIndexOf('.');
+  const extensionDesdeNombre = indicePunto > -1 ? nombre.slice(indicePunto + 1).trim().toLowerCase() : '';
+
+  if (extensionDesdeNombre) {
+    return extensionDesdeNombre;
+  }
+
+  const mime = (file.type || '').toLowerCase();
+  if (mime.startsWith('video/')) {
+    if (mime.includes('mp4')) return 'mp4';
+    if (mime.includes('webm')) return 'webm';
+    if (mime.includes('quicktime')) return 'mov';
+    if (mime.includes('x-matroska')) return 'mkv';
+    if (mime.includes('x-msvideo')) return 'avi';
+    return 'mp4';
+  }
+
+  if (mime.startsWith('image/')) {
+    if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+    if (mime.includes('png')) return 'png';
+    if (mime.includes('webp')) return 'webp';
+    if (mime.includes('heic')) return 'heic';
+    if (mime.includes('gif')) return 'gif';
+    return 'jpg';
+  }
+
+  return 'bin';
+}
+
 /**
  * Subir imagen de orden
  */
@@ -10,7 +41,7 @@ export async function subirImagenOrden(
   file: File,
   tipo: "recepcion" | "diagnostico" | "reparacion" | "entrega" = "diagnostico"
 ): Promise<string> {
-  const fileExt = file.name.split(".").pop();
+  const fileExt = obtenerExtensionSegura(file);
   const fileName = `${ordenId}/${tipo}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
   const { data, error } = await supabase.storage

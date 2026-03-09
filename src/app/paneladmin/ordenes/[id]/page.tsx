@@ -945,7 +945,21 @@ export default function OrdenDetallePage() {
         // No hacemos recarga de DB para evitar errores transitorios
         const ordenLocal = getOrdenFromLocalStorage();
         if (ordenLocal && String(ordenLocal.id) === String(ordenId)) {
-          setOrden(ordenLocal);
+          setOrden((prev: any) => {
+            if (!prev) {
+              return ordenLocal;
+            }
+
+            const ordenSincronizada = {
+              ...prev,
+              ...ordenLocal,
+              cliente: ordenLocal.cliente ?? prev.cliente,
+              equipo: ordenLocal.equipo ?? prev.equipo,
+            };
+
+            saveOrdenToLocalStorage(ordenSincronizada as any);
+            return ordenSincronizada;
+          });
         }
       }
     } catch (error) {
