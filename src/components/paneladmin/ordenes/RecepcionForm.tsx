@@ -34,6 +34,11 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
   const accesoriosRef = React.useRef<Accesorio[]>(accesorios);
   const fotosRef = React.useRef<string[]>(fotos);
 
+  const syncAccesorios = (items: Accesorio[]) => {
+    accesoriosRef.current = items;
+    setAccesorios(items);
+  };
+
   React.useEffect(() => { accesoriosRef.current = accesorios; }, [accesorios]);
   React.useEffect(() => { fotosRef.current = fotos; }, [fotos]);
   
@@ -135,7 +140,7 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
             nombre: acc.descripcion,
             estado: 'bueno' as EstadoAccesorio
           }));
-          setAccesorios(accesoriosConEstado);
+          syncAccesorios(accesoriosConEstado);
           // Guardar automáticamente (sin toast)
           await guardarAccesorios(accesoriosConEstado, { showToast: false });
         }
@@ -456,7 +461,7 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
                 onClick={() => {
                   if (!nuevoAccesorio.trim()) return;
                   const items = [...accesorios, { nombre: nuevoAccesorio.trim(), estado: 'bueno' as EstadoAccesorio }];
-                  setAccesorios(items);
+                  syncAccesorios(items);
                   setNuevoAccesorio('');
                   guardarAccesorios(items);
                 }}
@@ -486,11 +491,11 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
                         type="text"
                         value={acc.nombre}
                         onChange={(e) => {
-                          const items = [...accesorios];
+                          const items = [...accesoriosRef.current];
                           items[idx].nombre = e.target.value;
-                          setAccesorios(items);
+                          syncAccesorios(items);
                         }}
-                        onBlur={() => guardarAccesorios(accesorios)}
+                        onBlur={() => guardarAccesorios(accesoriosRef.current)}
                         disabled={!puedeEditar}
                         className={`w-full px-2 py-1 border rounded text-sm ${theme === 'light' ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'} disabled:opacity-50`}
                       />
@@ -500,7 +505,7 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
                         {(['bueno','regular','malo'] as EstadoAccesorio[]).map(op => (
                           <button
                             key={op}
-                            onClick={() => { const items = [...accesorios]; items[idx].estado = op; setAccesorios(items); guardarAccesorios(items, { showToast: false }); }}
+                            onClick={() => { const items = [...accesoriosRef.current]; items[idx].estado = op; syncAccesorios(items); guardarAccesorios(items, { showToast: false }); }}
                             disabled={!puedeEditar}
                             className={`px-2 py-1 rounded-full text-xs font-medium ${
                               acc.estado === op
@@ -515,7 +520,7 @@ export default function RecepcionForm({ orden, onSuccess }: RecepcionFormProps) 
                     </td>
                     {puedeEditar && (
                       <td className="px-3 py-2 text-center">
-                        <button onClick={() => { const items = accesorios.filter((_,i)=>i!==idx); setAccesorios(items); guardarAccesorios(items); }} className="p-1 text-red-600 hover:text-red-700">
+                        <button onClick={() => { const items = accesoriosRef.current.filter((_,i)=>i!==idx); syncAccesorios(items); guardarAccesorios(items); }} className="p-1 text-red-600 hover:text-red-700">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </td>

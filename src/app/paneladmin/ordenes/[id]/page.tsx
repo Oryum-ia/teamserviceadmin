@@ -1052,6 +1052,14 @@ export default function OrdenDetallePage() {
 
       // Cerrar fase actual
       if (faseActual === 'recepcion') {
+        if (typeof window !== 'undefined' && (window as any).guardarDatosRecepcion) {
+          const datosRecepcion = await (window as any).guardarDatosRecepcion();
+          if (!datosRecepcion) {
+            setIsAvanzando(false);
+            return;
+          }
+          Object.assign(camposActualizacion, datosRecepcion);
+        }
         camposActualizacion.fecha_fin_recepcion = now;
         camposActualizacion.tecnico_recepcion = tecnicoId;
         // NO establecer fecha_inicio_diagnostico aquí - el técnico debe iniciarla manualmente

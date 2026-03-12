@@ -197,7 +197,11 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [name]: value };
+      formDataRef.current = next;
+      return next;
+    });
   };
 
   // Guardar comentarios con debounce de 2 segundos (usa ref para valor actual)
@@ -209,7 +213,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
     comentariosTimeoutRef.current = setTimeout(async () => {
       try {
         setGuardandoComentarios(true);
-        const currentComentarios = formDataRef.current.comentarios;
+        const currentComentarios = comentarios;
         const { supabase } = await import('@/lib/supabaseClient');
         const { error } = await supabase
           .from('ordenes')
@@ -229,6 +233,10 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
             })
             .eq('id', orden.id);
         }
+        updateOrdenFields({
+          comentarios_diagnostico: currentComentarios,
+          ultima_actualizacion: crearTimestampColombia()
+        } as any);
         console.log('✅ Comentarios de diagnóstico guardados automáticamente');
       } catch (error) {
         console.error('Error al guardar comentarios:', error);
@@ -318,6 +326,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       clearTimeout(saveTimeoutRef.current);
     }
     const nuevosRepuestos = [...repuestosRef.current, { codigo: '', descripcion: '', cantidad: '1', pieza_causante: '' }];
+    repuestosRef.current = nuevosRepuestos;
     setRepuestos(nuevosRepuestos);
     // Guardar inmediatamente al agregar (sin debounce)
     try {
@@ -339,6 +348,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       clearTimeout(saveTimeoutRef.current);
     }
     const nuevosRepuestos = repuestosRef.current.filter((_, i) => i !== index);
+    repuestosRef.current = nuevosRepuestos;
     setRepuestos(nuevosRepuestos);
     // Guardar inmediatamente al eliminar
     try {
@@ -358,6 +368,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
     if (!repuestosRef.current[index]) return;
     const nuevosRepuestos = [...repuestosRef.current];
     nuevosRepuestos[index] = { ...nuevosRepuestos[index], [campo]: valor };
+    repuestosRef.current = nuevosRepuestos;
     setRepuestos(nuevosRepuestos);
     guardarConDebounce(nuevosRepuestos);
   };
@@ -496,6 +507,8 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
             3,
             'guardar datos de diagnóstico'
           );
+
+          updateOrdenFields(updateData);
           
           // Guardar repuestos con reintentos
           await ejecutarConReintentos(
@@ -629,7 +642,10 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
               {puedeEditar ? (
                 <select
                   value={selectedTecnicoId}
-                  onChange={(e) => setSelectedTecnicoId(e.target.value)}
+                  onChange={(e) => {
+                    selectedTecnicoIdRef.current = e.target.value;
+                    setSelectedTecnicoId(e.target.value);
+                  }}
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                     theme === 'light'
                       ? 'border-gray-300 bg-white text-gray-900'
