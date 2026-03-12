@@ -128,10 +128,20 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
   const isSavingRef = React.useRef(false);
   const hasPendingSaveRef = React.useRef(false);
 
+  const syncRepuestos = (items: Repuesto[]) => {
+    repuestosRef.current = items;
+    setRepuestos(items);
+  };
+
   React.useEffect(() => { repuestosRef.current = repuestos; }, [repuestos]);
   React.useEffect(() => { formDataRef.current = formData; }, [formData]);
   React.useEffect(() => { selectedTecnicoIdRef.current = selectedTecnicoId; }, [selectedTecnicoId]);
   React.useEffect(() => { fotosRef.current = fotos; }, [fotos]);
+
+  React.useEffect(() => {
+    syncRepuestos([]);
+    setRepuestosCargados(false);
+  }, [orden.id]);
 
   // Sincronizar fotos con incoming orden updates
   React.useEffect(() => {
@@ -150,12 +160,21 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       setCargandoRepuestos(true);
       
       try {
+        if (Object.prototype.hasOwnProperty.call(orden, 'repuestos_diagnostico') && Array.isArray(orden.repuestos_diagnostico)) {
+          const repuestosPersistidos = normalizarListaRepuestos(orden.repuestos_diagnostico);
+          console.log('✅ Repuestos cargados desde la orden:', repuestosPersistidos.length);
+          syncRepuestos(repuestosPersistidos);
+          setRepuestosCargados(true);
+          return;
+        }
+
         // Primero intentar cargar repuestos guardados
         const repuestosGuardados = normalizarListaRepuestos(await obtenerRepuestosDiagnostico(orden.id));
         
         if (repuestosGuardados && repuestosGuardados.length > 0) {
           console.log('✅ Repuestos guardados encontrados:', repuestosGuardados.length);
-          setRepuestos(repuestosGuardados);
+          syncRepuestos(repuestosGuardados);
+          updateOrdenFields({ repuestos_diagnostico: repuestosGuardados } as any);
           setRepuestosCargados(true);
           return;
         }
@@ -178,9 +197,10 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
             cantidad: r.cantidad || 1,
             pieza_causante: r.causante || ''
           })));
-          setRepuestos(repuestosMapeados);
+          syncRepuestos(repuestosMapeados);
           // Guardar inmediatamente los repuestos del modelo
           await guardarRepuestosDiagnostico(orden.id, repuestosMapeados);
+          updateOrdenFields({ repuestos_diagnostico: repuestosMapeados } as any);
         } else {
           console.log('⚠️ No se encontraron repuestos para el modelo');
         }
@@ -273,6 +293,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
         2,
         'flush repuestos diagnóstico'
       );
+      updateOrdenFields({ repuestos_diagnostico: currentRepuestos } as any);
       hasPendingSaveRef.current = false;
       console.log('💾 Repuestos diagnóstico guardados (flush):', currentRepuestos.length);
     } catch (error) {
@@ -292,7 +313,10 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       if (hasPendingSaveRef.current) {
         const currentRepuestos = repuestosRef.current;
         guardarRepuestosDiagnostico(orden.id, currentRepuestos)
-          .then(() => console.log('💾 Flush de repuestos diagnóstico al desmontar'))
+          .then(() => {
+            updateOrdenFields({ repuestos_diagnostico: currentRepuestos } as any);
+            console.log('💾 Flush de repuestos diagnóstico al desmontar');
+          })
           .catch(err => console.error('❌ Error flush repuestos diagnóstico al desmontar:', err));
       }
       // Flush comentarios pendientes
@@ -326,8 +350,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       clearTimeout(saveTimeoutRef.current);
     }
     const nuevosRepuestos = [...repuestosRef.current, { codigo: '', descripcion: '', cantidad: '1', pieza_causante: '' }];
-    repuestosRef.current = nuevosRepuestos;
-    setRepuestos(nuevosRepuestos);
+    syncRepuestos(nuevosRepuestos);
     // Guardar inmediatamente al agregar (sin debounce)
     try {
       await ejecutarConReintentos(
@@ -335,6 +358,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
         2,
         'agregar repuesto diagnóstico'
       );
+      updateOrdenFields({ repuestos_diagnostico: nuevosRepuestos } as any);
       hasPendingSaveRef.current = false;
       console.log('✅ Nuevo repuesto agregado y guardado');
     } catch (error) {
@@ -348,8 +372,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       clearTimeout(saveTimeoutRef.current);
     }
     const nuevosRepuestos = repuestosRef.current.filter((_, i) => i !== index);
-    repuestosRef.current = nuevosRepuestos;
-    setRepuestos(nuevosRepuestos);
+    syncRepuestos(nuevosRepuestos);
     // Guardar inmediatamente al eliminar
     try {
       await ejecutarConReintentos(
@@ -357,6 +380,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
         2,
         'eliminar repuesto diagnóstico'
       );
+      updateOrdenFields({ repuestos_diagnostico: nuevosRepuestos } as any);
       hasPendingSaveRef.current = false;
       console.log('🗑️ Repuesto eliminado y guardado');
     } catch (error) {
@@ -368,8 +392,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
     if (!repuestosRef.current[index]) return;
     const nuevosRepuestos = [...repuestosRef.current];
     nuevosRepuestos[index] = { ...nuevosRepuestos[index], [campo]: valor };
-    repuestosRef.current = nuevosRepuestos;
-    setRepuestos(nuevosRepuestos);
+    syncRepuestos(nuevosRepuestos);
     guardarConDebounce(nuevosRepuestos);
   };
 
@@ -516,6 +539,11 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
             3,
             'guardar repuestos de diagnóstico'
           );
+
+          updateOrdenFields({
+            ...updateData,
+            repuestos_diagnostico: currentRepuestos
+          } as any);
 
           hasPendingSaveRef.current = false;
           
