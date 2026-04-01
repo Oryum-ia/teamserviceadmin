@@ -69,6 +69,8 @@ export function useSupabaseRealtime<T = any>({
     if (!enabled) return;
 
     let channel: RealtimeChannel;
+    let errorCount = 0;
+    const MAX_ERRORS = 3;
 
     const setupRealtimeSubscription = () => {
       channel = supabase.channel(`${table}_realtime_${Date.now()}`);
@@ -128,10 +130,17 @@ export function useSupabaseRealtime<T = any>({
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             console.log(`✅ Suscripción activa para tabla: ${table}`);
+            errorCount = 0;
           } else if (status === 'CHANNEL_ERROR') {
-            console.error(`❌ Error en suscripción para tabla: ${table}`);
+            errorCount++;
+            console.warn(`⚠️ Error en suscripción para tabla: ${table} (${errorCount}/${MAX_ERRORS})`);
+            if (errorCount >= MAX_ERRORS) {
+              console.warn(`🛑 Demasiados errores de realtime para ${table}, desconectando canal.`);
+              supabase.removeChannel(channel);
+            }
           } else if (status === 'TIMED_OUT') {
-            console.warn(`⏱️ Timeout en suscripción para tabla: ${table}`);
+            console.warn(`⏱️ Timeout en suscripción para tabla: ${table}, desconectando.`);
+            supabase.removeChannel(channel);
           }
         });
     };
@@ -141,7 +150,6 @@ export function useSupabaseRealtime<T = any>({
     return () => {
       if (channel) {
         supabase.removeChannel(channel);
-        console.log(`🔌 Desconectado de tabla: ${table}`);
       }
     };
   }, [enabled, table, filter, keyExtractor, onInsert, onUpdate, onDelete]);

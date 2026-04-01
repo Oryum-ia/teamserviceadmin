@@ -132,6 +132,20 @@ export default function OrdenDetallePage() {
   const isMountedRef = React.useRef(true);
   const lastOrdenIdRef = React.useRef<string | null>(null);
 
+  // Limpieza robusta del canal: removeChannel detiene reconexiones internas de Supabase
+  const limpiarCanal = async () => {
+    if (channelRef.current) {
+      try {
+        const { supabase } = await import('@/lib/supabaseClient');
+        supabase.removeChannel(channelRef.current);
+      } catch {
+        // Fallback: intentar unsubscribe si removeChannel falla
+        try { channelRef.current.unsubscribe(); } catch { /* ignorar */ }
+      }
+      channelRef.current = null;
+    }
+  };
+
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -146,11 +160,7 @@ export default function OrdenDetallePage() {
           setCurrentStep(0);
           
           // Limpiar canal anterior si existe
-          if (channelRef.current) {
-            console.log('🧹 Limpiando canal de realtime anterior');
-            await channelRef.current.unsubscribe();
-            channelRef.current = null;
-          }
+          await limpiarCanal();
         }
 
         lastOrdenIdRef.current = ordenId;
@@ -160,9 +170,7 @@ export default function OrdenDetallePage() {
         
         if (isMountedRef.current) {
           // Limpiar canal anterior antes de crear uno nuevo
-          if (channelRef.current) {
-            await channelRef.current.unsubscribe();
-          }
+          await limpiarCanal();
           channelRef.current = await configurarRealtime();
         }
       }
@@ -171,14 +179,10 @@ export default function OrdenDetallePage() {
     inicializar();
 
     return () => {
-      // Marcar como desmontado para prevenir actualizaciones de estado
+      // Marcar como desmontado PRIMERO para prevenir actualizaciones de estado
       isMountedRef.current = false;
-      // Limpiar suscripción al desmontar
-      if (channelRef.current) {
-        console.log('🧹 Limpiando canal de realtime al desmontar');
-        channelRef.current.unsubscribe();
-        channelRef.current = null;
-      }
+      // Limpiar suscripción al desmontar usando removeChannel (detiene reconexiones)
+      limpiarCanal();
     };
   }, [isReady, ordenId]);
 
@@ -474,13 +478,21 @@ export default function OrdenDetallePage() {
 
   // Configurar suscripción realtime de Supabase
   const configurarRealtime = async () => {
+    // No configurar si el componente ya se desmontó
+    if (!isMountedRef.current) return null;
+
     try {
       const { supabase } = await import('@/lib/supabaseClient');
 
       console.log('🔌 Configurando realtime para orden ID:', ordenId);
 
+      // Usar nombre único para evitar colisiones con canales huérfanos
+      const channelName = `orden-${ordenId}-${Date.now()}`;
+      let realtimeErrorCount = 0;
+      const MAX_REALTIME_ERRORS = 3;
+
       const channel = supabase
-        .channel(`orden-${ordenId}`, {
+        .channel(channelName, {
           config: {
             broadcast: { self: false },
             presence: { key: '' },
@@ -489,17 +501,14 @@ export default function OrdenDetallePage() {
         .on(
           'postgres_changes',
           {
-            event: '*', // Escuchar todos los eventos (UPDATE, INSERT, DELETE)
+            event: '*',
             schema: 'public',
             table: 'ordenes',
             filter: `id=eq.${ordenId}`
           },
           async (payload) => {
             // Verificar si el componente sigue montado
-            if (!isMountedRef.current) {
-              console.log('⏭️ Ignorando evento realtime - componente desmontado');
-              return;
-            }
+            if (!isMountedRef.current) return;
 
             console.log('🔔 Evento recibido en realtime:', {
               evento: payload.eventType,
@@ -522,7 +531,6 @@ export default function OrdenDetallePage() {
                 nuevo: estadoNuevo
               });
 
-              // Mostrar notificación al usuario (solo si sigue montado)
               if (isMountedRef.current) {
                 toast.success(`Estado actualizado: ${estadoNuevo}`);
               }
@@ -538,9 +546,7 @@ export default function OrdenDetallePage() {
                 toast.warning('El cliente rechazó la cotización');
               }
 
-              // Enviar notificaciones de rechazo
               try {
-                // Notificar por email
                 await notificarCotizacionRechazada(ordenId);
                 console.log('✅ Email de rechazo enviado');
               } catch (emailError) {
@@ -548,7 +554,6 @@ export default function OrdenDetallePage() {
               }
 
               try {
-                // Notificar por WhatsApp (abre ventana)
                 await notificarCotizacionRechazadaWhatsApp(ordenId);
                 console.log('✅ WhatsApp de rechazo abierto');
               } catch (whatsappError) {
@@ -556,7 +561,6 @@ export default function OrdenDetallePage() {
               }
             }
 
-            // Verificar nuevamente antes de recargar (operación async)
             if (!isMountedRef.current) return;
 
             // 1. Merge inmediato de los campos del payload (sin llamada de red)
@@ -590,17 +594,28 @@ export default function OrdenDetallePage() {
         .subscribe((status, err) => {
           if (status === 'SUBSCRIBED') {
             console.log('✅ Realtime SUSCRITO exitosamente para orden', ordenId);
+            realtimeErrorCount = 0; // Reset en conexión exitosa
           } else if (status === 'CHANNEL_ERROR') {
-            // Usar warn en lugar de error para evitar que el overlay de Next.js bloquee la pantalla
-            console.warn('⚠️ Error en canal de realtime (posible reconexión):', err || 'Sin detalles');
-            // No mostrar toast al usuario, es un error interno que no afecta la funcionalidad
+            realtimeErrorCount++;
+            console.warn(`⚠️ Error en canal de realtime (${realtimeErrorCount}/${MAX_REALTIME_ERRORS}):`, err || 'Sin detalles');
+            
+            // Si hay demasiados errores, desconectar para evitar loop infinito
+            if (realtimeErrorCount >= MAX_REALTIME_ERRORS) {
+              console.warn('🛑 Demasiados errores de realtime, desconectando canal. La app seguirá funcionando sin actualizaciones en tiempo real.');
+              supabase.removeChannel(channel);
+              if (channelRef.current === channel) {
+                channelRef.current = null;
+              }
+            }
           } else if (status === 'TIMED_OUT') {
             console.warn('⏱️ Timeout en suscripción de realtime - La aplicación seguirá funcionando sin actualizaciones en tiempo real');
-            // No mostrar toast, la app funciona sin realtime
+            // Desconectar en timeout para evitar reconexiones infinitas
+            supabase.removeChannel(channel);
+            if (channelRef.current === channel) {
+              channelRef.current = null;
+            }
           } else if (status === 'CLOSED') {
             console.log('🔌 Canal de realtime cerrado');
-          } else {
-            console.log('🔔 Estado de realtime:', status);
           }
         });
 
@@ -608,7 +623,6 @@ export default function OrdenDetallePage() {
       return channel;
     } catch (error) {
       console.error('❌ Error configurando realtime:', error);
-      // No lanzar error, la app puede funcionar sin realtime
       return null;
     }
   };
@@ -1152,9 +1166,22 @@ export default function OrdenDetallePage() {
       }
 
       // Actualizar estado local y localStorage
+      // Al avanzar desde diagnóstico, incluir repuestos_diagnostico frescos del localStorage
+      // y limpiar repuestos_cotizacion para que CotizacionForm los recargue desde BD
+      const extraCampos: any = {};
+      if (faseActual === 'diagnostico') {
+        const ordenLocal = getOrdenFromLocalStorage();
+        if (ordenLocal?.repuestos_diagnostico) {
+          extraCampos.repuestos_diagnostico = ordenLocal.repuestos_diagnostico;
+        }
+        // Asegurar que repuestos_cotizacion sea null para forzar recarga en CotizacionForm
+        extraCampos.repuestos_cotizacion = null;
+      }
+
       const ordenActualizada = {
         ...orden,
-        ...camposActualizacion
+        ...camposActualizacion,
+        ...extraCampos
       };
       setOrden(ordenActualizada);
       saveOrdenToLocalStorage(ordenActualizada);

@@ -166,14 +166,15 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   // ============================================================================
 
   /**
-   * Reset repuestosCargados flag when order ID changes
-   * This ensures fresh data is loaded from database on every page refresh
+   * Reset repuestosCargados flag when order ID changes OR when repuestos_cotizacion
+   * is cleared (e.g. after rolling back from cotización to diagnóstico).
+   * This ensures fresh data is always loaded from the database.
    */
   useEffect(() => {
-    console.log('🔄 Orden ID cambió, forzando recarga de repuestos desde BD');
+    console.log('🔄 Forzando recarga de repuestos desde BD (id o repuestos_cotizacion cambiaron)');
     setRepuestosCargados(false);
     setRepuestos([]);
-  }, [orden.id]);
+  }, [orden.id, orden.repuestos_cotizacion]);
 
   // Cargar repuestos
   const [repuestos, setRepuestos] = useState<Repuesto[]>([]);

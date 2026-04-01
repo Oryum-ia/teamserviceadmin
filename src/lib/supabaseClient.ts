@@ -62,22 +62,10 @@ export const getSupabase = () => {
       if (event === 'USER_UPDATED') {
         console.log('👤 Usuario actualizado');
       }
-      
-      // Si hay sesión, asegurar que se mantenga activa
-      if (session && event === 'SIGNED_IN') {
-        console.log('✅ Sesión iniciada, configurando mantenimiento automático');
-      }
     });
 
-    // Refrescar token cada 30 minutos para mantener sesión activa indefinidamente
-    const client = supabaseInstance;
-    setInterval(async () => {
-      const { data: { session }, error } = await client.auth.getSession();
-      if (session && !error) {
-        console.log('🔄 Refrescando token para mantener sesión activa...');
-        await client.auth.refreshSession();
-      }
-    }, 30 * 60 * 1000); // 30 minutos
+    // NO agregar intervalo de refresco aquí - SessionMonitor ya lo maneja
+    // Supabase autoRefreshToken: true ya refresca automáticamente antes de expirar
   }
 
   return supabaseInstance

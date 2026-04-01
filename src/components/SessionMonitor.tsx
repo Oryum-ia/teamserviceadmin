@@ -12,16 +12,15 @@ export default function SessionMonitor() {
   const router = useRouter();
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isRefreshingRef = useRef(false);
 
   useEffect(() => {
-    // Solo ejecutar en el cliente
     if (typeof window === 'undefined') return;
 
-    // Verificar sesión cada 2 minutos (solo para detectar si se perdió)
-    const CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutos
-    
-    // Refrescar token cada 15 minutos para mantener sesión activa indefinidamente
-    const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutos
+    // Verificar sesión cada 2 minutos
+    const CHECK_INTERVAL = 2 * 60 * 1000;
+    // Refrescar token cada 15 minutos
+    const REFRESH_INTERVAL = 15 * 60 * 1000;
 
     const checkSession = async () => {
       try {
@@ -34,7 +33,6 @@ export default function SessionMonitor() {
 
         if (!session) {
           console.warn('⚠️ Sesión perdida, redirigiendo al login...');
-          // Limpiar localStorage
           window.localStorage.removeItem('teamservice_user');
           router.push('/');
           return;
@@ -47,15 +45,15 @@ export default function SessionMonitor() {
     };
 
     const refreshSession = async () => {
+      // Evitar refrescos concurrentes
+      if (isRefreshingRef.current) return;
+      isRefreshingRef.current = true;
+
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (sessionError || !session) {
-          console.warn('⚠️ No hay sesión para refrescar');
-          return;
-        }
+        if (sessionError || !session) return;
 
-        console.log('🔄 Refrescando token para mantener sesión activa indefinidamente...');
         const { error: refreshError } = await supabase.auth.refreshSession();
         
         if (refreshError) {
@@ -65,49 +63,40 @@ export default function SessionMonitor() {
         }
       } catch (error) {
         console.error('❌ Error en refresco de sesión:', error);
+      } finally {
+        isRefreshingRef.current = false;
       }
     };
 
     // Verificar inmediatamente al montar
     checkSession();
-    
-    // Refrescar inmediatamente al montar
-    refreshSession();
 
     // Configurar verificación periódica (cada 2 minutos)
     checkIntervalRef.current = setInterval(checkSession, CHECK_INTERVAL);
     
     // Configurar refresco automático periódico (cada 15 minutos)
+    // NO refrescar inmediatamente al montar - supabase ya lo hace con autoRefreshToken
     refreshIntervalRef.current = setInterval(refreshSession, REFRESH_INTERVAL);
 
     // Listener para eventos de visibilidad (cuando el usuario vuelve a la pestaña)
+    let lastVisibilityRefresh = 0;
+    const VISIBILITY_DEBOUNCE = 30_000; // 30 segundos mínimo entre refrescos por visibilidad
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('👁️ Pestaña visible, verificando y refrescando sesión...');
-        checkSession();
-        refreshSession(); // Refrescar también al volver a la pestaña
-      }
-    };
+        const now = Date.now();
+        if (now - lastVisibilityRefresh < VISIBILITY_DEBOUNCE) return;
+        lastVisibilityRefresh = now;
 
-    // Listener para actividad del usuario (mantener sesión activa)
-    const handleUserActivity = () => {
-      // Refrescar sesión cuando hay actividad del usuario
-      // Usar debounce para no hacer demasiadas llamadas
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-        refreshIntervalRef.current = setInterval(refreshSession, REFRESH_INTERVAL);
+        console.log('👁️ Pestaña visible, verificando sesión...');
+        checkSession();
+        // Solo refrescar si pasó suficiente tiempo
+        refreshSession();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Escuchar eventos de actividad del usuario
-    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-    activityEvents.forEach(event => {
-      document.addEventListener(event, handleUserActivity, { passive: true, once: true });
-    });
 
-    // Cleanup
     return () => {
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
@@ -116,12 +105,8 @@ export default function SessionMonitor() {
         clearInterval(refreshIntervalRef.current);
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      activityEvents.forEach(event => {
-        document.removeEventListener(event, handleUserActivity);
-      });
     };
   }, [router]);
 
-  // Este componente no renderiza nada
   return null;
 }

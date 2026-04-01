@@ -3,6 +3,8 @@ import { compressMedia } from "@/lib/utils/media-compression.utils";
 
 const BUCKET_NAME = "ordenes-imagenes"; // Bucket para imágenes de órdenes
 const MAX_UPLOAD_CONCURRENCY = 2;
+const MAX_AVAILABILITY_RETRIES = 3;
+const AVAILABILITY_RETRY_DELAY = 800; // ms
 const IMAGE_UPLOAD_COMPRESSION = {
   maxSizeMB: 2.5,
   maxWidthOrHeight: 1600,
@@ -13,6 +15,30 @@ const VIDEO_UPLOAD_COMPRESSION = {
   maxWidthOrHeight: 1280,
   quality: 0.75,
 } as const;
+
+/**
+ * Verifica que una imagen esté disponible en el CDN de Supabase.
+ * Reintenta varias veces con delay para manejar propagación del CDN.
+ * No lanza error si falla — solo loguea warning (la imagen puede cargar después).
+ */
+async function verificarDisponibilidadImagen(url: string): Promise<void> {
+  for (let i = 0; i < MAX_AVAILABILITY_RETRIES; i++) {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      if (response.ok) {
+        return; // Imagen disponible
+      }
+      console.warn(`⚠️ Imagen no disponible aún (intento ${i + 1}/${MAX_AVAILABILITY_RETRIES}): HTTP ${response.status}`);
+    } catch {
+      console.warn(`⚠️ Error verificando imagen (intento ${i + 1}/${MAX_AVAILABILITY_RETRIES})`);
+    }
+    // Esperar antes de reintentar
+    if (i < MAX_AVAILABILITY_RETRIES - 1) {
+      await new Promise(resolve => setTimeout(resolve, AVAILABILITY_RETRY_DELAY * (i + 1)));
+    }
+  }
+  console.warn('⚠️ No se pudo confirmar disponibilidad de imagen, continuando de todas formas:', url.substring(0, 80));
+}
 
 function obtenerExtensionSegura(file: File): string {
   const nombre = file.name || "";
@@ -75,6 +101,8 @@ export async function subirImagenOrden(
   const fileExt = obtenerExtensionSegura(fileToUpload);
   const fileName = `${ordenId}/${tipo}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
+  let publicUrl: string;
+
   const { data, error } = await supabase.storage
     .from(BUCKET_NAME)
     .upload(fileName, fileToUpload, {
@@ -102,23 +130,27 @@ export async function subirImagenOrden(
       }
 
       const result = await response.json();
-      console.log("✅ Imagen subida vía API:", result.publicUrl);
-      return result.publicUrl;
+      publicUrl = result.publicUrl;
+      console.log("✅ Imagen subida vía API:", publicUrl);
 
     } catch (apiError) {
        console.error("❌ Falló el fallback a API Storage:", apiError);
-       // Lanzar el error original de Storage para debug
        throw error;
     }
+  } else {
+    // Obtener URL pública
+    const { data: urlData } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(fileName);
+
+    publicUrl = urlData.publicUrl;
+    console.log("✅ Imagen subida:", publicUrl);
   }
 
-  // Obtener URL pública
-  const { data: urlData } = supabase.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(fileName);
+  // Verificar que la imagen esté realmente disponible (CDN propagation)
+  await verificarDisponibilidadImagen(publicUrl);
 
-  console.log("✅ Imagen subida:", urlData.publicUrl);
-  return urlData.publicUrl;
+  return publicUrl;
 }
 
 /**

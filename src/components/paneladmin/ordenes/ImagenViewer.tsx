@@ -1,10 +1,85 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
-import { X, ChevronLeft, ChevronRight, Download, Trash2, Play } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Download, Trash2, Play, ImageOff } from 'lucide-react';
 import EnterpriseMediaCapture from './EnterpriseMediaCapture';
 import { getThumbnailUrl, getPreviewUrl } from '@/lib/utils/imageOptimization';
+
+/**
+ * Componente de imagen con fallback automático.
+ * Si el proxy de thumbnails falla, reintenta con la URL original.
+ * Si la original también falla, muestra un placeholder.
+ */
+function ImagenConFallback({ 
+  src, 
+  fallbackSrc, 
+  alt, 
+  className, 
+  loading,
+  style,
+  onClick
+}: { 
+  src: string; 
+  fallbackSrc: string; 
+  alt: string; 
+  className?: string; 
+  loading?: 'lazy' | 'eager';
+  style?: React.CSSProperties;
+  onClick?: (e: React.MouseEvent) => void;
+}) {
+  const [currentSrc, setCurrentSrc] = useState(src);
+  const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Reset cuando cambia la URL fuente
+  React.useEffect(() => {
+    setCurrentSrc(src);
+    setHasError(false);
+    setRetryCount(0);
+  }, [src]);
+
+  const handleError = useCallback(() => {
+    if (retryCount === 0 && currentSrc !== fallbackSrc) {
+      // Primer fallo: intentar con la URL original (sin proxy)
+      console.warn(`⚠️ Thumbnail falló, usando URL original: ${fallbackSrc}`);
+      setCurrentSrc(fallbackSrc);
+      setRetryCount(1);
+    } else if (retryCount === 1) {
+      // Segundo fallo: intentar con la URL original + cache bust
+      const bustUrl = fallbackSrc.includes('?') 
+        ? `${fallbackSrc}&t=${Date.now()}` 
+        : `${fallbackSrc}?t=${Date.now()}`;
+      console.warn(`⚠️ URL original falló, reintentando con cache bust`);
+      setCurrentSrc(bustUrl);
+      setRetryCount(2);
+    } else {
+      // Tercer fallo: mostrar placeholder
+      setHasError(true);
+    }
+  }, [currentSrc, fallbackSrc, retryCount]);
+
+  if (hasError) {
+    return (
+      <div className={`flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-400 ${className || ''}`} style={style}>
+        <ImageOff className="w-8 h-8 mb-1" />
+        <span className="text-xs">Error al cargar</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      className={className}
+      loading={loading}
+      style={style}
+      onClick={onClick}
+      onError={handleError}
+    />
+  );
+}
 
 interface ImagenViewerProps {
   imagenes: string[];
@@ -285,8 +360,9 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
                 </div>
               </>
             ) : (
-              <img
+              <ImagenConFallback
                 src={getThumbnailUrl(url)}
+                fallbackSrc={url}
                 alt={`Foto ${index + 1}`}
                 className="w-full h-full object-contain bg-gray-100 dark:bg-gray-800"
                 loading="lazy"
@@ -400,8 +476,9 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <img
+              <ImagenConFallback
                 src={getPreviewUrl(imagenes[currentIndex])}
+                fallbackSrc={imagenes[currentIndex]}
                 alt={`Foto ${currentIndex + 1}`}
                 className="rounded-lg shadow-2xl"
                 style={{ 
@@ -457,8 +534,9 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
                         </div>
                       </>
                     ) : (
-                      <img
+                      <ImagenConFallback
                         src={getThumbnailUrl(url)}
+                        fallbackSrc={url}
                         alt={`Miniatura ${index + 1}`}
                         className="w-full h-full object-cover"
                         loading="lazy"
