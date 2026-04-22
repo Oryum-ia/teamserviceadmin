@@ -94,7 +94,10 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
   
   // Filtros
   const [sedeSeleccionada, setSedeSeleccionada] = useState<string>('todas');
-  const [mesSeleccionado, setMesSeleccionado] = useState<string>('');
+  const [mesSeleccionado, setMesSeleccionado] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [sedes, setSedes] = useState<string[]>([]);
 
   useEffect(() => {

@@ -9,7 +9,8 @@ import { formatearFechaColombiaLarga, crearTimestampColombia } from '@/lib/utils
 import { actualizarCotizacion, marcarEsperaRepuestos } from '@/lib/services/ordenService';
 import { notificarCotizacionWhatsApp, notificarCambioFaseWhatsApp } from '@/lib/whatsapp/whatsappNotificationHelper';
 import { notificarCambioFase } from '@/lib/services/emailNotificationService';
-import { obtenerRepuestosDelModelo, obtenerRepuestosDiagnostico, guardarRepuestosCotizacion, obtenerRepuestosCotizacion } from '@/lib/services/repuestoService';
+import { guardarRepuestosCotizacion, obtenerRepuestosCotizacion } from '@/lib/services/repuestoService';
+import { useRepuestosOrden, type RepuestoCotizacion } from '@/hooks/useRepuestosOrden';
 import { PercentageInput } from '@/components/ui/PercentageInput';
 import {
   calculateSubtotalAfterDiscount,
@@ -22,16 +23,6 @@ import {
   type PriceItem,
   type PriceTotals,
 } from '@/lib/utils/pricing.utils';
-
-interface Repuesto {
-  codigo: string;
-  descripcion: string;
-  cantidad: number;
-  precio_unitario: number;
-  descuento: number;
-  iva: number;
-  en_stock: boolean;
-}
 
 interface CotizacionFormProps {
   orden: any;
@@ -162,6 +153,18 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   ]);
 
   // ============================================================================
+  // Hook centralizado de repuestos (fuente única de verdad)
+  // ============================================================================
+  const repuestosHook = useRepuestosOrden({
+    ordenId: orden.id,
+    modeloId: orden.equipo?.modelo_id,
+    orden,
+  });
+
+  const repuestos = repuestosHook.repuestosCotizacion;
+  const cargandoRepuestos = repuestosHook.cargando;
+
+  // ============================================================================
   // FORCE FRESH DATA ON ORDER CHANGE (F5 refresh)
   // ============================================================================
 
@@ -172,14 +175,9 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
    */
   useEffect(() => {
     console.log('🔄 Forzando recarga de repuestos desde BD (id o repuestos_cotizacion cambiaron)');
-    setRepuestosCargados(false);
-    setRepuestos([]);
+    repuestosHook.recargar();
   }, [orden.id, orden.repuestos_cotizacion]);
 
-  // Cargar repuestos
-  const [repuestos, setRepuestos] = useState<Repuesto[]>([]);
-  const [cargandoRepuestos, setCargandoRepuestos] = useState(false);
-  const [repuestosCargados, setRepuestosCargados] = useState(false);
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const comentariosTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [guardandoComentarios, setGuardandoComentarios] = React.useState(false);
@@ -187,13 +185,12 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   // ============================================================================
   // REFS para evitar stale closures en debounce y cleanup
   // ============================================================================
-  const repuestosRef = React.useRef<Repuesto[]>(repuestos);
+  const repuestosRef = repuestosHook.repuestosCotizacionRef;
   const formDataRef = React.useRef(formData);
   const tecnicoCotizaIdRef = React.useRef(tecnicoCotizaId);
   const isSavingRef = React.useRef(false);
   const hasPendingSaveRef = React.useRef(false);
 
-  React.useEffect(() => { repuestosRef.current = repuestos; }, [repuestos]);
   React.useEffect(() => { formDataRef.current = formData; }, [formData]);
   React.useEffect(() => { tecnicoCotizaIdRef.current = tecnicoCotizaId; }, [tecnicoCotizaId]);
 
@@ -262,7 +259,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
    * Uses pure functions from pricing.utils.ts
    * @pure - depends only on input parameters
    */
-  const calcularTotalesConRepuestos = (repuestosArray: Repuesto[]): PriceTotals => {
+  const calcularTotalesConRepuestos = (repuestosArray: RepuestoCotizacion[]): PriceTotals => {
     // Si es retrabajo, el total es 0
     if (orden.es_retrabajo) {
       return { subtotal: 0, iva: 0, total: 0, valor_revision: 0, precio_envio: 0 };
@@ -277,99 +274,6 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     // Calculate final totals using pure utility functions
     return calculateFinalTotals(repuestosArray, precioEnvio, valorRevision);
   };
-
-  // ============================================================================
-  // LOAD SPARE PARTS - Always from database, no localStorage cache
-  // ============================================================================
-
-  /**
-   * Loads spare parts from database in priority order:
-   * 1. Saved quotation parts (repuestos_cotizacion table)
-   * 2. Diagnosis parts (repuestos_diagnostico table)
-   * 3. Model default parts (repuestos_modelo table)
-   * 
-   * NO localStorage cache to ensure multi-user synchronization
-   */
-  useEffect(() => {
-    const cargarRepuestos = async () => {
-      if (repuestosCargados) return;
-
-      console.log('🔍 Cargando repuestos desde BD (sin caché)...');
-      setCargandoRepuestos(true);
-
-      try {
-        // 1. Intentar cargar repuestos guardados de cotización (SIEMPRE desde BD)
-        const repuestosCotizacion = await obtenerRepuestosCotizacion(orden.id);
-        if (repuestosCotizacion && repuestosCotizacion.length > 0) {
-          console.log('✅ Repuestos de cotización encontrados:', repuestosCotizacion.length);
-          setRepuestos(repuestosCotizacion);
-          setRepuestosCargados(true);
-          return;
-        }
-
-        // 2. Cargar repuestos del diagnóstico
-        const repuestosDiagnostico = await obtenerRepuestosDiagnostico(orden.id);
-        if (repuestosDiagnostico && repuestosDiagnostico.length > 0) {
-          console.log('✅ Repuestos de diagnóstico encontrados:', repuestosDiagnostico.length);
-          const repuestosMapeados = repuestosDiagnostico.map((r: any) => ({
-            codigo: r.codigo || '',
-            descripcion: r.descripcion || '',
-            cantidad: r.cantidad || 1,
-            precio_unitario: 0,
-            descuento: 0,
-            iva: 0,
-            en_stock: true
-          }));
-          setRepuestos(repuestosMapeados);
-          // ⚠️ Solo guardar en BD si estamos en fase de cotización
-          // Esto evita sobrescribir datos reales cuando se ve desde otras fases
-          const enFaseCotizacion = orden.estado_actual === 'Cotización' ||
-            orden.estado_actual === 'Esperando repuestos' ||
-            orden.estado_actual === 'Esperando aceptación';
-          if (enFaseCotizacion) {
-            const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
-            await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
-          }
-          setRepuestosCargados(true);
-          return;
-        }
-
-        // 3. Si no hay, cargar del modelo
-        if (orden.equipo?.modelo_id) {
-          console.log('🔍 Cargando repuestos del modelo');
-          const repuestosModelo = await obtenerRepuestosDelModelo(orden.equipo.modelo_id);
-
-          if (repuestosModelo && repuestosModelo.length > 0) {
-            const repuestosMapeados = repuestosModelo.map((r: any) => ({
-              codigo: r.codigo || '',
-              descripcion: r.descripcion || '',
-              cantidad: r.cantidad || 1,
-              precio_unitario: 0,
-              descuento: 0,
-              iva: 0,
-              en_stock: true
-            }));
-            setRepuestos(repuestosMapeados);
-            // ⚠️ Solo guardar en BD si estamos en fase de cotización
-            const enFaseCotizacion = orden.estado_actual === 'Cotización' ||
-              orden.estado_actual === 'Esperando repuestos' ||
-              orden.estado_actual === 'Esperando aceptación';
-            if (enFaseCotizacion) {
-              const totalesIniciales = calcularTotalesConRepuestos(repuestosMapeados);
-              await guardarRepuestosCotizacion(orden.id, repuestosMapeados, totalesIniciales);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error al cargar repuestos:', error);
-      } finally {
-        setCargandoRepuestos(false);
-        setRepuestosCargados(true);
-      }
-    };
-
-    cargarRepuestos();
-  }, [orden.id, orden.equipo?.modelo_id, repuestosCargados]);
 
   const estado = orden.estado_actual;
   const puedeEditarGeneral = (estado === 'Cotización' || estado === 'Esperando repuestos' || estado === 'Esperando aceptación') && faseIniciada;
@@ -392,33 +296,34 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
    * Uses refs to always access the latest state
    * NO localStorage to ensure data consistency across users
    */
-  const guardarConDebounce = (nuevosRepuestos: Repuesto[]) => {
+  const guardarConDebounce = (nuevosRepuestos: RepuestoCotizacion[]) => {
     hasPendingSaveRef.current = true;
-    // Limpiar timeout anterior
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // Crear nuevo timeout de 3 segundos
     saveTimeoutRef.current = setTimeout(async () => {
-      await flushRepuestos();
+      await flushRepuestosCotizacion();
     }, 3000);
   };
 
   /**
-   * Flush: guarda repuestos inmediatamente usando refs (nunca stale)
+   * Flush: guarda repuestos de cotización inmediatamente usando refs (nunca stale)
+   * También flushea los repuestos base via el hook centralizado
    */
-  const flushRepuestos = async () => {
+  const flushRepuestosCotizacion = async () => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
     try {
       const currentRepuestos = repuestosRef.current;
       const totalesCalculados = calcularTotalesConRepuestos(currentRepuestos);
       await guardarRepuestosCotizacion(orden.id, currentRepuestos, totalesCalculados);
+      // También flush los repuestos base
+      await repuestosHook.flushRepuestos();
       hasPendingSaveRef.current = false;
-      console.log('💾 Repuestos guardados en BD (flush)');
+      console.log('💾 Repuestos cotización guardados en BD (flush)');
     } catch (error) {
-      console.error('❌ Error al guardar repuestos (flush):', error);
+      console.error('❌ Error al guardar repuestos cotización (flush):', error);
     } finally {
       isSavingRef.current = false;
     }
@@ -547,6 +452,8 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
           // Guardar repuestos inmediatamente en BD
           const totalesCalculados = calcularTotalesConRepuestos(currentRepuestos);
           await guardarRepuestosCotizacion(orden.id, currentRepuestos, totalesCalculados);
+          // También flush repuestos base via hook
+          await repuestosHook.flushRepuestos();
 
           // Actualizar localStorage de orden
           updateOrdenFields(updateData);
@@ -570,53 +477,40 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     };
   }, [orden?.id]);
 
-  const agregarRepuesto = () => {
-    const nuevosRepuestos = [...repuestos, {
-      codigo: '',
-      descripcion: '',
-      cantidad: 1,
-      precio_unitario: 0,
-      descuento: 0,
-      iva: 0,
-      en_stock: true
-    }];
-    setRepuestos(nuevosRepuestos);
-    guardarConDebounce(nuevosRepuestos);
+  const agregarRepuesto = async () => {
+    await repuestosHook.agregarRepuesto();
   };
 
   const eliminarRepuesto = async (index: number) => {
-    const nuevosRepuestos = repuestos.filter((_, i) => i !== index);
-    setRepuestos(nuevosRepuestos);
-    // Guardar inmediatamente al eliminar (sin caché)
+    await repuestosHook.eliminarRepuesto(index);
+    // También guardar cotización inmediatamente
+    const nuevosRepuestos = repuestosRef.current;
     const totalesCalculados = calcularTotalesConRepuestos(nuevosRepuestos);
     await guardarRepuestosCotizacion(orden.id, nuevosRepuestos, totalesCalculados);
     console.log('🗑️ Repuesto eliminado y guardado en BD');
   };
 
-  const actualizarRepuesto = async (index: number, campo: keyof Repuesto, valor: any) => {
-    const nuevosRepuestos = [...repuestos];
-    nuevosRepuestos[index] = { ...nuevosRepuestos[index], [campo]: valor };
-    setRepuestos(nuevosRepuestos);
+  const actualizarRepuesto = async (index: number, campo: keyof RepuestoCotizacion, valor: any) => {
+    // Actualizar via hook (sincroniza base + cotización)
+    repuestosHook.actualizarRepuestoCotizacion(index, campo, valor);
 
     // Si se modifica el campo en_stock, guardar inmediatamente y verificar estado
     if (campo === 'en_stock') {
-      // Cancelar debounce si existe
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
-      // Guardar inmediatamente (sin caché)
-      const totalesCalculados = calcularTotalesConRepuestos(nuevosRepuestos);
-      await guardarRepuestosCotizacion(orden.id, nuevosRepuestos, totalesCalculados);
+      // Guardar cotización inmediatamente
+      const currentRepuestos = repuestosRef.current;
+      const totalesCalculados = calcularTotalesConRepuestos(currentRepuestos);
+      await guardarRepuestosCotizacion(orden.id, currentRepuestos, totalesCalculados);
       console.log('📦 Stock actualizado y guardado en BD');
-      // Verificar y actualizar estado
-      await verificarYActualizarEstadoStock(nuevosRepuestos);
+      await verificarYActualizarEstadoStock(currentRepuestos);
     } else {
-      // Para otros campos, usar debounce
-      guardarConDebounce(nuevosRepuestos);
+      guardarConDebounce(repuestosRef.current);
     }
   };
 
-  const verificarYActualizarEstadoStock = async (repuestosActuales: Repuesto[]) => {
+  const verificarYActualizarEstadoStock = async (repuestosActuales: RepuestoCotizacion[]) => {
     try {
       const todosEnStock = repuestosActuales.every(r => r.en_stock);
       const nuevoEstado = todosEnStock ? 'Cotización' : 'Esperando repuestos';
@@ -730,6 +624,8 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       // Guardar repuestos inmediatamente para no perder cambios al navegar entre fases
       const totalesCalculados = calcularTotalesConRepuestos(repuestosRef.current);
       await guardarRepuestosCotizacion(orden.id, repuestosRef.current, totalesCalculados);
+      // También flush repuestos base via hook
+      await repuestosHook.flushRepuestos();
       hasPendingSaveRef.current = false;
 
       // Actualizar localStorage

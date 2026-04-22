@@ -28,12 +28,27 @@ export default function Indicadores() {
 
   useEffect(() => {
     cargarEstadisticas();
-  }, []);
+  }, [periodoSeleccionado]);
 
   const cargarEstadisticas = async () => {
     setIsLoading(true);
     try {
-      const data = await obtenerEstadisticasGlobales();
+      const filtros: any = {};
+
+      const now = new Date();
+
+      if (periodoSeleccionado === 'dia') {
+        const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        filtros.mes = mesActual;
+      } else if (periodoSeleccionado === 'semana') {
+        const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        filtros.mes = mesActual;
+      } else {
+        const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        filtros.mes = mesActual;
+      }
+
+      const data = await obtenerEstadisticasGlobales(filtros);
       setEstadisticas(data);
     } catch (err) {
       console.error('Error al cargar estadísticas:', err);
@@ -75,6 +90,29 @@ export default function Indicadores() {
 
   const COLORS = ['#3b82f6', '#eab308', '#f59e0b', '#10b981', '#ef4444'];
 
+  const renderCustomLabel = ({ cx, cy, midAngle, outerRadius, percent, name }: any) => {
+    if (percent === 0) return null;
+
+    const RADIAN = Math.PI / 180;
+    const radius = outerRadius + 30;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill={theme === 'light' ? '#374151' : '#d1d5db'}
+        textAnchor={x > cx ? 'start' : 'end'}
+        dominantBaseline="central"
+        fontSize={12}
+        fontWeight={500}
+      >
+        {`${name} ${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -94,9 +132,18 @@ export default function Indicadores() {
       case 'semana':
         return estadisticas.ordenes_semana || 0;
       case 'mes':
-        return estadisticas.ordenes_mes || 0;
+        return estadisticas.total_ordenes || 0;
       default:
         return 0;
+    }
+  };
+
+  const obtenerLabelPeriodo = () => {
+    switch (periodoSeleccionado) {
+      case 'dia': return 'hoy';
+      case 'semana': return 'esta semana';
+      case 'mes': return 'este mes';
+      default: return '';
     }
   };
 
@@ -166,11 +213,11 @@ export default function Indicadores() {
               <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
                 Total Órdenes
               </p>
-              <p className={`text-2xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+              <p className={`text-xl sm:text-2xl font-bold truncate ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
                 {formatNumber(estadisticas.total_ordenes)}
               </p>
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                {formatNumber(obtenerOrdenesPeriodo())} en {periodoSeleccionado}
+                {formatNumber(obtenerOrdenesPeriodo())} {obtenerLabelPeriodo()}
               </p>
             </div>
           </div>
@@ -188,7 +235,7 @@ export default function Indicadores() {
               <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
                 Completadas
               </p>
-              <p className={`text-2xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+              <p className={`text-xl sm:text-2xl font-bold truncate ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
                 {formatNumber(estadisticas.ordenes_por_estado?.completada || 0)}
               </p>
               <div className="flex items-center gap-1 mt-1">
@@ -211,13 +258,13 @@ export default function Indicadores() {
             </div>
             <div className="flex-1">
               <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
-                Ingresos Totales
+                Ingresos del Mes
               </p>
-              <p className={`text-xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-                {formatCurrency(estadisticas.ingresos_totales)}
+              <p className={`text-lg sm:text-xl font-bold truncate ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+                {formatCurrency(estadisticas.ingresos_mes_actual)}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Mes: {formatCurrency(estadisticas.ingresos_mes_actual)}
+                Total acumulado: {formatCurrency(estadisticas.ingresos_totales)}
               </p>
             </div>
           </div>
@@ -235,7 +282,7 @@ export default function Indicadores() {
               <p className={`text-sm ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
                 En Proceso
               </p>
-              <p className={`text-2xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
+              <p className={`text-xl sm:text-2xl font-bold truncate ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
                 {formatNumber((estadisticas.ordenes_por_estado?.pendiente || 0) + 
                  (estadisticas.ordenes_por_estado?.en_proceso || 0))}
               </p>
@@ -258,19 +305,19 @@ export default function Indicadores() {
           }`}>
             Distribución por Estado
           </h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={350}>
             <PieChart>
               <Pie
-                data={dataPorEstado}
+                data={dataPorEstado.filter(d => d.value > 0)}
                 cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                cy="45%"
+                labelLine={true}
+                label={renderCustomLabel}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
               >
-                {dataPorEstado.map((entry, index) => (
+                {dataPorEstado.filter(d => d.value > 0).map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -281,6 +328,15 @@ export default function Indicadores() {
                   borderRadius: '8px',
                   color: theme === 'light' ? '#111827' : '#f9fafb'
                 }}
+              />
+              <Legend 
+                verticalAlign="bottom"
+                height={36}
+                formatter={(value: string) => (
+                  <span style={{ color: theme === 'light' ? '#374151' : '#d1d5db', fontSize: '12px' }}>
+                    {value}
+                  </span>
+                )}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -331,7 +387,7 @@ export default function Indicadores() {
               <p className={`text-sm font-medium ${theme === 'light' ? 'text-blue-700' : 'text-blue-300'}`}>
                 Promedio por Día
               </p>
-              <p className={`text-3xl font-bold mt-1 ${theme === 'light' ? 'text-blue-900' : 'text-blue-100'}`}>
+              <p className={`text-xl sm:text-2xl lg:text-3xl font-bold mt-1 truncate ${theme === 'light' ? 'text-blue-900' : 'text-blue-100'}`}>
                 {formatNumber(Math.round((estadisticas.ordenes_mes || 0) / 30))}
               </p>
             </div>
@@ -347,7 +403,7 @@ export default function Indicadores() {
               <p className={`text-sm font-medium ${theme === 'light' ? 'text-green-700' : 'text-green-300'}`}>
                 Ingreso Promedio
               </p>
-              <p className={`text-2xl font-bold mt-1 ${theme === 'light' ? 'text-green-900' : 'text-green-100'}`}>
+              <p className={`text-lg sm:text-xl lg:text-2xl font-bold mt-1 truncate ${theme === 'light' ? 'text-green-900' : 'text-green-100'}`}>
                 {formatCurrency(
                   estadisticas.total_ordenes > 0 
                     ? estadisticas.ingresos_totales / estadisticas.total_ordenes 
@@ -367,7 +423,7 @@ export default function Indicadores() {
               <p className={`text-sm font-medium ${theme === 'light' ? 'text-purple-700' : 'text-purple-300'}`}>
                 Tasa de Éxito
               </p>
-              <p className={`text-3xl font-bold mt-1 ${theme === 'light' ? 'text-purple-900' : 'text-purple-100'}`}>
+              <p className={`text-xl sm:text-2xl lg:text-3xl font-bold mt-1 truncate ${theme === 'light' ? 'text-purple-900' : 'text-purple-100'}`}>
                 {calcularTasaCompletacion()}%
               </p>
             </div>

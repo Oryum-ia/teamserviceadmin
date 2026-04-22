@@ -7,36 +7,12 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { formatearFechaColombiaLarga, crearTimestampColombia } from '@/lib/utils/dateUtils';
 import { actualizarDiagnostico, avanzarACotizacion } from '@/lib/services/ordenService';
-import { obtenerRepuestosDelModelo, guardarRepuestosDiagnostico, obtenerRepuestosDiagnostico } from '@/lib/services/repuestoService';
 import { subirMultiplesImagenes, eliminarImagenOrden, actualizarFotosDiagnostico, descargarImagen } from '@/lib/services/imagenService';
 import ImagenViewer from './ImagenViewer';
 import DropZoneImagenes from './DropZoneImagenes';
 import { ejecutarConReintentos, validarArchivos, guardarFotosConReintentos } from '@/lib/utils/saveHelpers';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
-
-interface Repuesto {
-  codigo: string;
-  descripcion: string;
-  cantidad: string | number;
-  pieza_causante: string;
-}
-
-const normalizarRepuesto = (item: any): Repuesto => ({
-  codigo: typeof item?.codigo === 'string' ? item.codigo : '',
-  descripcion: typeof item?.descripcion === 'string' ? item.descripcion : '',
-  cantidad:
-    typeof item?.cantidad === 'number' || typeof item?.cantidad === 'string'
-      ? item.cantidad
-      : '1',
-  pieza_causante: typeof item?.pieza_causante === 'string' ? item.pieza_causante : ''
-});
-
-const normalizarListaRepuestos = (items: unknown): Repuesto[] => {
-  if (!Array.isArray(items)) return [];
-  return items
-    .filter(item => item && typeof item === 'object')
-    .map(normalizarRepuesto);
-};
+import { useRepuestosOrden, type RepuestoBase } from '@/hooks/useRepuestosOrden';
 
 interface DiagnosticoFormProps {
   orden: any;
@@ -108,40 +84,42 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
     notas_internas: orden.diagnostico?.notas_internas?.join('\n') || ''
   });
   
-  const [repuestos, setRepuestos] = useState<Repuesto[]>([]);
+  const [repuestos, setRepuestos] = useState<RepuestoBase[]>([]);
   const [repuestosCargados, setRepuestosCargados] = useState(false);
   
   const [fotos, setFotos] = useState<string[]>(orden.fotos_diagnostico || []);
   const [cargandoRepuestos, setCargandoRepuestos] = useState(false);
   const [subiendoFotos, setSubiendoFotos] = useState(false);
-  const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const comentariosTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [guardandoComentarios, setGuardandoComentarios] = React.useState(false);
 
   // ============================================================================
+  // Hook centralizado de repuestos (fuente única de verdad)
+  // ============================================================================
+  const {
+    repuestosBase,
+    cargando: cargandoRepuestosHook,
+    repuestosBaseRef,
+    agregarRepuesto: agregarRepuestoHook,
+    eliminarRepuesto: eliminarRepuestoHook,
+    actualizarRepuestoBase,
+    flushRepuestos,
+  } = useRepuestosOrden({
+    ordenId: orden.id,
+    modeloId: orden.equipo?.modelo_id,
+    orden,
+  });
+
+  // ============================================================================
   // REFS para evitar stale closures en debounce y cleanup
   // ============================================================================
-  const repuestosRef = React.useRef<Repuesto[]>(repuestos);
   const formDataRef = React.useRef(formData);
   const selectedTecnicoIdRef = React.useRef(selectedTecnicoId);
   const fotosRef = React.useRef(fotos);
-  const isSavingRef = React.useRef(false);
-  const hasPendingSaveRef = React.useRef(false);
 
-  const syncRepuestos = (items: Repuesto[]) => {
-    repuestosRef.current = items;
-    setRepuestos(items);
-  };
-
-  React.useEffect(() => { repuestosRef.current = repuestos; }, [repuestos]);
   React.useEffect(() => { formDataRef.current = formData; }, [formData]);
   React.useEffect(() => { selectedTecnicoIdRef.current = selectedTecnicoId; }, [selectedTecnicoId]);
   React.useEffect(() => { fotosRef.current = fotos; }, [fotos]);
-
-  React.useEffect(() => {
-    syncRepuestos([]);
-    setRepuestosCargados(false);
-  }, [orden.id]);
 
   // Sincronizar fotos con incoming orden updates
   React.useEffect(() => {
@@ -150,70 +128,6 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
       setFotos(orden.fotos_diagnostico);
     }
   }, [orden.id, orden.fotos_diagnostico]);
-
-  // Cargar repuestos guardados o del modelo
-  useEffect(() => {
-    const cargarRepuestos = async () => {
-      if (repuestosCargados) return;
-
-      console.log('🔍 Cargando repuestos...');
-      setCargandoRepuestos(true);
-      
-      try {
-        if (Object.prototype.hasOwnProperty.call(orden, 'repuestos_diagnostico') && Array.isArray(orden.repuestos_diagnostico)) {
-          const repuestosPersistidos = normalizarListaRepuestos(orden.repuestos_diagnostico);
-          console.log('✅ Repuestos cargados desde la orden:', repuestosPersistidos.length);
-          syncRepuestos(repuestosPersistidos);
-          setRepuestosCargados(true);
-          return;
-        }
-
-        // Primero intentar cargar repuestos guardados
-        const repuestosGuardados = normalizarListaRepuestos(await obtenerRepuestosDiagnostico(orden.id));
-        
-        if (repuestosGuardados && repuestosGuardados.length > 0) {
-          console.log('✅ Repuestos guardados encontrados:', repuestosGuardados.length);
-          syncRepuestos(repuestosGuardados);
-          updateOrdenFields({ repuestos_diagnostico: repuestosGuardados } as any);
-          setRepuestosCargados(true);
-          return;
-        }
-
-        // Si no hay guardados, cargar del modelo
-        if (!orden.equipo?.modelo_id) {
-          console.log('⚠️ No hay modelo_id en el equipo');
-          setRepuestosCargados(true);
-          return;
-        }
-
-        console.log('🔍 Cargando repuestos del modelo:', orden.equipo.modelo_id);
-        const repuestosModelo = await obtenerRepuestosDelModelo(orden.equipo.modelo_id);
-        console.log('✅ Repuestos del modelo recibidos:', repuestosModelo);
-        
-        if (repuestosModelo && repuestosModelo.length > 0) {
-          const repuestosMapeados = normalizarListaRepuestos(repuestosModelo.map((r: any) => ({
-            codigo: r.codigo || '',
-            descripcion: r.descripcion || '',
-            cantidad: r.cantidad || 1,
-            pieza_causante: r.causante || ''
-          })));
-          syncRepuestos(repuestosMapeados);
-          // Guardar inmediatamente los repuestos del modelo
-          await guardarRepuestosDiagnostico(orden.id, repuestosMapeados);
-          updateOrdenFields({ repuestos_diagnostico: repuestosMapeados } as any);
-        } else {
-          console.log('⚠️ No se encontraron repuestos para el modelo');
-        }
-      } catch (error) {
-        console.error('❌ Error al cargar repuestos:', error);
-      } finally {
-        setCargandoRepuestos(false);
-        setRepuestosCargados(true);
-      }
-    };
-
-    cargarRepuestos();
-  }, [orden.id, orden.equipo?.modelo_id, repuestosCargados]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -224,7 +138,44 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
     });
   };
 
-  // Guardar comentarios con debounce de 2 segundos (usa ref para valor actual)
+  // Guardar con debounce optimizado — ahora delegado al hook useRepuestosOrden
+
+  // Flush de datos pendientes y limpiar timeouts al desmontar
+  React.useEffect(() => {
+    return () => {
+      // Flush comentarios pendientes
+      if (comentariosTimeoutRef.current) {
+        clearTimeout(comentariosTimeoutRef.current);
+        const currentComentarios = formDataRef.current.comentarios;
+        if (currentComentarios !== undefined) {
+          (async () => {
+            try {
+              const { supabase } = await import('@/lib/supabaseClient');
+              await supabase
+                .from('ordenes')
+                .update({
+                  comentarios_diagnostico: currentComentarios,
+                  ultima_actualizacion: crearTimestampColombia()
+                })
+                .eq('id', orden.id);
+              console.log('💾 Flush de comentarios diagnóstico al desmontar');
+            } catch (err) {
+              console.error('❌ Error flush comentarios diagnóstico al desmontar:', err);
+            }
+          })();
+        }
+      }
+    };
+  }, [orden.id]);
+
+  const agregarRepuesto = agregarRepuestoHook;
+  const eliminarRepuesto = eliminarRepuestoHook;
+
+  const actualizarRepuesto = (index: number, campo: keyof RepuestoBase, valor: any) => {
+    actualizarRepuestoBase(index, campo, valor);
+  };
+
+  // Guardar comentarios con debounce de 2 segundos
   const guardarComentariosConDebounce = (comentarios: string) => {
     if (comentariosTimeoutRef.current) {
       clearTimeout(comentariosTimeoutRef.current);
@@ -233,7 +184,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
     comentariosTimeoutRef.current = setTimeout(async () => {
       try {
         setGuardandoComentarios(true);
-        const currentComentarios = comentarios;
+        const currentComentarios = formDataRef.current.comentarios;
         const { supabase } = await import('@/lib/supabaseClient');
         const { error } = await supabase
           .from('ordenes')
@@ -264,136 +215,6 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
         setGuardandoComentarios(false);
       }
     }, 2000);
-  };
-
-  // Guardar con debounce optimizado (usa refs para datos actuales)
-  const guardarConDebounce = (nuevosRepuestos: Repuesto[]) => {
-    hasPendingSaveRef.current = true;
-    // Limpiar timeout anterior
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    // Crear nuevo timeout de 2 segundos
-    saveTimeoutRef.current = setTimeout(async () => {
-      await flushRepuestos();
-    }, 2000);
-  };
-
-  /**
-   * Flush: guarda repuestos inmediatamente usando refs (nunca stale)
-   */
-  const flushRepuestos = async () => {
-    if (isSavingRef.current) return;
-    isSavingRef.current = true;
-    try {
-      const currentRepuestos = repuestosRef.current;
-      await ejecutarConReintentos(
-        () => guardarRepuestosDiagnostico(orden.id, currentRepuestos),
-        2,
-        'flush repuestos diagnóstico'
-      );
-      updateOrdenFields({ repuestos_diagnostico: currentRepuestos } as any);
-      hasPendingSaveRef.current = false;
-      console.log('💾 Repuestos diagnóstico guardados (flush):', currentRepuestos.length);
-    } catch (error) {
-      console.error('❌ Error al guardar repuestos diagnóstico (flush):', error);
-    } finally {
-      isSavingRef.current = false;
-    }
-  };
-
-  // Flush de datos pendientes y limpiar timeouts al desmontar
-  React.useEffect(() => {
-    return () => {
-      // Flush repuestos pendientes
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      if (hasPendingSaveRef.current) {
-        const currentRepuestos = repuestosRef.current;
-        guardarRepuestosDiagnostico(orden.id, currentRepuestos)
-          .then(() => {
-            updateOrdenFields({ repuestos_diagnostico: currentRepuestos } as any);
-            console.log('💾 Flush de repuestos diagnóstico al desmontar');
-          })
-          .catch(err => console.error('❌ Error flush repuestos diagnóstico al desmontar:', err));
-      }
-      // Flush comentarios pendientes
-      if (comentariosTimeoutRef.current) {
-        clearTimeout(comentariosTimeoutRef.current);
-        const currentComentarios = formDataRef.current.comentarios;
-        if (currentComentarios !== undefined) {
-          (async () => {
-            try {
-              const { supabase } = await import('@/lib/supabaseClient');
-              await supabase
-                .from('ordenes')
-                .update({
-                  comentarios_diagnostico: currentComentarios,
-                  ultima_actualizacion: crearTimestampColombia()
-                })
-                .eq('id', orden.id);
-              console.log('💾 Flush de comentarios diagnóstico al desmontar');
-            } catch (err) {
-              console.error('❌ Error flush comentarios diagnóstico al desmontar:', err);
-            }
-          })();
-        }
-      }
-    };
-  }, [orden.id]);
-
-  const agregarRepuesto = async () => {
-    // Cancelar debounce pendiente antes de agregar
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    const nuevosRepuestos = [...repuestosRef.current, { codigo: '', descripcion: '', cantidad: '1', pieza_causante: '' }];
-    syncRepuestos(nuevosRepuestos);
-    // Guardar inmediatamente al agregar (sin debounce)
-    try {
-      await ejecutarConReintentos(
-        () => guardarRepuestosDiagnostico(orden.id, nuevosRepuestos),
-        2,
-        'agregar repuesto diagnóstico'
-      );
-      updateOrdenFields({ repuestos_diagnostico: nuevosRepuestos } as any);
-      hasPendingSaveRef.current = false;
-      console.log('✅ Nuevo repuesto agregado y guardado');
-    } catch (error) {
-      console.error('❌ Error al agregar repuesto:', error);
-    }
-  };
-
-  const eliminarRepuesto = async (index: number) => {
-    // Cancelar debounce pendiente antes de eliminar
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    const nuevosRepuestos = repuestosRef.current.filter((_, i) => i !== index);
-    syncRepuestos(nuevosRepuestos);
-    // Guardar inmediatamente al eliminar
-    try {
-      await ejecutarConReintentos(
-        () => guardarRepuestosDiagnostico(orden.id, nuevosRepuestos),
-        2,
-        'eliminar repuesto diagnóstico'
-      );
-      updateOrdenFields({ repuestos_diagnostico: nuevosRepuestos } as any);
-      hasPendingSaveRef.current = false;
-      console.log('🗑️ Repuesto eliminado y guardado');
-    } catch (error) {
-      console.error('❌ Error al eliminar repuesto:', error);
-    }
-  };
-
-  const actualizarRepuesto = (index: number, campo: keyof Repuesto, valor: any) => {
-    if (!repuestosRef.current[index]) return;
-    const nuevosRepuestos = [...repuestosRef.current];
-    nuevosRepuestos[index] = { ...nuevosRepuestos[index], [campo]: valor };
-    syncRepuestos(nuevosRepuestos);
-    guardarConDebounce(nuevosRepuestos);
   };
 
   const handleFilesSelected = async (files: File[]) => {
@@ -493,15 +314,12 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
           console.log('💾 Guardando datos de diagnóstico...');
           
           // Cancelar debounces pendientes
-          if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-          }
           if (comentariosTimeoutRef.current) {
             clearTimeout(comentariosTimeoutRef.current);
           }
 
           const currentFormData = formDataRef.current;
-          const currentRepuestos = repuestosRef.current;
+          const currentRepuestos = repuestosBaseRef.current;
           const currentTecnicoId = selectedTecnicoIdRef.current;
           const currentFotos = fotosRef.current;
           
@@ -533,19 +351,13 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
 
           updateOrdenFields(updateData);
           
-          // Guardar repuestos con reintentos
-          await ejecutarConReintentos(
-            () => guardarRepuestosDiagnostico(orden.id, currentRepuestos),
-            3,
-            'guardar repuestos de diagnóstico'
-          );
+          // Flush repuestos via hook centralizado
+          await flushRepuestos();
 
           updateOrdenFields({
             ...updateData,
             repuestos_diagnostico: currentRepuestos
           } as any);
-
-          hasPendingSaveRef.current = false;
           
           console.log('✅ Datos de diagnóstico guardados exitosamente');
           console.log('✅ Repuestos guardados:', currentRepuestos.length);
@@ -563,7 +375,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
         delete (window as any).guardarDatosDiagnostico;
       }
     };
-  }, [orden?.id]);
+  }, [orden?.id, flushRepuestos]);
 
   const puedeEditar = orden.estado_actual === 'Diagnóstico' && faseIniciada;
 
@@ -707,11 +519,11 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
               }`}>
                 Repuestos Necesarios
               </label>
-              {repuestos.length > 0 && (
+              {repuestosBase.length > 0 && (
                 <p className={`text-xs mt-1 ${
                   theme === 'light' ? 'text-gray-500' : 'text-gray-400'
                 }`}>
-                  {repuestos.length} repuesto(s) {cargandoRepuestos ? 'cargando...' : 'del modelo'}
+                  {repuestosBase.length} repuesto(s) {cargandoRepuestosHook ? 'cargando...' : 'del modelo'}
                 </p>
               )}
             </div>
@@ -719,7 +531,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
               <button
                 type="button"
                 onClick={agregarRepuesto}
-                disabled={cargandoRepuestos}
+                disabled={cargandoRepuestosHook}
                 className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                   theme === 'light'
                     ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
@@ -732,7 +544,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
             )}
           </div>
           
-          {repuestos.length > 0 ? (
+          {repuestosBase.length > 0 ? (
             <div className="overflow-x-auto">
               <table className={`w-full border rounded-lg ${
                 theme === 'light' ? 'border-gray-200' : 'border-gray-700'
@@ -761,7 +573,7 @@ export default function DiagnosticoForm({ orden, onSuccess, faseIniciada = true 
                 <tbody className={`divide-y ${
                   theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
                 }`}>
-                  {repuestos.map((repuesto, index) => (
+                  {repuestosBase.map((repuesto, index) => (
                     <tr key={index}>
                       <td className="px-3 py-2">
                         <input
