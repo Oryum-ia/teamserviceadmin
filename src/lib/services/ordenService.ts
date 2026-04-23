@@ -293,7 +293,7 @@ export async function obtenerOrdenesPaginadas({
 
   if (filters.equipo) {
     console.log('🔎 Aplicando filtro equipo:', filters.equipo);
-    query = query.ilike('equipo', `%${filters.equipo}%`, { foreignTable: 'equipos.modelos' });
+    query = query.ilike('equipo.modelo.equipo', `%${filters.equipo}%`);
   }
 
   if (filters.modelo) {
