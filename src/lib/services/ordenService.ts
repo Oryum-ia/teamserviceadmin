@@ -260,7 +260,7 @@ export async function obtenerOrdenesPaginadas({
       cliente:clientes!inner(*), 
       equipo:equipos${needsEquipoInner ? '!inner' : ''}(
         *,
-        modelo:modelos${(filters.marca || filters.modelo) ? '!inner' : ''}(
+        modelo:modelos${(filters.marca || filters.modelo || filters.equipo) ? '!inner' : ''}(
           *,
           marca:marcas${filters.marca ? '!inner' : ''}(*)
         )
@@ -292,8 +292,8 @@ export async function obtenerOrdenesPaginadas({
   }
 
   if (filters.equipo) {
-    console.log('🔎 Aplicando filtro equipo (tipo):', filters.equipo);
-    query = query.ilike('tipo_equipo', `%${filters.equipo}%`, { foreignTable: 'equipos' });
+    console.log('🔎 Aplicando filtro equipo:', filters.equipo);
+    query = query.ilike('equipo', `%${filters.equipo}%`, { foreignTable: 'equipos.modelos' });
   }
 
   if (filters.modelo) {
