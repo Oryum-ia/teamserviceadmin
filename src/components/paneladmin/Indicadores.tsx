@@ -38,12 +38,15 @@ export default function Indicadores() {
       const now = new Date();
 
       if (periodoSeleccionado === 'dia') {
+        // Filtrar solo hoy: usar el mes actual y luego filtrar en el KPI
         const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         filtros.mes = mesActual;
       } else if (periodoSeleccionado === 'semana') {
+        // Filtrar mes actual (las estadísticas de semana vienen del servicio)
         const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         filtros.mes = mesActual;
       } else {
+        // Mes actual
         const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         filtros.mes = mesActual;
       }
@@ -90,8 +93,9 @@ export default function Indicadores() {
 
   const COLORS = ['#3b82f6', '#eab308', '#f59e0b', '#10b981', '#ef4444'];
 
-  const renderCustomLabel = ({ cx, cy, midAngle, outerRadius, percent, name }: any) => {
-    if (percent === 0) return null;
+  // Custom label renderer para evitar superposición
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
+    if (percent === 0) return null; // No mostrar etiquetas de 0%
 
     const RADIAN = Math.PI / 180;
     const radius = outerRadius + 30;

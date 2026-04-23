@@ -285,25 +285,25 @@ export async function obtenerOrdenesPaginadas({
      query = query.or(`razon_social.ilike.%${filters.cliente}%,nombre_comercial.ilike.%${filters.cliente}%`, { foreignTable: 'clientes' });
   }
 
-  // Filtros en tabla equipos - usar foreignTable para evitar conflictos con aliases
+  // Filtros en tabla equipos - usar foreignTable para filtrar en relaciones
   if (filters.serial) {
     console.log('🔎 Aplicando filtro serial:', filters.serial);
-    query = query.ilike('equipos.serie_pieza', `%${filters.serial}%`);
+    query = query.ilike('serie_pieza', `%${filters.serial}%`, { foreignTable: 'equipos' });
   }
 
   if (filters.equipo) {
     console.log('🔎 Aplicando filtro equipo (tipo):', filters.equipo);
-    query = query.ilike('equipos.tipo_equipo', `%${filters.equipo}%`);
+    query = query.ilike('tipo_equipo', `%${filters.equipo}%`, { foreignTable: 'equipos' });
   }
 
   if (filters.modelo) {
     console.log('🔎 Aplicando filtro modelo:', filters.modelo);
-    query = query.ilike('equipos.modelos.equipo', `%${filters.modelo}%`);
+    query = query.ilike('equipo', `%${filters.modelo}%`, { foreignTable: 'equipos.modelos' });
   }
 
   if (filters.marca) {
     console.log('🔎 Aplicando filtro marca:', filters.marca);
-    query = query.ilike('equipos.modelos.marcas.nombre', `%${filters.marca}%`);
+    query = query.ilike('nombre', `%${filters.marca}%`, { foreignTable: 'equipos.modelos.marcas' });
   }
 
   // Filtro de fase

@@ -67,7 +67,7 @@ function StatCard({ title, value, icon: Icon, change, theme, gradient, onClick }
         }`}>
           {title}
         </h3>
-        <p className={`text-3xl font-bold ${
+        <p className={`text-xl sm:text-2xl lg:text-3xl font-bold truncate ${
           theme === 'light' ? 'text-gray-900' : 'text-white'
         }`}>
           {value}
@@ -321,11 +321,16 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
               }`}
             />
 
-            {(sedeSeleccionada !== 'todas' || mesSeleccionado) && (
+            {(sedeSeleccionada !== 'todas' || (() => {
+              const now = new Date();
+              const mesActual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+              return mesSeleccionado !== mesActual;
+            })()) && (
               <button
                 onClick={() => {
                   setSedeSeleccionada('todas');
-                  setMesSeleccionado('');
+                  const now = new Date();
+                  setMesSeleccionado(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
                 }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   theme === 'light'
@@ -387,7 +392,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
                   theme === 'light' ? 'text-yellow-600' : 'text-yellow-400'
                 }`} />
               </div>
-              <div className={`text-3xl font-bold ${
+              <div className={`text-xl sm:text-2xl lg:text-3xl font-bold truncate ${
                 theme === 'light' ? 'text-yellow-900' : 'text-yellow-100'
               }`}>
                 {estadisticas.total_ordenes}
@@ -421,24 +426,24 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
                     const [year, month] = mesSeleccionado.split('-');
                     const date = new Date(parseInt(year), parseInt(month) - 1, 1);
                     return date.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
-                  })()})` : ''}
+                  })()})` : '(Mes actual)'}
                 </h3>
                 <TrendingUp className={`w-5 h-5 ${
                   theme === 'light' ? 'text-green-600' : 'text-green-400'
                 }`} />
               </div>
-              <div className={`text-3xl font-bold ${
+              <div className={`text-xl sm:text-2xl lg:text-3xl font-bold truncate ${
                 theme === 'light' ? 'text-green-900' : 'text-green-100'
-              }`}>
-                ${estadisticas.ingresos_totales.toLocaleString('es-CO')}
+              }`} title={`$${(mesSeleccionado ? estadisticas.ingresos_totales : estadisticas.ingresos_mes_actual).toLocaleString('es-CO')}`}>
+                ${(mesSeleccionado ? estadisticas.ingresos_totales : estadisticas.ingresos_mes_actual).toLocaleString('es-CO')}
               </div>
-              <div className={`text-sm mt-2 ${
+              <div className={`text-xs sm:text-sm mt-2 ${
                 theme === 'light' ? 'text-green-700' : 'text-green-400'
               }`}>
                 {mesSeleccionado ? (
                   <div>Total del período seleccionado</div>
                 ) : (
-                  <div>Este mes: ${estadisticas.ingresos_mes_actual.toLocaleString('es-CO')}</div>
+                  <div>Total acumulado: ${estadisticas.ingresos_totales.toLocaleString('es-CO')}</div>
                 )}
               </div>
             </div>
@@ -459,7 +464,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
                   theme === 'light' ? 'text-blue-600' : 'text-blue-400'
                 }`} />
               </div>
-              <div className={`text-3xl font-bold ${
+              <div className={`text-xl sm:text-2xl lg:text-3xl font-bold truncate ${
                 theme === 'light' ? 'text-blue-900' : 'text-blue-100'
               }`}>
                 {estadisticas.ordenes_por_estado.en_proceso}
@@ -487,7 +492,7 @@ export default function DashboardNuevo({ onSectionChange }: DashboardProps = {})
                   theme === 'light' ? 'text-purple-600' : 'text-purple-400'
                 }`} />
               </div>
-              <div className={`text-3xl font-bold ${
+              <div className={`text-xl sm:text-2xl lg:text-3xl font-bold truncate ${
                 theme === 'light' ? 'text-purple-900' : 'text-purple-100'
               }`}>
                 {estadisticas.ordenes_por_estado.completada}

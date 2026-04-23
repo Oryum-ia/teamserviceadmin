@@ -11,6 +11,10 @@ import {
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 import { ejecutarConReintentos } from '@/lib/utils/saveHelpers';
 
+// ============================================================================
+// Tipos
+// ============================================================================
+
 export interface RepuestoBase {
   codigo: string;
   descripcion: string;
@@ -25,6 +29,10 @@ export interface RepuestoCotizacion extends RepuestoBase {
   iva: number;
   en_stock: boolean;
 }
+
+// ============================================================================
+// Normalización
+// ============================================================================
 
 export function normalizarRepuestoBase(item: any): RepuestoBase {
   return {
@@ -43,6 +51,7 @@ export function normalizarListaRepuestosBase(items: unknown): RepuestoBase[] {
   return items.filter(item => item && typeof item === 'object').map(normalizarRepuestoBase);
 }
 
+
 function normalizarRepuestoCotizacion(item: any): RepuestoCotizacion {
   return {
     codigo: typeof item?.codigo === 'string' ? item.codigo : '',
@@ -56,9 +65,22 @@ function normalizarRepuestoCotizacion(item: any): RepuestoCotizacion {
   };
 }
 
+// ============================================================================
+// Hook: useRepuestosOrden
+// Fuente única de verdad para repuestos de una orden.
+//
+// - `repuestos_diagnostico` (columna JSONB en ordenes) es la fuente canónica
+//   de la lista base de repuestos (código, descripción, cantidad, justificación).
+// - `repuestos_cotizacion` solo agrega campos de pricing (precio, descuento,
+//   iva, en_stock) y siempre se sincroniza con la base de diagnóstico.
+//
+// Guardado inmediato en agregar/eliminar. Debounce de 1.5s en edición de campos.
+// ============================================================================
+
 interface UseRepuestosOrdenOptions {
   ordenId: string;
   modeloId?: string;
+  /** Datos de la orden (para leer repuestos_diagnostico inline si ya vienen) */
   orden?: any;
 }
 
@@ -68,6 +90,7 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
   const [cargando, setCargando] = useState(false);
   const [cargado, setCargado] = useState(false);
 
+  // Refs para evitar stale closures
   const repuestosBaseRef = useRef<RepuestoBase[]>([]);
   const repuestosCotizacionRef = useRef<RepuestoCotizacion[]>([]);
   const isSavingRef = useRef(false);
@@ -84,18 +107,23 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     setRepuestosCotizacion(items);
   }, []);
 
+  // Reset al cambiar de orden
   useEffect(() => {
     syncBase([]);
     syncCotizacion([]);
     setCargado(false);
   }, [ordenId, syncBase, syncCotizacion]);
 
+  // ============================================================================
+  // Carga inicial
+  // ============================================================================
   useEffect(() => {
     if (cargado || !ordenId) return;
 
     const cargar = async () => {
       setCargando(true);
       try {
+        // 1. Intentar desde la prop orden (inline)
         if (orden && Array.isArray(orden.repuestos_diagnostico) && orden.repuestos_diagnostico.length > 0) {
           const base = normalizarListaRepuestosBase(orden.repuestos_diagnostico);
           syncBase(base);
@@ -104,6 +132,7 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
           return;
         }
 
+        // 2. Cargar desde BD
         const repuestosGuardados = await obtenerRepuestosDiagnostico(ordenId);
         if (repuestosGuardados && repuestosGuardados.length > 0) {
           const base = normalizarListaRepuestosBase(repuestosGuardados);
@@ -114,6 +143,7 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
           return;
         }
 
+        // 3. Cargar del modelo
         if (modeloId) {
           const repuestosModelo = await obtenerRepuestosDelModelo(modeloId);
           if (repuestosModelo && repuestosModelo.length > 0) {
@@ -126,6 +156,7 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
               }))
             );
             syncBase(base);
+            // Guardar inmediatamente
             await guardarRepuestosDiagnostico(ordenId, base);
             updateOrdenFields({ repuestos_diagnostico: base } as any);
           }
@@ -139,18 +170,25 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     };
 
     cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordenId, modeloId, cargado]);
 
+  /**
+   * Carga datos de cotización existentes y los sincroniza con la base de diagnóstico.
+   * Si hay repuestos en cotización, los mergea con la base para mantener consistencia.
+   */
   const cargarDatosCotizacion = async (base: RepuestoBase[]) => {
     try {
       const cotizacionExistente = await obtenerRepuestosCotizacion(ordenId);
       if (cotizacionExistente && cotizacionExistente.length > 0) {
+        // Crear un mapa de datos de cotización por código+descripción
         const cotizacionMap = new Map<string, any>();
         cotizacionExistente.forEach((r: any) => {
           const key = `${r.codigo}||${r.descripcion}`;
           cotizacionMap.set(key, r);
         });
 
+        // Mergear: base de diagnóstico + datos de pricing de cotización
         const mergeados = base.map((rb) => {
           const key = `${rb.codigo}||${rb.descripcion}`;
           const cotData = cotizacionMap.get(key);
@@ -165,6 +203,7 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
         });
         syncCotizacion(mergeados);
       } else {
+        // No hay cotización, crear desde base con precios en 0
         const iniciales = base.map((rb) =>
           normalizarRepuestoCotizacion({
             ...rb,
@@ -182,6 +221,9 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     }
   };
 
+  // ============================================================================
+  // Guardado inmediato de repuestos base (diagnóstico)
+  // ============================================================================
   const guardarBaseInmediato = async (items: RepuestoBase[]) => {
     try {
       await ejecutarConReintentos(
@@ -196,6 +238,9 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     }
   };
 
+  // ============================================================================
+  // Guardado con debounce para edición de campos
+  // ============================================================================
   const guardarBaseConDebounce = useCallback(
     (items: RepuestoBase[]) => {
       hasPendingSaveRef.current = true;
@@ -223,6 +268,7 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     [ordenId]
   );
 
+  // Flush al desmontar
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -238,11 +284,16 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     };
   }, [ordenId]);
 
+  // ============================================================================
+  // Operaciones de diagnóstico (repuestos base)
+  // ============================================================================
+
   const agregarRepuesto = async () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     const nuevo: RepuestoBase = { codigo: '', descripcion: '', cantidad: '1', pieza_causante: '' };
     const nuevos = [...repuestosBaseRef.current, nuevo];
     syncBase(nuevos);
+    // También agregar a cotización
     const nuevoCot: RepuestoCotizacion = {
       ...nuevo,
       cantidad: 1,
@@ -270,6 +321,7 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     nuevos[index] = { ...nuevos[index], [campo]: valor };
     syncBase(nuevos);
 
+    // Sincronizar campo en cotización también
     if (repuestosCotizacionRef.current[index]) {
       const nuevosCot = [...repuestosCotizacionRef.current];
       if (campo === 'cantidad') {
@@ -283,6 +335,10 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     guardarBaseConDebounce(nuevos);
   };
 
+  // ============================================================================
+  // Operaciones de cotización (campos de pricing)
+  // ============================================================================
+
   const actualizarRepuestoCotizacion = (
     index: number,
     campo: keyof RepuestoCotizacion,
@@ -293,17 +349,25 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     nuevosCot[index] = { ...nuevosCot[index], [campo]: valor };
     syncCotizacion(nuevosCot);
 
+    // Si se cambia un campo base, sincronizar también
     const camposBase: (keyof RepuestoBase)[] = ['codigo', 'descripcion', 'cantidad', 'pieza_causante'];
     if (camposBase.includes(campo as keyof RepuestoBase)) {
       const nuevosBase = [...repuestosBaseRef.current];
       if (nuevosBase[index]) {
-        nuevosBase[index] = { ...nuevosBase[index], [campo]: valor };
+        if (campo === 'cantidad') {
+          nuevosBase[index] = { ...nuevosBase[index], [campo]: valor };
+        } else {
+          nuevosBase[index] = { ...nuevosBase[index], [campo]: valor };
+        }
         syncBase(nuevosBase);
         guardarBaseConDebounce(nuevosBase);
       }
     }
   };
 
+  // ============================================================================
+  // Flush manual (para botón Guardar)
+  // ============================================================================
   const flushRepuestos = async () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     const currentBase = repuestosBaseRef.current;
@@ -316,22 +380,32 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
     hasPendingSaveRef.current = false;
   };
 
+  /** Forzar recarga desde BD */
   const recargar = () => {
     setCargado(false);
   };
 
   return {
+    // Estado
     repuestosBase,
     repuestosCotizacion,
     cargando,
     cargado,
+
+    // Refs (para acceso sin stale closures en callbacks)
     repuestosBaseRef,
     repuestosCotizacionRef,
+
+    // Operaciones base (diagnóstico)
     agregarRepuesto,
     eliminarRepuesto,
     actualizarRepuestoBase,
+
+    // Operaciones cotización
     actualizarRepuestoCotizacion,
     syncCotizacion,
+
+    // Utilidades
     flushRepuestos,
     recargar,
     guardarBaseInmediato,
