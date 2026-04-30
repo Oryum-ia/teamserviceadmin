@@ -12,7 +12,14 @@ import DropZoneImagenes from './DropZoneImagenes';
 import { FirmaDisplay } from '@/components/FirmaPad';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 import { ejecutarConReintentos, guardarFotosConReintentos, validarArchivos } from '@/lib/utils/saveHelpers';
-import { calculateItemsTotals, formatCurrency, type PriceItem } from '@/lib/utils/pricing.utils';
+import {
+  calculateItemsTotals,
+  calculateIvaAmount,
+  calculateItemTotal,
+  calculateSubtotalAfterDiscount,
+  formatCurrency,
+  type PriceItem,
+} from '@/lib/utils/pricing.utils';
 
 interface EntregaFormProps {
   orden: any;
@@ -21,24 +28,56 @@ interface EntregaFormProps {
 }
 
 function toNumber(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/[^0-9.-]+/g, ''));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
 }
 
-function getQuoteParts(orden: any): PriceItem[] {
-  const parts = orden.repuestos_cotizacion?.repuestos;
-  if (!Array.isArray(parts)) return [];
+function getRawQuoteParts(orden: any): any[] {
+  const quote = orden.repuestos_cotizacion;
+  if (Array.isArray(quote)) return quote;
 
-  return parts.map((part: any) => ({
+  const parts = quote?.repuestos;
+  if (!Array.isArray(parts)) return [];
+  return parts;
+}
+
+function toPriceItem(part: any): PriceItem {
+  return {
     cantidad: toNumber(part?.cantidad) || 1,
     precio_unitario: toNumber(part?.precio_unitario),
     descuento: toNumber(part?.descuento),
     iva: toNumber(part?.iva),
-  }));
+    cubierto_garantia: Boolean(part?.cubierto_garantia),
+  };
+}
+
+function getQuoteLineItems(orden: any) {
+  return getRawQuoteParts(orden).map((part: any) => {
+    const priceItem = toPriceItem(part);
+
+    return {
+      codigo: typeof part?.codigo === 'string' ? part.codigo.trim() : '',
+      descripcion: typeof part?.descripcion === 'string' ? part.descripcion.trim() : 'Repuesto / servicio',
+      cantidad: priceItem.cantidad,
+      precio_unitario: priceItem.precio_unitario,
+      descuento: priceItem.descuento,
+      iva: priceItem.iva,
+      en_stock: typeof part?.en_stock === 'boolean' ? part.en_stock : null,
+      subtotal: calculateSubtotalAfterDiscount(priceItem),
+      ivaValor: calculateIvaAmount(priceItem),
+      total: calculateItemTotal(priceItem),
+    };
+  });
 }
 
 function getAcceptedQuoteBreakdown(orden: any) {
   const quote = orden.repuestos_cotizacion;
-  const calculated = calculateItemsTotals(getQuoteParts(orden));
+  const lineItems = getQuoteLineItems(orden);
+  const calculated = calculateItemsTotals(lineItems);
 
   const subtotal = toNumber(quote?.subtotal) || toNumber(orden.subtotal) || calculated.subtotal;
   const iva = toNumber(quote?.iva) || toNumber(orden.iva) || calculated.iva;
@@ -46,7 +85,7 @@ function getAcceptedQuoteBreakdown(orden: any) {
   const quoteTotal = toNumber(quote?.total) || calculated.total;
   const total = toNumber(orden.total) || quoteTotal + precioEnvio;
 
-  return { subtotal, iva, precioEnvio, total };
+  return { items: lineItems, subtotal, iva, precioEnvio, total };
 }
 
 export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: EntregaFormProps) {
@@ -511,29 +550,72 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
             </div>
             <div className="p-4">
               <table className="w-full">
+                {acceptedQuoteBreakdown.items.length > 0 && (
+                  <thead>
+                    <tr className={`${theme === 'light' ? 'text-gray-500 border-gray-200' : 'text-gray-400 border-gray-700'} border-b`}>
+                      <th className="px-2 py-2 text-left text-xs font-medium">Repuesto / Servicio</th>
+                      <th className="px-2 py-2 text-center text-xs font-medium">Cant.</th>
+                      <th className="px-2 py-2 text-right text-xs font-medium">Precio unit.</th>
+                      <th className="px-2 py-2 text-center text-xs font-medium">Desc.</th>
+                      <th className="px-2 py-2 text-center text-xs font-medium">IVA</th>
+                      <th className="px-2 py-2 text-right text-xs font-medium">Total</th>
+                      <th className="px-2 py-2 text-center text-xs font-medium">Stock</th>
+                    </tr>
+                  </thead>
+                )}
                 <tbody className={`divide-y ${theme === 'light' ? 'divide-gray-200' : 'divide-gray-700'
                   }`}>
+                  {acceptedQuoteBreakdown.items.map((item, index) => (
+                    <tr key={`${item.codigo}-${item.descripcion}-${index}`}>
+                      <td className={`px-2 py-3 text-sm ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'}`}>
+                        <div className="font-medium">{item.descripcion}</div>
+                        {item.codigo && (
+                          <div className={`text-xs ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'}`}>
+                            {item.codigo}
+                          </div>
+                        )}
+                      </td>
+                      <td className={`px-2 py-3 text-sm text-center ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                        {item.cantidad}
+                      </td>
+                      <td className={`px-2 py-3 text-sm text-right ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                        {formatCurrency(item.precio_unitario)}
+                      </td>
+                      <td className={`px-2 py-3 text-sm text-center ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                        {item.descuento}%
+                      </td>
+                      <td className={`px-2 py-3 text-sm text-center ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                        {item.iva}%
+                      </td>
+                      <td className={`px-2 py-3 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'}`}>
+                        {formatCurrency(item.total)}
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm">
+                        {item.en_stock === null ? '—' : item.en_stock ? '✓' : '✗'}
+                      </td>
+                    </tr>
+                  ))}
                   <tr>
-                    <td className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                    <td colSpan={5} className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                       }`}>Subtotal (Repuestos y Servicios)</td>
-                    <td className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                    <td colSpan={2} className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
                       }`}>
                       {formatCurrency(acceptedQuoteBreakdown.subtotal)}
                     </td>
                   </tr>
                   <tr>
-                    <td className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                    <td colSpan={5} className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                       }`}>IVA</td>
-                    <td className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                    <td colSpan={2} className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
                       }`}>
                       {formatCurrency(acceptedQuoteBreakdown.iva)}
                     </td>
                   </tr>
                   {acceptedQuoteBreakdown.precioEnvio > 0 && (
                     <tr>
-                      <td className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      <td colSpan={5} className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                         }`}>Precio de Envío</td>
-                      <td className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                      <td colSpan={2} className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
                         }`}>
                         {formatCurrency(acceptedQuoteBreakdown.precioEnvio)}
                       </td>
@@ -541,9 +623,9 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
                   )}
                   <tr className={`border-t-2 ${theme === 'light' ? 'border-green-300' : 'border-green-700'
                     }`}>
-                    <td className={`py-3 text-base font-bold ${theme === 'light' ? 'text-green-900' : 'text-green-200'
+                    <td colSpan={5} className={`py-3 text-base font-bold ${theme === 'light' ? 'text-green-900' : 'text-green-200'
                       }`}>TOTAL A PAGAR</td>
-                    <td className={`py-3 text-xl font-bold text-right ${theme === 'light' ? 'text-green-700' : 'text-green-400'
+                    <td colSpan={2} className={`py-3 text-xl font-bold text-right ${theme === 'light' ? 'text-green-700' : 'text-green-400'
                       }`}>
                       {formatCurrency(acceptedQuoteBreakdown.total)}
                     </td>
