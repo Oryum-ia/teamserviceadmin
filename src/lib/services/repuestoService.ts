@@ -200,14 +200,14 @@ export async function guardarRepuestosDiagnostico(
 
 /**
  * Obtener repuestos de diagnóstico de una orden
- * Returns empty array if not found or error
+ * Returns null on fetch errors so callers do not overwrite real data with fallbacks.
  */
 export async function obtenerRepuestosDiagnostico(ordenId: string | number) {
   try {
     // Validar que ordenId sea válido
     if (!ordenId || ordenId === 'undefined' || ordenId === 'null') {
       console.error("❌ ordenId inválido para repuestos de diagnóstico:", ordenId);
-      return [];
+      return null;
     }
 
     const { data, error } = await supabase
@@ -219,10 +219,10 @@ export async function obtenerRepuestosDiagnostico(ordenId: string | number) {
     if (error) {
       if (error.code === 'PGRST116') {
         console.log("ℹ️ Orden no encontrada para repuestos de diagnóstico");
-        return [];
+        return null;
       }
       console.error("❌ Error al obtener repuestos de diagnóstico:", error);
-      return [];
+      return null;
     }
 
     const repuestosCrudos = data?.repuestos_diagnostico;
@@ -236,7 +236,7 @@ export async function obtenerRepuestosDiagnostico(ordenId: string | number) {
     return normalizarListaRepuestosDiagnostico(repuestosCrudos);
   } catch (err) {
     console.error("❌ Error inesperado al obtener repuestos de diagnóstico:", err);
-    return [];
+    return null;
   }
 }
 
@@ -308,7 +308,7 @@ export async function guardarRepuestosCotizacion(
 
 /**
  * Obtener repuestos de cotización de una orden
- * Returns empty array if not found or error
+ * Returns null on fetch errors so callers do not reset saved pricing to zero.
  */
 export async function obtenerRepuestosCotizacion(ordenId: string) {
   try {
@@ -322,10 +322,10 @@ export async function obtenerRepuestosCotizacion(ordenId: string) {
       // Si es un error de "no encontrado", retornar array vacío
       if (error.code === 'PGRST116') {
         console.log("ℹ️ Orden no encontrada para repuestos de cotización");
-        return [];
+        return null;
       }
       console.error("❌ Error al obtener repuestos de cotización:", error);
-      return []; // Retornar vacío en lugar de lanzar error
+      return null;
     }
 
     const cotizacionData = data?.repuestos_cotizacion;
@@ -339,6 +339,6 @@ export async function obtenerRepuestosCotizacion(ordenId: string) {
     return cotizacionData || [];
   } catch (err) {
     console.error("❌ Error inesperado al obtener repuestos de cotización:", err);
-    return []; // Retornar vacío para evitar que el componente se rompa
+    return null;
   }
 }

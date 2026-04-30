@@ -134,6 +134,11 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
 
         // 2. Cargar desde BD
         const repuestosGuardados = await obtenerRepuestosDiagnostico(ordenId);
+        if (repuestosGuardados === null) {
+          setCargado(true);
+          return;
+        }
+
         if (repuestosGuardados && repuestosGuardados.length > 0) {
           const base = normalizarListaRepuestosBase(repuestosGuardados);
           syncBase(base);
@@ -180,6 +185,10 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
   const cargarDatosCotizacion = async (base: RepuestoBase[]) => {
     try {
       const cotizacionExistente = await obtenerRepuestosCotizacion(ordenId);
+      if (cotizacionExistente === null) {
+        return;
+      }
+
       if (cotizacionExistente && cotizacionExistente.length > 0) {
         // Crear un mapa de datos de cotización por código+descripción
         const cotizacionMap = new Map<string, any>();
