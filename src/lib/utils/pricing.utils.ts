@@ -14,6 +14,7 @@ export interface PriceItem {
   readonly precio_unitario: number;
   readonly descuento: number; // Percentage (0-100)
   readonly iva: number; // Percentage (0-100)
+  readonly cubierto_garantia?: boolean;
 }
 
 export interface PriceTotals {
@@ -82,6 +83,8 @@ export const calculateDiscountAmount = (
  * @pure
  */
 export const calculateSubtotalAfterDiscount = (item: PriceItem): number => {
+  if (item.cubierto_garantia) return 0;
+
   const baseSubtotal = calculateBaseSubtotal(item);
   const discountAmount = calculateDiscountAmount(baseSubtotal, item.descuento);
   const subtotalAfterDiscount = baseSubtotal - discountAmount;
