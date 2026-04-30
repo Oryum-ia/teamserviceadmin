@@ -655,6 +655,11 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
       const { supabase } = await import('@/lib/supabaseClient');
       const now = crearTimestampColombia();
 
+      if (typeof window !== 'undefined' && typeof (window as any).guardarDatosCotizacion === 'function') {
+        console.log('💾 Guardando cotización antes de enviarla al cliente...');
+        await (window as any).guardarDatosCotizacion();
+      }
+
       console.log('📤 Actualizando orden ID:', orden.id);
 
       // Actualizar estado y envio_cotizacion

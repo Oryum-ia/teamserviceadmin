@@ -65,6 +65,12 @@ function normalizarRepuestoCotizacion(item: any): RepuestoCotizacion {
   };
 }
 
+function crearClaveRepuesto(item: Pick<RepuestoBase, 'codigo' | 'descripcion'>): string {
+  const codigo = String(item.codigo || '').trim().toLowerCase();
+  const descripcion = String(item.descripcion || '').trim().toLowerCase();
+  return `${codigo}||${descripcion}`;
+}
+
 // ============================================================================
 // Hook: useRepuestosOrden
 // Fuente única de verdad para repuestos de una orden.
@@ -134,6 +140,11 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
 
         // 2. Cargar desde BD
         const repuestosGuardados = await obtenerRepuestosDiagnostico(ordenId);
+        if (repuestosGuardados === null) {
+          setCargado(true);
+          return;
+        }
+
         if (repuestosGuardados && repuestosGuardados.length > 0) {
           const base = normalizarListaRepuestosBase(repuestosGuardados);
           syncBase(base);
@@ -180,17 +191,21 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
   const cargarDatosCotizacion = async (base: RepuestoBase[]) => {
     try {
       const cotizacionExistente = await obtenerRepuestosCotizacion(ordenId);
+      if (cotizacionExistente === null) {
+        return;
+      }
+
       if (cotizacionExistente && cotizacionExistente.length > 0) {
         // Crear un mapa de datos de cotización por código+descripción
         const cotizacionMap = new Map<string, any>();
         cotizacionExistente.forEach((r: any) => {
-          const key = `${r.codigo}||${r.descripcion}`;
+          const key = crearClaveRepuesto(r);
           cotizacionMap.set(key, r);
         });
 
         // Mergear: base de diagnóstico + datos de pricing de cotización
         const mergeados = base.map((rb) => {
-          const key = `${rb.codigo}||${rb.descripcion}`;
+          const key = crearClaveRepuesto(rb);
           const cotData = cotizacionMap.get(key);
           return normalizarRepuestoCotizacion({
             ...rb,
