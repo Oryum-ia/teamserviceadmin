@@ -12,11 +12,41 @@ import DropZoneImagenes from './DropZoneImagenes';
 import { FirmaDisplay } from '@/components/FirmaPad';
 import { updateOrdenFields } from '@/lib/ordenLocalStorage';
 import { ejecutarConReintentos, guardarFotosConReintentos, validarArchivos } from '@/lib/utils/saveHelpers';
+import { calculateItemsTotals, formatCurrency, type PriceItem } from '@/lib/utils/pricing.utils';
 
 interface EntregaFormProps {
   orden: any;
   onSuccess: () => void;
   faseIniciada?: boolean;
+}
+
+function toNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function getQuoteParts(orden: any): PriceItem[] {
+  const parts = orden.repuestos_cotizacion?.repuestos;
+  if (!Array.isArray(parts)) return [];
+
+  return parts.map((part: any) => ({
+    cantidad: toNumber(part?.cantidad) || 1,
+    precio_unitario: toNumber(part?.precio_unitario),
+    descuento: toNumber(part?.descuento),
+    iva: toNumber(part?.iva),
+  }));
+}
+
+function getAcceptedQuoteBreakdown(orden: any) {
+  const quote = orden.repuestos_cotizacion;
+  const calculated = calculateItemsTotals(getQuoteParts(orden));
+
+  const subtotal = toNumber(quote?.subtotal) || toNumber(orden.subtotal) || calculated.subtotal;
+  const iva = toNumber(quote?.iva) || toNumber(orden.iva) || calculated.iva;
+  const precioEnvio = toNumber(orden.precio_envio) || toNumber(quote?.precio_envio);
+  const quoteTotal = toNumber(quote?.total) || calculated.total;
+  const total = toNumber(orden.total) || quoteTotal + precioEnvio;
+
+  return { subtotal, iva, precioEnvio, total };
 }
 
 export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: EntregaFormProps) {
@@ -360,6 +390,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
   }, [orden.firma_entrega, orden.fecha_firma_entrega]);
 
   const puedeEditar = orden.estado_actual === 'Entrega' && faseIniciada;
+  const acceptedQuoteBreakdown = getAcceptedQuoteBreakdown(orden);
 
   return (
     <div className="p-6">
@@ -458,7 +489,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
       )}
 
       {/* Mensaje y factura de aceptación */}
-      {orden.aprobado_cliente && orden.total > 0 && (
+      {orden.aprobado_cliente && acceptedQuoteBreakdown.total > 0 && (
         <div className={`mb-6 p-6 rounded-lg border ${theme === 'light' ? 'bg-green-50 border-green-200' : 'bg-green-900/20 border-green-800'
           }`}>
           <div className="flex items-center gap-2 mb-4">
@@ -487,12 +518,7 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
                       }`}>Subtotal (Repuestos y Servicios)</td>
                     <td className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
                       }`}>
-                      {new Intl.NumberFormat('es-CO', {
-                        style: 'currency',
-                        currency: 'COP',
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0
-                      }).format(orden.subtotal || 0)}
+                      {formatCurrency(acceptedQuoteBreakdown.subtotal)}
                     </td>
                   </tr>
                   <tr>
@@ -500,26 +526,26 @@ export default function EntregaForm({ orden, onSuccess, faseIniciada = true }: E
                       }`}>IVA</td>
                     <td className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
                       }`}>
-                      {new Intl.NumberFormat('es-CO', {
-                        style: 'currency',
-                        currency: 'COP',
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0
-                      }).format(orden.iva || 0)}
+                      {formatCurrency(acceptedQuoteBreakdown.iva)}
                     </td>
                   </tr>
+                  {acceptedQuoteBreakdown.precioEnvio > 0 && (
+                    <tr>
+                      <td className={`py-2 text-sm ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                        }`}>Precio de Envío</td>
+                      <td className={`py-2 text-sm font-medium text-right ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                        }`}>
+                        {formatCurrency(acceptedQuoteBreakdown.precioEnvio)}
+                      </td>
+                    </tr>
+                  )}
                   <tr className={`border-t-2 ${theme === 'light' ? 'border-green-300' : 'border-green-700'
                     }`}>
                     <td className={`py-3 text-base font-bold ${theme === 'light' ? 'text-green-900' : 'text-green-200'
                       }`}>TOTAL A PAGAR</td>
                     <td className={`py-3 text-xl font-bold text-right ${theme === 'light' ? 'text-green-700' : 'text-green-400'
                       }`}>
-                      {new Intl.NumberFormat('es-CO', {
-                        style: 'currency',
-                        currency: 'COP',
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0
-                      }).format(orden.total)}
+                      {formatCurrency(acceptedQuoteBreakdown.total)}
                     </td>
                   </tr>
                 </tbody>
