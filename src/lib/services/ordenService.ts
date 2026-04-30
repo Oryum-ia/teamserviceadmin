@@ -251,6 +251,7 @@ export async function obtenerOrdenesPaginadas({
 
   // Determinar si necesitamos hacer la relación equipo como inner join
   const needsEquipoInner = !!(filters.serial || filters.marca || filters.modelo || filters.equipo);
+  const needsModeloInner = !!(filters.marca || filters.modelo);
 
   // Iniciar query con o sin inner join en equipo según los filtros
   let query = supabase
@@ -260,7 +261,7 @@ export async function obtenerOrdenesPaginadas({
       cliente:clientes!inner(*), 
       equipo:equipos${needsEquipoInner ? '!inner' : ''}(
         *,
-        modelo:modelos${(filters.marca || filters.modelo || filters.equipo) ? '!inner' : ''}(
+        modelo:modelos${needsModeloInner ? '!inner' : ''}(
           *,
           marca:marcas${filters.marca ? '!inner' : ''}(*)
         )
@@ -285,25 +286,26 @@ export async function obtenerOrdenesPaginadas({
      query = query.or(`razon_social.ilike.%${filters.cliente}%,nombre_comercial.ilike.%${filters.cliente}%`, { foreignTable: 'clientes' });
   }
 
-  // Filtros en tabla equipos - usar foreignTable para filtrar en relaciones
+  // Filtros en relaciones embebidas: Supabase/PostgREST requiere notación punto.
+  // No usar { foreignTable } en .ilike(); si se ignora, PostgREST busca la columna en ordenes.
   if (filters.serial) {
     console.log('🔎 Aplicando filtro serial:', filters.serial);
-    query = query.ilike('serie_pieza', `%${filters.serial}%`, { foreignTable: 'equipos' });
+    query = query.ilike('equipo.serie_pieza', `%${filters.serial}%`);
   }
 
   if (filters.equipo) {
     console.log('🔎 Aplicando filtro equipo:', filters.equipo);
-    query = query.ilike('equipo.modelo.equipo', `%${filters.equipo}%`);
+    query = query.ilike('equipo.tipo_equipo', `%${filters.equipo}%`);
   }
 
   if (filters.modelo) {
     console.log('🔎 Aplicando filtro modelo:', filters.modelo);
-    query = query.ilike('equipo', `%${filters.modelo}%`, { foreignTable: 'equipos.modelos' });
+    query = query.ilike('equipo.modelo.equipo', `%${filters.modelo}%`);
   }
 
   if (filters.marca) {
     console.log('🔎 Aplicando filtro marca:', filters.marca);
-    query = query.ilike('nombre', `%${filters.marca}%`, { foreignTable: 'equipos.modelos.marcas' });
+    query = query.ilike('equipo.modelo.marca.nombre', `%${filters.marca}%`);
   }
 
   // Filtro de fase
