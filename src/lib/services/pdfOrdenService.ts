@@ -749,7 +749,7 @@ function dibujarSeccionCotizacion(doc: jsPDF, orden: OrdenPDF, y: number): numbe
   }
 
   if (orden.es_retrabajo) {
-    datos.push(['Retrabajo', 'Sí - Sin costo']);
+    datos.push(['Reingreso/retrabajo', 'Sí - Cobro según cobertura de garantía']);
   }
 
   const comentariosCot = orden.comentarios_cotizacion || orden.cotizacion?.comentarios || '';
@@ -779,7 +779,7 @@ function dibujarSeccionCotizacion(doc: jsPDF, orden: OrdenPDF, y: number): numbe
       formatCurrency(r.precio_unitario || 0),
       `${r.descuento || 0}%`,
       `${r.iva || 0}%`,
-      formatCurrency(calcularTotalItem(r)),
+      r.cubierto_garantia ? '$0 (Garantía)' : formatCurrency(calcularTotalItem(r)),
     ]);
 
     autoTable(doc, {
@@ -1142,6 +1142,8 @@ function extraerRepuestosCotizacion(orden: OrdenPDF): any[] {
 }
 
 function calcularTotalItem(repuesto: any): number {
+  if (repuesto?.cubierto_garantia) return 0;
+
   const cantidad = Number(repuesto.cantidad) || 1;
   const precioUnitario = Number(repuesto.precio_unitario) || 0;
   const descuento = Number(repuesto.descuento) || 0;
@@ -1155,6 +1157,8 @@ function calcularTotalItem(repuesto: any): number {
 
 function dibujarTotalesCotizacion(doc: jsPDF, orden: OrdenPDF, repuestos: any[], y: number): number {
   const subtotalRepuestos = repuestos.reduce((acc, r) => {
+    if (r?.cubierto_garantia) return acc;
+
     const cantidad = Number(r.cantidad) || 1;
     const precio = Number(r.precio_unitario) || 0;
     const descuento = Number(r.descuento) || 0;
@@ -1162,6 +1166,8 @@ function dibujarTotalesCotizacion(doc: jsPDF, orden: OrdenPDF, repuestos: any[],
   }, 0);
 
   const ivaTotal = repuestos.reduce((acc, r) => {
+    if (r?.cubierto_garantia) return acc;
+
     const cantidad = Number(r.cantidad) || 1;
     const precio = Number(r.precio_unitario) || 0;
     const descuento = Number(r.descuento) || 0;
@@ -1172,7 +1178,8 @@ function dibujarTotalesCotizacion(doc: jsPDF, orden: OrdenPDF, repuestos: any[],
 
   const valorRevision = orden.valor_revision || 0;
   const precioEnvio = orden.precio_envio || 0;
-  const total = orden.es_retrabajo ? 0 : (subtotalRepuestos + ivaTotal + precioEnvio);
+  const total = subtotalRepuestos + ivaTotal + precioEnvio;
+  const repuestosGarantia = repuestos.filter(r => r?.cubierto_garantia).length;
 
   // Cuadro de totales
   const boxX = PAGE_WIDTH - MARGIN - 80;
@@ -1213,7 +1220,7 @@ function dibujarTotalesCotizacion(doc: jsPDF, orden: OrdenPDF, repuestos: any[],
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL', boxX + 4, y + 7);
-  doc.text(orden.es_retrabajo ? '$0 (Retrabajo)' : formatCurrency(total), boxX + boxWidth - 4, y + 7, { align: 'right' });
+  doc.text(formatCurrency(total), boxX + boxWidth - 4, y + 7, { align: 'right' });
 
   y += 14;
 
@@ -1224,6 +1231,18 @@ function dibujarTotalesCotizacion(doc: jsPDF, orden: OrdenPDF, repuestos: any[],
     doc.setFont('helvetica', 'italic');
     doc.text(
       `* Valor de revisión (${formatCurrency(valorRevision)}): Solo se cobra si el cliente rechaza la cotización.`,
+      MARGIN,
+      y
+    );
+    y += 6;
+  }
+
+  if (repuestosGarantia > 0) {
+    doc.setFontSize(7);
+    doc.setTextColor(...COLORS.success);
+    doc.setFont('helvetica', 'italic');
+    doc.text(
+      `Garantía: ${repuestosGarantia} repuesto(s) cubierto(s) por reingreso se liquidan en $0.`,
       MARGIN,
       y
     );

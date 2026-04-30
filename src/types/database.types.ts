@@ -80,6 +80,8 @@ export interface RepuestoCotizacion {
   descuento: number;
   iva: number;
   en_stock: boolean;
+  cubierto_garantia?: boolean;
+  motivo_garantia?: string;
 }
 
 // ============================================

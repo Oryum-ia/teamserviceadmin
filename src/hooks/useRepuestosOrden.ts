@@ -28,6 +28,8 @@ export interface RepuestoCotizacion extends RepuestoBase {
   descuento: number;
   iva: number;
   en_stock: boolean;
+  cubierto_garantia?: boolean;
+  motivo_garantia?: string;
 }
 
 // ============================================================================
@@ -62,6 +64,8 @@ function normalizarRepuestoCotizacion(item: any): RepuestoCotizacion {
     descuento: typeof item?.descuento === 'number' ? item.descuento : 0,
     iva: typeof item?.iva === 'number' ? item.iva : 0,
     en_stock: typeof item?.en_stock === 'boolean' ? item.en_stock : true,
+    cubierto_garantia: typeof item?.cubierto_garantia === 'boolean' ? item.cubierto_garantia : false,
+    motivo_garantia: typeof item?.motivo_garantia === 'string' ? item.motivo_garantia : '',
   };
 }
 
@@ -214,6 +218,8 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
             descuento: cotData?.descuento ?? 0,
             iva: cotData?.iva ?? 0,
             en_stock: cotData?.en_stock ?? true,
+            cubierto_garantia: cotData?.cubierto_garantia ?? false,
+            motivo_garantia: cotData?.motivo_garantia ?? '',
           });
         });
         syncCotizacion(mergeados);
@@ -227,6 +233,8 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
             descuento: 0,
             iva: 0,
             en_stock: true,
+            cubierto_garantia: false,
+            motivo_garantia: '',
           })
         );
         syncCotizacion(iniciales);
@@ -316,6 +324,8 @@ export function useRepuestosOrden({ ordenId, modeloId, orden }: UseRepuestosOrde
       descuento: 0,
       iva: 0,
       en_stock: true,
+      cubierto_garantia: false,
+      motivo_garantia: '',
     };
     syncCotizacion([...repuestosCotizacionRef.current, nuevoCot]);
     await guardarBaseInmediato(nuevos);

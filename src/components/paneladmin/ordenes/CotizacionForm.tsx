@@ -254,17 +254,14 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
   // CALCULATION FUNCTIONS - Using enterprise-grade pricing utilities
   // ============================================================================
 
+  const repuestosCubiertosGarantia = repuestos.filter(repuesto => repuesto.cubierto_garantia).length;
+
   /**
-   * Calculates totals for all spare parts
-   * Uses pure functions from pricing.utils.ts
-   * @pure - depends only on input parameters
+   * Calculates totals for all spare parts.
+   * Reingreso/retrabajo no anula toda la cotización: solo los repuestos marcados
+   * explícitamente como cubiertos por garantía aportan $0 al total.
    */
   const calcularTotalesConRepuestos = (repuestosArray: RepuestoCotizacion[]): PriceTotals => {
-    // Si es retrabajo, el total es 0
-    if (orden.es_retrabajo) {
-      return { subtotal: 0, iva: 0, total: 0, valor_revision: 0, precio_envio: 0 };
-    }
-
     // Obtener valor de revisión de la cotización actual
     const valorRevision = formData.valor_revision || 0;
 
@@ -508,6 +505,15 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
     } else {
       guardarConDebounce(repuestosRef.current);
     }
+  };
+
+  const actualizarCoberturaGarantia = async (index: number, cubiertoGarantia: boolean) => {
+    await actualizarRepuesto(index, 'cubierto_garantia', cubiertoGarantia);
+    await actualizarRepuesto(
+      index,
+      'motivo_garantia',
+      cubiertoGarantia ? 'Repuesto cubierto por garantía del reingreso' : ''
+    );
   };
 
   const verificarYActualizarEstadoStock = async (repuestosActuales: RepuestoCotizacion[]) => {
@@ -776,7 +782,7 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
             </svg>
             <p className={`text-sm font-medium ${theme === 'light' ? 'text-orange-800' : 'text-orange-300'
               }`}>
-              Esta orden es un retrabajo. La cotización es sin costo (Total: $0).
+              Esta orden es un reingreso/retrabajo. Solo los repuestos marcados como garantía quedan en $0; los demás conceptos sí se cobran.
             </p>
           </div>
         </div>
@@ -1037,6 +1043,8 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                     <th className={`px-3 py-2 text-right text-xs font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                       }`}>Valor</th>
                     <th className={`px-3 py-2 text-center text-xs font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                      }`}>Cobro</th>
+                    <th className={`px-3 py-2 text-center text-xs font-medium ${theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                       }`}>
                       <div className="flex flex-col items-center gap-0.5">
                         <span className={todosConStock ? 'line-through text-green-600' : ''}>
@@ -1128,6 +1136,32 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                           }`}>
                           {formatCurrency(calculateItemTotal(repuesto))}
                         </span>
+                        {repuesto.cubierto_garantia && (
+                          <p className={`text-[11px] mt-1 ${theme === 'light' ? 'text-green-700' : 'text-green-300'
+                            }`}>
+                            Precio cubierto por garantía
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <select
+                          value={repuesto.cubierto_garantia ? 'garantia' : 'cobrar'}
+                          onChange={(e) => actualizarCoberturaGarantia(index, e.target.value === 'garantia')}
+                          disabled={!puedeEditarRepuestos}
+                          className={`w-32 px-2 py-1 border rounded text-xs ${theme === 'light'
+                            ? 'border-gray-300 bg-white text-gray-900'
+                            : 'border-gray-600 bg-gray-700 text-gray-100'
+                            } disabled:opacity-50`}
+                        >
+                          <option value="cobrar">Cobrar</option>
+                          <option value="garantia">Garantía $0</option>
+                        </select>
+                        {repuesto.cubierto_garantia && (
+                          <p className={`text-[11px] mt-1 ${theme === 'light' ? 'text-green-700' : 'text-green-300'
+                            }`}>
+                            {repuesto.motivo_garantia || 'Repuesto cubierto por garantía del reingreso'}
+                          </p>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-center">
                         <div className="flex flex-col items-center gap-1">
@@ -1263,6 +1297,16 @@ export default function CotizacionForm({ orden, onSuccess, faseIniciada = true }
                 </div>
 
                 {/* Nota sobre valor de revisión */}
+                {repuestosCubiertosGarantia > 0 && (
+                  <div className={`mt-3 pt-3 border-t ${theme === 'light' ? 'border-gray-300' : 'border-gray-600'
+                    }`}>
+                    <p className={`text-xs ${theme === 'light' ? 'text-green-700' : 'text-green-300'
+                      }`}>
+                      🛡️ <strong>{repuestosCubiertosGarantia} repuesto(s) en garantía:</strong> se muestran en $0 porque están cubiertos por el reingreso. Los demás repuestos y servicios conservan su cobro normal.
+                    </p>
+                  </div>
+                )}
+
                 {totales.valor_revision > 0 && (
                   <div className={`mt-3 pt-3 border-t ${theme === 'light' ? 'border-gray-300' : 'border-gray-600'
                     }`}>

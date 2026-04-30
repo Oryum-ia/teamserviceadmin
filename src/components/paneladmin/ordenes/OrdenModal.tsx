@@ -379,7 +379,7 @@ export default function OrdenModal({ isOpen, onClose, onSuccess }: OrdenModalPro
                   theme === 'light' ? 'text-gray-700' : 'text-gray-300'
                 }`}
               >
-                Es retrabajo (cotización sin costo)
+                Es reingreso/retrabajo (no anula costos automáticamente)
               </label>
             </div>
           </div>
