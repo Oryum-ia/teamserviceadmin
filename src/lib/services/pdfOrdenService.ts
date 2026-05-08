@@ -773,7 +773,6 @@ function dibujarSeccionCotizacion(doc: jsPDF, orden: OrdenPDF, y: number): numbe
     y += 5;
 
     const repuestosData = repuestosCot.map(r => [
-      r.codigo || '-',
       r.descripcion || '-',
       String(r.cantidad || 1),
       formatCurrency(r.precio_unitario || 0),
@@ -784,7 +783,7 @@ function dibujarSeccionCotizacion(doc: jsPDF, orden: OrdenPDF, y: number): numbe
 
     autoTable(doc, {
       startY: y,
-      head: [['Código', 'Descripción', 'Cant.', 'P. Unit.', 'Dto.', 'IVA', 'Total']],
+      head: [['Descripción', 'Cant.', 'P. Unit.', 'Dto.', 'IVA', 'Total']],
       body: repuestosData,
       margin: { left: MARGIN, right: MARGIN },
       styles: { fontSize: 7, cellPadding: 2 },
@@ -796,12 +795,11 @@ function dibujarSeccionCotizacion(doc: jsPDF, orden: OrdenPDF, y: number): numbe
       },
       alternateRowStyles: { fillColor: COLORS.rowAlt },
       columnStyles: {
-        0: { cellWidth: 22 },
-        2: { cellWidth: 12, halign: 'center' },
-        3: { cellWidth: 25, halign: 'right' },
+        1: { cellWidth: 12, halign: 'center' },
+        2: { cellWidth: 25, halign: 'right' },
+        3: { cellWidth: 14, halign: 'center' },
         4: { cellWidth: 14, halign: 'center' },
-        5: { cellWidth: 14, halign: 'center' },
-        6: { cellWidth: 28, halign: 'right' },
+        5: { cellWidth: 28, halign: 'right' },
       },
     });
 
