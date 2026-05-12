@@ -44,35 +44,35 @@ export function optimizeSupabaseImageUrl(
 }
 
 /**
- * Genera URL optimizada para miniaturas (thumbnails)
- * Usada en grids y listas — 400px, calidad 50
+ * Genera URL optimizada para miniaturas (thumbnails).
+ * Se usa en grids de órdenes: mantiene buena definición para fotos ya comprimidas por WhatsApp.
  */
 export function getThumbnailUrl(url: string): string {
   return optimizeSupabaseImageUrl(url, {
-    width: 400,
-    quality: 50,
+    width: 600,
+    quality: 72,
   });
 }
 
 /**
- * Genera URL optimizada para vista previa (medium)
- * Usada en lightbox en móvil — 800px, calidad 70
+ * Genera URL optimizada para vista previa (medium).
+ * Usada cuando no necesitamos la imagen completa pero sí evitar pixelación visible.
  */
 export function getPreviewUrl(url: string): string {
   return optimizeSupabaseImageUrl(url, {
-    width: 800,
-    quality: 70,
+    width: 1200,
+    quality: 82,
   });
 }
 
 /**
- * Genera URL optimizada para vista completa (large)
- * Usada en lightbox en desktop — 1200px, calidad 80
+ * Genera URL optimizada para vista completa (large).
+ * Usada en lightbox en desktop y revisiones donde importa ver detalle.
  */
 export function getFullUrl(url: string): string {
   return optimizeSupabaseImageUrl(url, {
-    width: 1200,
-    quality: 80,
+    width: 1600,
+    quality: 86,
   });
 }
 

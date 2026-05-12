@@ -4,7 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { X, ChevronLeft, ChevronRight, Download, Trash2, Play, ImageOff } from 'lucide-react';
 import EnterpriseMediaCapture from './EnterpriseMediaCapture';
-import { getThumbnailUrl, getPreviewUrl } from '@/lib/utils/imageOptimization';
+import { getFullUrl, getThumbnailUrl } from '@/lib/utils/imageOptimization';
 
 /**
  * Componente de imagen con fallback automático.
@@ -477,7 +477,7 @@ export default function ImagenViewer({ imagenes, onEliminar, onDescargar, puedeE
               />
             ) : (
               <ImagenConFallback
-                src={getPreviewUrl(imagenes[currentIndex])}
+                src={getFullUrl(imagenes[currentIndex])}
                 fallbackSrc={imagenes[currentIndex]}
                 alt={`Foto ${currentIndex + 1}`}
                 className="rounded-lg shadow-2xl"

@@ -140,6 +140,9 @@ const COLORS = {
 const MARGIN = 15;
 const PAGE_WIDTH = 210; // A4
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
+const PDF_IMAGE_PROXY_WIDTH = 720;
+const PDF_IMAGE_PROXY_QUALITY = 82;
+const PDF_IMAGE_JPEG_QUALITY = 0.92;
 
 // ============================================================================
 // FASES Y SU ORDEN
@@ -225,14 +228,14 @@ async function cargarLogoBase64(): Promise<string> {
 
 /**
  * Descarga una imagen usando el proxy del servidor /api/storage/imagen-thumb.
- * El servidor descarga la original de Supabase, la comprime con sharp a WebP (~3-8KB).
- * Luego la convierte a JPEG base64 con <img>+canvas para jsPDF.
+ * El servidor descarga la original de Supabase y la prepara en una resolución apta para PDF.
+ * Luego la convierte a JPEG base64 conservando dimensiones para no deformarla en jsPDF.
  * Timeout de 15s por imagen. Reintenta 1 vez si falla.
  */
-function cargarThumbDesdeProxy(url: string): Promise<string> {
-  return new Promise<string>((resolve) => {
+function cargarImagenPdfDesdeProxy(url: string): Promise<PdfImage | null> {
+  return new Promise<PdfImage | null>((resolve) => {
     try {
-      const proxyUrl = `/api/storage/imagen-thumb?url=${encodeURIComponent(url)}&w=120&q=30`;
+      const proxyUrl = `/api/storage/imagen-thumb?url=${encodeURIComponent(url)}&w=${PDF_IMAGE_PROXY_WIDTH}&q=${PDF_IMAGE_PROXY_QUALITY}`;
       const img = new Image();
       img.onload = () => {
         try {
@@ -240,26 +243,30 @@ function cargarThumbDesdeProxy(url: string): Promise<string> {
           canvas.width = img.naturalWidth;
           canvas.height = img.naturalHeight;
           const ctx = canvas.getContext('2d');
-          if (ctx) {
+          if (ctx && img.naturalWidth > 0 && img.naturalHeight > 0) {
             ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/jpeg', 0.5));
-          } else { resolve(''); }
-        } catch { resolve(''); }
+            resolve({
+              dataUrl: canvas.toDataURL('image/jpeg', PDF_IMAGE_JPEG_QUALITY),
+              width: img.naturalWidth,
+              height: img.naturalHeight,
+            });
+          } else { resolve(null); }
+        } catch { resolve(null); }
       };
-      img.onerror = () => resolve('');
+      img.onerror = () => resolve(null);
       img.src = proxyUrl;
-    } catch { resolve(''); }
+    } catch { resolve(null); }
   });
 }
 
-async function descargarYComprimirImagen(url: string): Promise<string> {
-  if (!url || url.length < 10) return '';
+async function descargarYComprimirImagen(url: string): Promise<PdfImage | null> {
+  if (!url || url.length < 10) return null;
   // Primer intento via proxy
-  let resultado = await conTimeout(cargarThumbDesdeProxy(url), 15000, '');
+  let resultado = await conTimeout(cargarImagenPdfDesdeProxy(url), 15000, null);
   if (resultado) return resultado;
   // Reintento
   console.warn('⚠️ Reintentando imagen:', url.substring(url.lastIndexOf('/') + 1));
-  resultado = await conTimeout(cargarThumbDesdeProxy(url), 15000, '');
+  resultado = await conTimeout(cargarImagenPdfDesdeProxy(url), 15000, null);
   if (!resultado) {
     console.warn('❌ Imagen no cargó tras 2 intentos:', url.substring(url.lastIndexOf('/') + 1));
   }
@@ -270,12 +277,29 @@ async function descargarYComprimirImagen(url: string): Promise<string> {
  * Tipo para almacenar todas las imágenes pre-descargadas
  */
 interface ImagenesPreCargadas {
-  fotos_recepcion: string[];
-  fotos_diagnostico: string[];
-  fotos_reparacion: string[];
-  fotos_entrega: string[];
+  fotos_recepcion: PdfImage[];
+  fotos_diagnostico: PdfImage[];
+  fotos_reparacion: PdfImage[];
+  fotos_entrega: PdfImage[];
   firma_cliente: string;
   firma_entrega: string;
+}
+
+interface PdfImage {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+interface ImageBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function isPdfImage(image: PdfImage | null): image is PdfImage {
+  return image !== null;
 }
 
 export type ProgressCallback = (mensaje: string, porcentaje: number) => void;
@@ -301,7 +325,7 @@ async function preDescargarImagenes(orden: OrdenPDF, faseActual: number): Promis
       console.log(`📥 Descargando ${orden.fotos_recepcion.length} fotos recepción...`);
       descargas.push(
         Promise.all(orden.fotos_recepcion.map(url => descargarYComprimirImagen(url)))
-          .then(imgs => { resultado.fotos_recepcion = imgs.filter(Boolean); })
+          .then(imgs => { resultado.fotos_recepcion = imgs.filter(isPdfImage); })
       );
     }
 
@@ -309,7 +333,7 @@ async function preDescargarImagenes(orden: OrdenPDF, faseActual: number): Promis
       console.log(`📥 Descargando ${orden.fotos_diagnostico.length} fotos diagnóstico...`);
       descargas.push(
         Promise.all(orden.fotos_diagnostico.map(url => descargarYComprimirImagen(url)))
-          .then(imgs => { resultado.fotos_diagnostico = imgs.filter(Boolean); })
+          .then(imgs => { resultado.fotos_diagnostico = imgs.filter(isPdfImage); })
       );
     }
 
@@ -317,7 +341,7 @@ async function preDescargarImagenes(orden: OrdenPDF, faseActual: number): Promis
       console.log(`📥 Descargando ${orden.fotos_reparacion.length} fotos reparación...`);
       descargas.push(
         Promise.all(orden.fotos_reparacion.map(url => descargarYComprimirImagen(url)))
-          .then(imgs => { resultado.fotos_reparacion = imgs.filter(Boolean); })
+          .then(imgs => { resultado.fotos_reparacion = imgs.filter(isPdfImage); })
       );
     }
 
@@ -325,7 +349,7 @@ async function preDescargarImagenes(orden: OrdenPDF, faseActual: number): Promis
       console.log(`📥 Descargando ${orden.fotos_entrega.length} fotos entrega...`);
       descargas.push(
         Promise.all(orden.fotos_entrega.map(url => descargarYComprimirImagen(url)))
-          .then(imgs => { resultado.fotos_entrega = imgs.filter(Boolean); })
+          .then(imgs => { resultado.fotos_entrega = imgs.filter(isPdfImage); })
       );
     }
 
@@ -906,7 +930,7 @@ const THUMBS_PER_ROW = Math.floor((CONTENT_WIDTH + THUMB_GAP) / (THUMB_SIZE + TH
 function dibujarFotosEvidencia(
   doc: jsPDF,
   titulo: string,
-  imagenesBase64: string[],
+  imagenesBase64: PdfImage[],
   totalFotosOriginal: number,
   y: number
 ): number {
@@ -927,6 +951,9 @@ function dibujarFotosEvidencia(
     }
 
     const x = MARGIN + col * (THUMB_SIZE + THUMB_GAP);
+    const innerX = x + 0.5;
+    const innerY = y + 0.5;
+    const innerSize = THUMB_SIZE - 1;
 
     // Borde del cuadrado
     doc.setDrawColor(...COLORS.border);
@@ -935,11 +962,15 @@ function dibujarFotosEvidencia(
 
     if (imgData) {
       try {
-        doc.addImage(imgData, 'JPEG', x + 0.5, y + 0.5, THUMB_SIZE - 1, THUMB_SIZE - 1);
+        doc.setFillColor(250, 250, 250);
+        doc.roundedRect(innerX, innerY, innerSize, innerSize, 1, 1, 'F');
+
+        const imageBox = getContainedImageBox(imgData, innerX, innerY, innerSize, innerSize);
+        doc.addImage(imgData.dataUrl, 'JPEG', imageBox.x, imageBox.y, imageBox.width, imageBox.height);
       } catch (imgErr) {
         console.warn(`⚠️ Error al agregar foto ${i + 1} al PDF:`, imgErr);
         doc.setFillColor(245, 245, 245);
-        doc.roundedRect(x + 0.5, y + 0.5, THUMB_SIZE - 1, THUMB_SIZE - 1, 1, 1, 'F');
+        doc.roundedRect(innerX, innerY, innerSize, innerSize, 1, 1, 'F');
         doc.setFontSize(6);
         doc.setTextColor(...COLORS.textLight);
         doc.text('Error', x + THUMB_SIZE / 2, y + THUMB_SIZE / 2, { align: 'center' });
@@ -947,7 +978,7 @@ function dibujarFotosEvidencia(
     } else {
       // Placeholder si no se pudo cargar
       doc.setFillColor(245, 245, 245);
-      doc.roundedRect(x + 0.5, y + 0.5, THUMB_SIZE - 1, THUMB_SIZE - 1, 1, 1, 'F');
+      doc.roundedRect(innerX, innerY, innerSize, innerSize, 1, 1, 'F');
       doc.setFontSize(6);
       doc.setTextColor(...COLORS.textLight);
       doc.text('No disp.', x + THUMB_SIZE / 2, y + THUMB_SIZE / 2, { align: 'center' });
@@ -981,6 +1012,27 @@ function dibujarFotosEvidencia(
   }
 
   return y + 2;
+}
+
+function getContainedImageBox(image: PdfImage, x: number, y: number, maxWidth: number, maxHeight: number): ImageBox {
+  const safeWidth = image.width > 0 ? image.width : maxWidth;
+  const safeHeight = image.height > 0 ? image.height : maxHeight;
+  const aspectRatio = safeWidth / safeHeight;
+
+  let width = maxWidth;
+  let height = width / aspectRatio;
+
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * aspectRatio;
+  }
+
+  return {
+    x: x + (maxWidth - width) / 2,
+    y: y + (maxHeight - height) / 2,
+    width,
+    height,
+  };
 }
 
 // ============================================================================
